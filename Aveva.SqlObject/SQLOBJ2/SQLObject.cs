@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-//using System.Data.SqlServerCe;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
@@ -11,6 +10,9 @@ using Aveva.Core.PMLNet;
 
 namespace SQLOBJ2;
 
+/// <summary>
+/// Класс для взаимодвействия с Sql 
+/// </summary>
 [PMLNetCallable]
 public class SQLObject
 {
@@ -274,132 +276,4 @@ public class SQLObject
         return netArray.Val;
     }
 
-    #region UnUsed
-
-    //[PMLNetCallable]
-    //public SqlCeConnection mSqlCeConnection;
-
-
-    //[PMLNetCallable]
-    //public void SqlCeConnect(string connectionString)
-    //{
-    //    mSqlCeConnection = new SqlCeConnection(connectionString);
-    //    mSqlCeConnection.Open();
-    //}
-
-    //[PMLNetCallable]
-    //public void SqlCeDisconnect()
-    //{
-    //    mSqlCeConnection.Close();
-    //    mSqlCeConnection.Dispose();
-    //}
-
-
-    //[PMLNetCallable]
-    //public Hashtable SqlCeQQuery(string Query)
-    //{
-    //    SqlCeCommand val = new();
-    //    ((DbCommand)(object)val).CommandText = Query;
-    //    val.Connection = mSqlCeConnection;
-    //    SqlCeDataReader val2 = val.ExecuteReader();
-    //    ArrayList arrayList = new();
-    //    try
-    //    {
-    //        int num = 0;
-    //        while (((DbDataReader)(object)val2).Read())
-    //        {
-    //            Hashtable hashtable = new Hashtable();
-    //            for (int i = 0; i < ((DbDataReader)(object)val2).FieldCount; i++)
-    //            {
-    //                hashtable.Add(i, Convert.ToString(((DbDataReader)(object)val2)[i]));
-    //            }
-    //            arrayList.Add(hashtable);
-    //            num++;
-    //        }
-    //    }
-    //    catch
-    //    {
-    //        ((DbConnection)(object)mSqlCeConnection).Close();
-    //    }
-    //    finally
-    //    {
-    //        ((DbDataReader)(object)val2).Close();
-    //    }
-    //    Hashtable hashtable2 = new();
-    //    for (int i = 0; i < arrayList.Count; i++)
-    //    {
-    //        hashtable2.Add(i, arrayList[i]);
-    //    }
-    //    NetArray netArray = new NetArray();
-    //    netArray.Append(hashtable2);
-    //    return netArray.Val;
-    //}
-
-
-    //[PMLNetCallable]
-    //public Hashtable SqlCeQuery(string connectionString, string Query)
-    //{
-    //    //IL_0002: Unknown result type (might be due to invalid IL or missing references)
-    //    //IL_0008: Expected O, but got Unknown
-    //    //IL_0008: Unknown result type (might be due to invalid IL or missing references)
-    //    //IL_000e: Expected O, but got Unknown
-    //    SqlCeConnection val = new SqlCeConnection(connectionString);
-    //    SqlCeCommand val2 = new SqlCeCommand();
-    //    ((DbCommand)(object)val2).CommandText = Query;
-    //    val2.Connection = val;
-    //    try
-    //    {
-    //        ((DbConnection)(object)val).Open();
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        MessageBox.Show("Ошибка подключения к базе: " + ex.Message);
-    //        Console.WriteLine(ex.Message);
-    //    }
-    //    SqlCeDataReader val3 = val2.ExecuteReader();
-    //    ArrayList arrayList = new ArrayList();
-    //    try
-    //    {
-    //        int num = 0;
-    //        while (((DbDataReader)(object)val3).Read())
-    //        {
-    //            Hashtable hashtable = new Hashtable();
-    //            for (int i = 0; i < ((DbDataReader)(object)val3).FieldCount; i++)
-    //            {
-    //                hashtable.Add(i, Convert.ToString(((DbDataReader)(object)val3)[i]));
-    //            }
-    //            arrayList.Add(hashtable);
-    //            num++;
-    //        }
-    //    }
-    //    finally
-    //    {
-    //        ((DbDataReader)(object)val3).Close();
-    //        ((DbConnection)(object)val).Close();
-    //    }
-    //    Hashtable hashtable2 = new Hashtable();
-    //    for (int i = 0; i < arrayList.Count; i++)
-    //    {
-    //        hashtable2.Add(i, arrayList[i]);
-    //    }
-    //    NetArray netArray = new NetArray();
-    //    netArray.Append(hashtable2);
-    //    return netArray.Val;
-    //}
-
-    //[PMLNetCallable]
-    //public void CreateSqlCeDb(string filename)
-    //{
-    //    //IL_0022: Unknown result type (might be due to invalid IL or missing references)
-    //    //IL_0028: Expected O, but got Unknown
-    //    if (File.Exists(filename))
-    //    {
-    //        File.Delete(filename);
-    //    }
-    //    string text = "Data Source = " + filename;
-    //    SqlCeEngine val = new SqlCeEngine(text);
-    //    val.CreateDatabase();
-    //    val.Dispose();
-    //}
-    #endregion UnUsed
 }
