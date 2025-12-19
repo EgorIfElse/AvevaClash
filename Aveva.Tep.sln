@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Standalone", "Standalone", "{36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NetCallable", "NetCallable", "{31C5D848-ADD2-4CCD-81BB-E021F084F671}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aveva.SqlObj.NetCallable", "Aveva.SqlObject\Aveva.SqlObj.NetCallable.csproj", "{272D8BA6-06F6-FFB9-F6EE-81087F95A49D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aveva.AttributeExporter.Standalone", "Aveva.AttributeExporter\Aveva.AttributeExporter.Standalone.csproj", "{C0D01915-A900-4693-95D6-2A3D22A83576}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Console.Testing", "Console.Testing\Console.Testing.csproj", "{33D2518E-D594-5508-573C-1AD37374C43E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", "{0605C93C-1932-418B-8539-5B4E26D2BF60}"
+	ProjectSection(SolutionItems) = preProject
+		References\Aveva.Core.Database.dll = References\Aveva.Core.Database.dll
+		References\Aveva.Core.dll = References\Aveva.Core.dll
+		References\Aveva.Core.Utilities.dll = References\Aveva.Core.Utilities.dll
+		References\Aveva.Core3D.Implementation.dll = References\Aveva.Core3D.Implementation.dll
+		References\Aveva.Core3D.Standalone.dll = References\Aveva.Core3D.Standalone.dll
+		References\Aveva.E3D.Implementation.dll = References\Aveva.E3D.Implementation.dll
+		References\Aveva.E3D.Standalone.dll = References\Aveva.E3D.Standalone.dll
+		References\PMLNet.dll = References\PMLNet.dll
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0D01915-A900-4693-95D6-2A3D22A83576}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0D01915-A900-4693-95D6-2A3D22A83576}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0D01915-A900-4693-95D6-2A3D22A83576}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0D01915-A900-4693-95D6-2A3D22A83576}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33D2518E-D594-5508-573C-1AD37374C43E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33D2518E-D594-5508-573C-1AD37374C43E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33D2518E-D594-5508-573C-1AD37374C43E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33D2518E-D594-5508-573C-1AD37374C43E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D} = {31C5D848-ADD2-4CCD-81BB-E021F084F671}
+		{C0D01915-A900-4693-95D6-2A3D22A83576} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7CB04E0D-2245-44FC-B8F3-6E91093378BC}
+	EndGlobalSection
+EndGlobal
