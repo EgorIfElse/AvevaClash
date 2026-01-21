@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", 
 		References\PMLNet.dll = References\PMLNet.dll
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aveva.ClashChecker.NetCallable", "Aveva.ClashChecker.NetCallable\Aveva.ClashChecker.NetCallable.csproj", "{9B05BF19-CA77-490C-82B2-C3B811938411}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,10 @@ Global
 		{33D2518E-D594-5508-573C-1AD37374C43E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33D2518E-D594-5508-573C-1AD37374C43E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{33D2518E-D594-5508-573C-1AD37374C43E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B05BF19-CA77-490C-82B2-C3B811938411}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B05BF19-CA77-490C-82B2-C3B811938411}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B05BF19-CA77-490C-82B2-C3B811938411}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B05BF19-CA77-490C-82B2-C3B811938411}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +56,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{272D8BA6-06F6-FFB9-F6EE-81087F95A49D} = {31C5D848-ADD2-4CCD-81BB-E021F084F671}
 		{C0D01915-A900-4693-95D6-2A3D22A83576} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
+		{9B05BF19-CA77-490C-82B2-C3B811938411} = {31C5D848-ADD2-4CCD-81BB-E021F084F671}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {7CB04E0D-2245-44FC-B8F3-6E91093378BC}
