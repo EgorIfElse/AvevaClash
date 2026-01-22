@@ -1,14 +1,13 @@
-﻿using Aveva.ClashChecker.NetCallable.Models;
-using Aveva.Core.PMLNet;
+﻿using Aveva.ClashChecker.NetCallable.Extensions;
+using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.Core.Database;
+using Aveva.Core.PMLNet;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
-using System.Windows.Forms;
-
 namespace ClashChecker;
 
 /// <summary>
@@ -71,7 +70,7 @@ public class ClashChecker
             }
             stopwatch.Stop();
             var ellapsedSeconds = stopwatch.ElapsedMilliseconds * 0.001;
-            
+
             clashConnection.Close();
             //TODO: Переписать на c# (необходимы объекты E3D)
             //WriteLogEx(@"\\tep-m.ru\data\App\PDMS\PDMS_TEP\LOG\UpdateClashElementInfo.txt", $"{ellapsedSeconds};{gpsetName};{totalCount};{deleteCount};{updateCount};{checkMode}");
@@ -95,13 +94,13 @@ public class ClashChecker
         {
             if (IsNeedToDeleteClashSimple(clash))
             {
-                
+
             }
 
 
             return true;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             return false;
         }
@@ -201,5 +200,55 @@ public class ClashChecker
         {
             return null;
         }
+    }
+
+    [PMLNetCallable]
+    public void ReplaceRefIFC(string projectName = "", string projectCode = "")
+    {
+        if (projectCode == "")
+            projectCode = Project.CurrentProject.Number;
+        if (projectName == "")
+            projectName = Project.CurrentProject.Name;
+
+        string tableIfcName = $"tableIfc{projectName}";
+        string clashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
+        string clashTableName = $"clashtable{projectCode}";
+        using SqlConnection clashConnection = GetClashSqlConnection();
+        clashConnection.Open();
+        if (!clashConnection.TableExists(tableIfcName) || !clashConnection.TableExists(clashTableName))
+            return;
+        if (!clashConnection.TableExists(clashRefUpdateLog))
+        {
+            //CreateTableRefUpdateLog()
+        }
+
+        int j = 3;
+        for (int i = 1; i < 3; i++) {
+            j--;
+            //Идём по первым элементам в таблице коллизий
+            string updateFirstQuery = $"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), " +
+                $"ClashWithMemE{i} AS(SELECT OldE{i}, flnm{i}, LEFT(flnm{i}, CHARINDEX(' of ', flnm{i} + ' of ') - 1) AS mempos{i} FROM ClashElemsE{i}), " +
+                $"OldWithUuidE{i} AS(SELECT c.OldE{i}, c.flnm{i}, i.UUIDowner FROM ClashWithMemE{i} c JOIN {tableIfcName} i ON i.ELEM = c.OldE{i} AND i.flnm = c.mempos{i}), " +
+                $"LatestPerUUIDE{i} AS(SELECT UUIDowner, ELEM AS NewE{i}, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), " +
+                $"MapOldNewE{i} AS(SELECT o.OldE{i}, o.flnm{i}, l.NewE{i} FROM OldWithUuidE{i} o JOIN LatestPerUUIDE{i} l ON l.UUIDowner = o.UUIDowner AND l.rn = 1) " +
+                $"UPDATE c SET c.El{i} = m.NewE{i} OUTPUT deleted.id, deleted.El{i}, inserted.El{i}, inserted.flnm{i}, GETDATE() INTO" +
+                $"{clashRefUpdateLog}(RowId, OldEl{j}, NewEl{j}, flnm{j}, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE{i} m ON c.El{i} = m.OldE{i} AND c.flnm{i} = m.flnm{i} WHERE c.type{i} = 'GENPRI' AND m.NewE{i}<> c.El{i} " +
+                "SELECT @@ROWCOUNT AS UpdatedRows;";
+            clashConnection.Execute(updateFirstQuery, commandTimeout: 600);
+
+        }
+
+
+        //идём по вторым элементам в таблице коллизий
+        string updateSecondQuery = $"WITH ClashElemsE2 AS(SELECT DISTINCT El2 AS OldE2, flnm2 AS flnm2 FROM {clashTableName} WHERE type2 = 'GENPRI'), " +
+            $"ClashWithMemE2 AS(SELECT OldE2, flnm2, LEFT(flnm2, CHARINDEX(' of ', flnm2 + ' of ') - 1) AS mempos2 FROM ClashElemsE2), " +
+            $"OldWithUuidE2 AS(SELECT c.OldE2, c.flnm2, i.UUIDowner FROM ClashWithMemE2 c JOIN {tableIfcName} i ON i.ELEM = c.OldE2 AND i.flnm = c.mempos2), " +
+            $"LatestPerUUIDE2 AS (SELECT UUIDowner, ELEM AS NewE2, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), " +
+            $"MapOldNewE2 AS(SELECT o.OldE2, o.flnm2, l.NewE2 FROM OldWithUuidE2 o JOIN LatestPerUUIDE2 l ON l.UUIDowner = o.UUIDowner AND l.rn = 1)" +
+            $" UPDATE c SET c.El2 = m.NewE2 OUTPUT deleted.id, deleted.El2, inserted.El2, inserted.flnm2, GETDATE() INTO " +
+            $"{clashRefUpdateLog}(RowId, OldEl1, NewEl1, flnm1, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE2 m ON c.El2 = m.OldE2 AND c.flnm2 = m.flnm2 WHERE c.type2 = 'GENPRI' AND m.NewE2<> c.El2 " +
+            $"SELECT @@ROWCOUNT AS UpdatedRows;";
+        //   !sqlarray = !!sqlQuery('SQL', !conn, !query)
+        clashConnection.Close();
     }
 }
