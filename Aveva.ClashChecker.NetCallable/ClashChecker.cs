@@ -1,26 +1,13 @@
-<<<<<<< HEAD
-﻿using Aveva.ClashChecker.NetCallable.Extensions;
+using Aveva.ClashChecker.NetCallable.Extensions;
 using Aveva.ClashChecker.NetCallable.Models;
-=======
-﻿using Aveva.ClashChecker.NetCallable.Models;
->>>>>>> UpdateOneClashElementInfo rev02
 using Aveva.Core.Database;
 using Aveva.Core.PMLNet;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-<<<<<<< HEAD
 using static Aveva.ClashChecker.NetCallable.Exceptions;
-=======
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Security.Policy;
-using System.Windows.Forms;
-using static Aveva.ClashChecker.NetCallable.Exceptions;
-
->>>>>>> UpdateOneClashElementInfo rev02
 namespace ClashChecker;
 
 /// <summary>
@@ -66,10 +53,17 @@ public class ClashChecker
                 var clashes = clashConnection.Query<ClashEntity>(getAllClashesQuery);
                 foreach (var clash in clashes)
                 {
-                    if (UpdateOneClashElementInfo(clash, tableName, checkMode))
-                        updateCount++;
-                    else
-                        deleteCount++;
+                    switch (UpdateOneClashElementInfo(clash, tableName, checkMode))
+                    {
+                        case 1:
+                            updateCount++;
+                            break;
+                        case -1:
+                            deleteCount++;
+                            break;
+                        case 0:
+                            break;
+                    }
                     totalCount++;
                 }
             }
@@ -109,7 +103,7 @@ public class ClashChecker
         {
             if (IsNeedToDeleteClashSimple(clash))
             {
-                
+
                 using SqlConnection clashConnection = GetClashSqlConnection();
                 clashConnection.Open();
                 string comment = "UpdateClashElementInfo один из элементов уже не существует";
@@ -179,16 +173,16 @@ public class ClashChecker
                     retval = 1;
 
                 }
-               
+
             }
 
-                return retval;
+            return retval;
         }
         catch (Exception ex)
         {
             return retval;
         }
-       
+
     }
     /// <summary>
     /// Обновляет данные по коллизиям (по отдельным элементам)
@@ -221,7 +215,7 @@ public class ClashChecker
     }
 
     [PMLNetCallable]
-    public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment )
+    public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
     {
         /// надо написать метод
 
@@ -344,7 +338,8 @@ public class ClashChecker
         }
 
         int j = 3;
-        for (int i = 1; i < 3; i++) {
+        for (int i = 1; i < 3; i++)
+        {
             j--;
             //Идём по первым элементам в таблице коллизий
             string updateFirstQuery = $"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), " +
