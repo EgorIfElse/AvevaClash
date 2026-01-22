@@ -1,13 +1,26 @@
+<<<<<<< HEAD
 ﻿using Aveva.ClashChecker.NetCallable.Extensions;
 using Aveva.ClashChecker.NetCallable.Models;
+=======
+﻿using Aveva.ClashChecker.NetCallable.Models;
+>>>>>>> UpdateOneClashElementInfo rev02
 using Aveva.Core.Database;
 using Aveva.Core.PMLNet;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+<<<<<<< HEAD
 using static Aveva.ClashChecker.NetCallable.Exceptions;
+=======
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Security.Policy;
+using System.Windows.Forms;
+using static Aveva.ClashChecker.NetCallable.Exceptions;
+
+>>>>>>> UpdateOneClashElementInfo rev02
 namespace ClashChecker;
 
 /// <summary>
@@ -88,47 +101,103 @@ public class ClashChecker
     }
 
     [PMLNetCallable]
-    public bool UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
+    public double UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
     {
+
+        double retval = 0;
         try
         {
             if (IsNeedToDeleteClashSimple(clash))
             {
+                
                 using SqlConnection clashConnection = GetClashSqlConnection();
                 clashConnection.Open();
                 string comment = "UpdateClashElementInfo один из элементов уже не существует";
                 string type = "badref";
-               return (DeleteById( clashConnection, tableName, clash, type, comment));
+                DeleteById(clashConnection, tableName, clash, type, comment);
+                retval = -1;
 
             }
             else
             {
+                //если оба существуют то обновляем информацию если отличается
+                string RealUsermod1;
+                string RealUsermod2;
                 var dbElem1 = DbElement.GetElement(clash.FirstElement);
                 var dbElem2 = DbElement.GetElement(clash.SecondElement);
 
-                string RealName1 = GetDepartment(dbElem1,"");
-                string RealName2 = GetDepartment(dbElem2, "");
+                string RealDept1 = GetDepartment(dbElem1, "");
+                string RealDept2 = GetDepartment(dbElem2, "");
+
+                string RealGpset1 = GetGroups(dbElem1);
+                string RealGpset2 = GetGroups(dbElem1);
 
                 if (checkMode == "FULL")
                 {
-                    string RealUsermod1 = History(dbElem1, "user");
-                    string RealUsermod2 = History(dbElem2, "user");
+                    RealUsermod1 = History(dbElem1, "user");
+                    RealUsermod2 = History(dbElem2, "user");
                 }
                 else
                 {
-                    string RealUsermod1 = clash.FirstUserMode;
-                    string RealUsermod2 = clash.SecondUserMode;
+                    RealUsermod1 = clash.FirstUserMode;
+                    RealUsermod2 = clash.SecondUserMode;
+                }
+                if (clash.FirstUserMode != RealUsermod1 || clash.SecondUserMode != RealUsermod2 || clash.FirstGpset != RealGpset1 || clash.SecondGpset != RealGpset2 || clash.FirstDept != RealDept1 || clash.SecondDept != RealDept2)
+                {
+                    string str = $"будем обновлена {clash.Id}";
+
+                    if (clash.FirstUserMode != RealUsermod1)
+                    {
+                        str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
+                    }
+
+                    else if (clash.FirstDept != RealDept1)
+                    {
+                        str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
+                    }
+
+                    else if (clash.FirstGpset != RealGpset1)
+                    {
+                        str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
+                    }
+
+                    else if (clash.SecondUserMode != RealUsermod2)
+                    {
+                        str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
+                    }
+
+                    else if (clash.SecondDept != RealDept1)
+                    {
+                        str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
+                    }
+
+                    else if (clash.SecondGpset != RealGpset1)
+                    {
+                        str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
+                    }
+                    string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
+                    retval = 1;
 
                 }
+               
             }
 
-                return true;
+                return retval;
         }
         catch (Exception ex)
         {
-            return false;
+            return retval;
         }
+       
     }
+    /// <summary>
+    /// Обновляет данные по коллизиям (по отдельным элементам)
+    /// <returns>
+    /// 0 - если обновление не требовалось(NONE)
+    /// 1 - если было призведено обновление(UPDATE)
+    /// -1 - если удалили коллизию(DELETE)
+    /// </returns>
+    /// </summary>
     [PMLNetCallable]
     public string History(DbElement dbElement, string param)
     {
