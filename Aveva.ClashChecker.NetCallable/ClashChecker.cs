@@ -210,9 +210,11 @@ public class ClashChecker
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
+        string DbName = dbElement.GetString(DbAttributeInstance.DBFI);
         string a = "";
         return a;
     }
+
 
     [PMLNetCallable]
     public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
