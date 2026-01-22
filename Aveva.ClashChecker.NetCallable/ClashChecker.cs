@@ -5,8 +5,10 @@ using Aveva.Core.PMLNet;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 namespace ClashChecker;
 
@@ -97,15 +99,15 @@ public class ClashChecker
     [PMLNetCallable]
     public double UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
     {
-
+        using SqlConnection clashConnection = GetClashSqlConnection();
+        clashConnection.Open();
         double retval = 0;
         try
         {
             if (IsNeedToDeleteClashSimple(clash))
             {
 
-                using SqlConnection clashConnection = GetClashSqlConnection();
-                clashConnection.Open();
+                
                 string comment = "UpdateClashElementInfo один из элементов уже не существует";
                 string type = "badref";
                 DeleteById(clashConnection, tableName, clash, type, comment);
@@ -138,39 +140,64 @@ public class ClashChecker
                 }
                 if (clash.FirstUserMode != RealUsermod1 || clash.SecondUserMode != RealUsermod2 || clash.FirstGpset != RealGpset1 || clash.SecondGpset != RealGpset2 || clash.FirstDept != RealDept1 || clash.SecondDept != RealDept2)
                 {
-                    string str = $"будем обновлена {clash.Id}";
-
-                    if (clash.FirstUserMode != RealUsermod1)
+                    string str = $"будет обновлена {clash.Id}";
+                    var changes = new List<(bool rules, string message)>
                     {
-                        str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
+                        (clash.FirstUserMode != RealUsermod1, $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}"),
+                        (clash.FirstDept != RealDept1,        $"FirstDept:{clash.FirstDept}->{RealDept1}"),
+                        (clash.FirstGpset != RealGpset1,      $"FirstGpset:{clash.FirstGpset}->{RealGpset1}"),
+                        (clash.SecondUserMode != RealUsermod2,$"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}"),
+                        (clash.SecondDept != RealDept2,       $"SecondDept:{clash.SecondDept}->{RealDept2}"),
+                        (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}")
+                    };
+                    
+                    foreach ( var c in changes )
+                    {
+                        if (c.rules)
+                        {
+                            str += c.message;
+                            retval = 1;
+                            string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
+                            clashConnection.Execute(QueryUpdate, commandTimeout: 600);
+                        }
                     }
 
-                    else if (clash.FirstDept != RealDept1)
-                    {
-                        str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
-                    }
 
-                    else if (clash.FirstGpset != RealGpset1)
-                    {
-                        str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
-                    }
 
-                    else if (clash.SecondUserMode != RealUsermod2)
-                    {
-                        str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
-                    }
 
-                    else if (clash.SecondDept != RealDept1)
-                    {
-                        str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
-                    }
 
-                    else if (clash.SecondGpset != RealGpset1)
-                    {
-                        str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
-                    }
-                    string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
-                    retval = 1;
+                  //  string str = $"будет обновлена {clash.Id}";
+                  //
+                  //  if (clash.FirstUserMode != RealUsermod1)
+                  //  {
+                  //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
+                  //  }
+                  //
+                  //  else if (clash.FirstDept != RealDept1)
+                  //  {
+                  //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
+                  //  }
+                  //
+                  //  else if (clash.FirstGpset != RealGpset1)
+                  //  {
+                  //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
+                  //  }
+                  //
+                  //  else if (clash.SecondUserMode != RealUsermod2)
+                  //  {
+                  //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
+                  //  }
+                  //
+                  //  else if (clash.SecondDept != RealDept1)
+                  //  {
+                  //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
+                  //  }
+                  //
+                  //  else if (clash.SecondGpset != RealGpset1)
+                  //  {
+                  //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
+                  //  }
+                   
 
                 }
 
@@ -210,10 +237,38 @@ public class ClashChecker
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
-        string DbName = dbElement.GetString(DbAttributeInstance.DBFI);
-        string a = "";
-        return a;
-    }
+        string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
+        string result = DbFileName.Split('%')[1].Substring(0, 3);
+
+
+        switch (result)
+        {
+            case "DNS":
+            case "SVB":
+            case "WXT":
+                    break;
+
+            case "TUE":
+            case "YKE":
+                string DbName = dbElement.Db.DbItem.ToString();
+                if (DbName.Contains("TMO") )
+                {
+                    return "TMO";
+                }
+                break;
+
+            case "GCC":
+                //var UlogId = new <List>
+               string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
+                string usermod = History(dbElement, "user").ToLower();
+                foreach ()
+                {
+
+                }
+                break;
+        }
+            return result;
+        }
 
 
     [PMLNetCallable]
