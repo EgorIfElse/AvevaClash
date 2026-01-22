@@ -8,7 +8,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Remoting;
+using System.Security.Policy;
 using System.Threading;
+using System.Windows.Forms;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 namespace ClashChecker;
 
@@ -237,24 +240,51 @@ public class ClashChecker
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
+        string ProjectName = Project.CurrentProject.Name;
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
+        string DbRef = dbElement.GetString(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
+        var departments = new List<DepartmentInfo>
+        {
+            new DepartmentInfo
+            {
+                Dept = "ARX",
+                Tdept = "TEPRDARX",
+                Mark = new[]{"AC","_CE"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "ARX",
+                Tdept = "TEPRDARX",
+                Mark = new[]{"AC","_CE"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "ARX",
+                Tdept = "TEPRDARX",
+                Mark = new[]{"AC","_CE"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "ARX",
+                Tdept = "TEPRDARX",
+                Mark = new[]{"AC","_CE"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "ARX",
+                Tdept = "TEPRDARX",
+                Mark = new[]{"AC","_CE"}
+            },
+
 
 
         switch (result)
         {
-            case "DNS":
-            case "SVB":
-            case "WXT":
-                    break;
-
             case "TUE":
             case "YKE":
-                string DbName = dbElement.Db.DbItem.ToString();
-                if (DbName.Contains("TMO") )
-                {
-                    return "TMO";
-                }
+                    string DbName = dbElement.Db.DbItem.ToString();
+                    return DbName.Substring(0, 3);
                 break;
 
             case "GCC":
@@ -265,6 +295,25 @@ public class ClashChecker
                 {
 
                 }
+                break;
+            default:
+               string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.GetString(DbAttributeInstance.OWNER);
+                //:UES_DEPART надо ли? isnullorEmpty
+                if (site.Length > 0)
+                {
+                    string index = site.Substring(site.IndexOf('_'),2);
+                }
+                switch (result)
+                {
+                    case "DNS":
+                    case "SVB":
+                    case "WXT":
+                        break;
+                    default :
+                        break;
+                }
+
+
                 break;
         }
             return result;
