@@ -53,7 +53,7 @@ public class ClashChecker
                 var clashes = clashConnection.Query<ClashEntity>(getAllClashesQuery);
                 foreach (var clash in clashes)
                 {
-                    if (UpdateOneClashElementInfo(clash, tableName))
+                    if (UpdateOneClashElementInfo(clash, tableName, checkMode))
                         updateCount++;
                     else
                         deleteCount++;
@@ -88,24 +88,76 @@ public class ClashChecker
     }
 
     [PMLNetCallable]
-    public bool UpdateOneClashElementInfo(ClashEntity clash, string tableName)
+    public bool UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
     {
         try
         {
             if (IsNeedToDeleteClashSimple(clash))
             {
+                using SqlConnection clashConnection = GetClashSqlConnection();
+                clashConnection.Open();
+                string comment = "UpdateClashElementInfo один из элементов уже не существует";
+                string type = "badref";
+               return (DeleteById( clashConnection, tableName, clash, type, comment));
 
             }
+            else
+            {
+                var dbElem1 = DbElement.GetElement(clash.FirstElement);
+                var dbElem2 = DbElement.GetElement(clash.SecondElement);
 
+                string RealName1 = GetDepartment(dbElem1,"");
+                string RealName2 = GetDepartment(dbElem2, "");
 
-            return true;
+                if (checkMode == "FULL")
+                {
+                    string RealUsermod1 = History(dbElem1, "user");
+                    string RealUsermod2 = History(dbElem2, "user");
+                }
+                else
+                {
+                    string RealUsermod1 = clash.FirstUserMode;
+                    string RealUsermod2 = clash.SecondUserMode;
+
+                }
+            }
+
+                return true;
         }
         catch (Exception ex)
         {
             return false;
         }
     }
+    [PMLNetCallable]
+    public string History(DbElement dbElement, string param)
+    {
+        string aq = "";
+        return aq;
+    }
 
+    [PMLNetCallable]
+    public string GetGroups(DbElement dbElement)
+    {
+        string a = "";
+        return a;
+    }
+
+
+    [PMLNetCallable]
+    public string GetDepartment(DbElement dbElement, string hier)
+    {
+        string a = "";
+        return a;
+    }
+
+    [PMLNetCallable]
+    public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment )
+    {
+        /// надо написать метод
+
+        return true;
+    }
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
 
