@@ -1,9 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+	<PropertyGroup>
+		<AssemblyName>ClashChecker</AssemblyName>
+		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+		<UseWindowsForms>False</UseWindowsForms>
+		<TargetFramework>net481</TargetFramework>
+	</PropertyGroup>
+	<PropertyGroup>
+		<LangVersion>12.0</LangVersion>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<PropertyGroup>
+	  <PlatformTarget>x86</PlatformTarget>
+	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.66" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
@@ -12,5 +20,15 @@
 		<Reference Include="PMLNet">
 			<HintPath>..\References\PMLNet.dll</HintPath>
 		</Reference>
+		<Reference Include="Aveva.Core.Database">
+			<HintPath>..\References\Aveva.Core.Database.dll</HintPath>
+		</Reference>
+		<Reference Include="Aveva.Core.Utilities">
+			<HintPath>..\References\Aveva.Core.Utilities.dll</HintPath>
+		</Reference>
+		<Reference Include="Aveva.Core">
+			<HintPath>..\References\Aveva.Core.dll</HintPath>
+		</Reference>
+		<Reference Include="System.Data" />
 	</ItemGroup>
 </Project>
