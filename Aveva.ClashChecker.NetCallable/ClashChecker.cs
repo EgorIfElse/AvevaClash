@@ -7,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
+using System.Windows.Forms;
 
 namespace ClashChecker;
 
@@ -37,7 +38,7 @@ public class ClashChecker
     /// <param name="clashDir"></param>
     /// <param name="gpsetName"></param>
     [PMLNetCallable]
-    public string UpdateClashElementInfo(string checkMode, string projectName, string clashDir, string tableName,string gpsetName = "")
+    public string UpdateClashElementInfo(string checkMode, string projectName, string clashDir, string tableName, string gpsetName = "")
     {
         try
         {
@@ -70,7 +71,8 @@ public class ClashChecker
             }
             stopwatch.Stop();
             var ellapsedSeconds = stopwatch.ElapsedMilliseconds * 0.001;
-
+            
+            clashConnection.Close();
             //TODO: Переписать на c# (необходимы объекты E3D)
             //WriteLogEx(@"\\tep-m.ru\data\App\PDMS\PDMS_TEP\LOG\UpdateClashElementInfo.txt", $"{ellapsedSeconds};{gpsetName};{totalCount};{deleteCount};{updateCount};{checkMode}");
             return $"{ellapsedSeconds};{gpsetName};{totalCount};{deleteCount};{updateCount};{checkMode}";
@@ -91,6 +93,11 @@ public class ClashChecker
     {
         try
         {
+            if (IsNeedToDeleteClashSimple(clash))
+            {
+                
+            }
+
 
             return true;
         }
@@ -98,6 +105,14 @@ public class ClashChecker
         {
             return false;
         }
+    }
+
+    public bool IsNeedToDeleteClashSimple(ClashEntity clash)
+    {
+
+        var dbElem1 = DbElement.GetElement(clash.FirstElement);
+        var dbElem2 = DbElement.GetElement(clash.SecondElement);
+        return (!dbElem1.IsValid || !dbElem2.IsValid);
     }
 
     public void QueryClashByEl()
