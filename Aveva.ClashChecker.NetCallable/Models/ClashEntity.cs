@@ -15,3 +15,5 @@ public record ClashEntity
     public string SecondDept { get; set; } = "";
     public string SecondGpset { get; set; } = "";
 }
+
+

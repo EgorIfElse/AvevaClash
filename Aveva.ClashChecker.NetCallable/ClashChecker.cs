@@ -237,6 +237,7 @@ public class ClashChecker
     }
 
 
+
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
@@ -244,78 +245,6 @@ public class ClashChecker
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
         string DbRef = dbElement.GetString(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
-        var departments = new List<DepartmentInfo>
-        {
-            new DepartmentInfo
-            {
-                Dept = "ARX",
-                Tdept = "TEPRDARX",
-                Mark = new[]{"_AC","_CE"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "ASU",
-                Tdept = "TEPRDASU",
-                Mark = new[]{"_AS"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "ETO",
-                Tdept = "TEPRDETO",
-                Mark = new[]{"_ED"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "OGS",
-                Tdept = "TEPRDOGS",
-                Mark = new[]{"_HS"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "OIV",
-                Tdept = "TEPRDOIV",
-                Mark = new[]{"_HV"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "OMK",
-                Tdept = "TEPRDOMK",
-                Mark = new[]{"_SC"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "OVS",
-                Tdept = "TEPRDOVS",
-                Mark = new[]{"_VS"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "SOT",
-                Tdept = "TEPRDSOT",
-                Mark = new[]{"_RC"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "OWP",
-                Tdept = "TEPRDOWP",
-                Mark = new[]{"_WT"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "TMO",
-                Tdept = "TEPRDTMO",
-                Mark = new[]{"_TD","_WT"}
-            },
-            new DepartmentInfo
-            {
-                Dept = "VIK",
-                Tdept = "TEPRDVIK",
-                Mark = new[]{"_WS","_FP"}
-            }
-        };
-
-
-
 
         switch (result)
         {
@@ -342,9 +271,9 @@ public class ClashChecker
                     string index = site.Substring(site.IndexOf('_'),2);
                 }
                 
-                foreach (var dept in departments)
+                foreach (var dept in DepartmentInfo.Departments)
                 {
-                    var d =  
+                    //var d =  
                 }
                 
                 switch (result)
