@@ -17,6 +17,9 @@
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
 	</ItemGroup>
 	<ItemGroup>
+		<Reference Include="Aveva.Core.Database.Filters">
+		  <HintPath>..\References\Aveva.Core.Database.Filters.dll</HintPath>
+		</Reference>
 		<Reference Include="PMLNet">
 			<HintPath>..\References\PMLNet.dll</HintPath>
 		</Reference>
