@@ -250,32 +250,70 @@ public class ClashChecker
             {
                 Dept = "ARX",
                 Tdept = "TEPRDARX",
-                Mark = new[]{"AC","_CE"}
+                Mark = new[]{"_AC","_CE"}
             },
             new DepartmentInfo
             {
-                Dept = "ARX",
-                Tdept = "TEPRDARX",
-                Mark = new[]{"AC","_CE"}
+                Dept = "ASU",
+                Tdept = "TEPRDASU",
+                Mark = new[]{"_AS"}
             },
             new DepartmentInfo
             {
-                Dept = "ARX",
-                Tdept = "TEPRDARX",
-                Mark = new[]{"AC","_CE"}
+                Dept = "ETO",
+                Tdept = "TEPRDETO",
+                Mark = new[]{"_ED"}
             },
             new DepartmentInfo
             {
-                Dept = "ARX",
-                Tdept = "TEPRDARX",
-                Mark = new[]{"AC","_CE"}
+                Dept = "OGS",
+                Tdept = "TEPRDOGS",
+                Mark = new[]{"_HS"}
             },
             new DepartmentInfo
             {
-                Dept = "ARX",
-                Tdept = "TEPRDARX",
-                Mark = new[]{"AC","_CE"}
+                Dept = "OIV",
+                Tdept = "TEPRDOIV",
+                Mark = new[]{"_HV"}
             },
+            new DepartmentInfo
+            {
+                Dept = "OMK",
+                Tdept = "TEPRDOMK",
+                Mark = new[]{"_SC"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "OVS",
+                Tdept = "TEPRDOVS",
+                Mark = new[]{"_VS"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "SOT",
+                Tdept = "TEPRDSOT",
+                Mark = new[]{"_RC"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "OWP",
+                Tdept = "TEPRDOWP",
+                Mark = new[]{"_WT"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "TMO",
+                Tdept = "TEPRDTMO",
+                Mark = new[]{"_TD","_WT"}
+            },
+            new DepartmentInfo
+            {
+                Dept = "VIK",
+                Tdept = "TEPRDVIK",
+                Mark = new[]{"_WS","_FP"}
+            }
+        };
+
 
 
 
@@ -291,23 +329,30 @@ public class ClashChecker
                 //var UlogId = new <List>
                string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
                 string usermod = History(dbElement, "user").ToLower();
-                foreach ()
-                {
-
-                }
+             //  foreach ()
+             //  {
+             //
+             //  }
                 break;
             default:
-               string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.GetString(DbAttributeInstance.OWNER);
+                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.GetString(DbAttributeInstance.OWNER);
                 //:UES_DEPART надо ли? isnullorEmpty
                 if (site.Length > 0)
                 {
                     string index = site.Substring(site.IndexOf('_'),2);
                 }
+                
+                foreach (var dept in departments)
+                {
+                    var d =  
+                }
+                
                 switch (result)
                 {
                     case "DNS":
                     case "SVB":
                     case "WXT":
+
                         break;
                     default :
                         break;
