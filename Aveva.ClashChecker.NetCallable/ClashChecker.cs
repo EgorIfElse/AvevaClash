@@ -1,6 +1,7 @@
 using Aveva.ClashChecker.NetCallable.Extensions;
 using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.Core.Database;
+using Aveva.Core.Database.Filters;
 using Aveva.Core.PMLNet;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -12,6 +13,7 @@ using System.Runtime.Remoting;
 using System.Security.Policy;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 namespace ClashChecker;
 
@@ -268,24 +270,19 @@ public class ClashChecker
                 //:UES_DEPART надо ли? isnullorEmpty
                 if (site.Length > 0)
                 {
-                    string index = site.Substring(site.IndexOf('_'),2);
-                }
-                
-                foreach (var dept in DepartmentInfo.Departments)
-                {
-                    //var d =  
-                }
-                
-                switch (result)
-                {
-                    case "DNS":
-                    case "SVB":
-                    case "WXT":
+                    string index = site.Substring(site.IndexOf('_'), 2);
 
-                        break;
-                    default :
-                        break;
+                    // DBElementCollection collection = new DBElementCollection(pipe);
+                    // List<DbElement> outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH || element.Owner.Owner.ElementType ).ToList();
+                    var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
+                    foreach (var d in dept)
+                    {
+                       var a = d.Mark;
+                    }
+                   
                 }
+                
+               
 
 
                 break;
@@ -293,6 +290,62 @@ public class ClashChecker
             return result;
         }
 
+    [PMLNetCallable]
+    public string GetDepartmentTest(string dbElementRef, string hier)
+    {
+        var dbElement = DbElement.GetElement(dbElementRef);
+        string ProjectName = Project.CurrentProject.Name;
+        string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
+        string result = DbFileName.Split('%')[1].Substring(0, 3);
+
+        switch (result)
+        {
+            case "TUE":
+            case "YKE":
+                string DbName = dbElement.Db.DbItem.ToString();
+                return DbName.Substring(0, 3);
+                break;
+
+            case "GCC":
+                //var UlogId = new <List>
+                string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
+                string usermod = History(dbElement, "user").ToLower();
+                //  foreach ()
+                //  {
+                //
+                //  }
+                break;
+            default:
+               // string r = dbElement.GetString(DbAttributeInstance.ow)
+               
+
+
+                //var e = dbElement.GetString(DbExpression.Parse("HEIGHT OF PREV * 2"));
+                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+                //:UES_DEPART надо ли? isnullorEmpty
+                if (site.Length > 0)
+                {
+                    string index = site.Substring(site.IndexOf('_'), 3);
+
+                    // DBElementCollection collection = new DBElementCollection(pipe);
+                    // List<DbElement> outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH || element.Owner.Owner.ElementType ).ToList();
+                    var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
+                    foreach (var d in dept)
+                    {
+                        var a = d.Mark;
+                    }
+
+                }
+
+
+
+
+                break;
+        }
+        return result;
+    }
+
+   
 
     [PMLNetCallable]
     public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
