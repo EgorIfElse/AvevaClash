@@ -266,29 +266,32 @@ public class ClashChecker
              //  }
                 break;
             default:
-                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.GetString(DbAttributeInstance.OWNER);
+                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
                 //:UES_DEPART надо ли? isnullorEmpty
                 if (site.Length > 0)
                 {
-                    string index = site.Substring(site.IndexOf('_'), 2);
+                    string index = site.Substring(site.IndexOf('_'), 3);
 
                     // DBElementCollection collection = new DBElementCollection(pipe);
                     // List<DbElement> outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH || element.Owner.Owner.ElementType ).ToList();
                     var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
+                    bool IsBool = SpecProj.Contains(ProjectName);
                     foreach (var d in dept)
                     {
-                       var a = d.Mark;
+                        if (IsBool) return d.Tdept;
+                        else return d.Dept;
+
                     }
                    
                 }
-                
-               
-
-
                 break;
         }
             return result;
         }
+
+    [PMLNetCallable]
+
+    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
 
     [PMLNetCallable]
     public string GetDepartmentTest(string dbElementRef, string hier)
