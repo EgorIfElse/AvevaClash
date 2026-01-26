@@ -249,16 +249,6 @@ public class ClashChecker
         string result = DbFileName.Split('%')[1].Substring(0, 3);
         string SiteIFC = dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
 
-        if (SiteIFC.Contains("IFC"))
-        {
-            int i = SiteIFC.LastIndexOf('_');
-            string index = i >= 0 ? SiteIFC.Substring(i) : "";
-            var deptIFC = DepartmentInfo.Departments.FirstOrDefault(d => d.Mark.Contains(index));
-
-            return deptIFC.ToString();
-
-        }
-
         switch (result)
         {
             case "TUE":
