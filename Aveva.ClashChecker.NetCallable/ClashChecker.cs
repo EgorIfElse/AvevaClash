@@ -112,7 +112,7 @@ public class ClashChecker
             if (IsNeedToDeleteClashSimple(clash))
             {
 
-                
+
                 string comment = "UpdateClashElementInfo один из элементов уже не существует";
                 string type = "badref";
                 DeleteById(clashConnection, tableName, clash, type, comment);
@@ -155,8 +155,8 @@ public class ClashChecker
                         (clash.SecondDept != RealDept2,       $"SecondDept:{clash.SecondDept}->{RealDept2}"),
                         (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}")
                     };
-                    
-                    foreach ( var c in changes )
+
+                    foreach (var c in changes)
                     {
                         if (c.rules)
                         {
@@ -171,38 +171,38 @@ public class ClashChecker
 
 
 
-                  //  string str = $"будет обновлена {clash.Id}";
-                  //
-                  //  if (clash.FirstUserMode != RealUsermod1)
-                  //  {
-                  //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
-                  //  }
-                  //
-                  //  else if (clash.FirstDept != RealDept1)
-                  //  {
-                  //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
-                  //  }
-                  //
-                  //  else if (clash.FirstGpset != RealGpset1)
-                  //  {
-                  //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
-                  //  }
-                  //
-                  //  else if (clash.SecondUserMode != RealUsermod2)
-                  //  {
-                  //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
-                  //  }
-                  //
-                  //  else if (clash.SecondDept != RealDept1)
-                  //  {
-                  //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
-                  //  }
-                  //
-                  //  else if (clash.SecondGpset != RealGpset1)
-                  //  {
-                  //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
-                  //  }
-                   
+                    //  string str = $"будет обновлена {clash.Id}";
+                    //
+                    //  if (clash.FirstUserMode != RealUsermod1)
+                    //  {
+                    //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
+                    //  }
+                    //
+                    //  else if (clash.FirstDept != RealDept1)
+                    //  {
+                    //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
+                    //  }
+                    //
+                    //  else if (clash.FirstGpset != RealGpset1)
+                    //  {
+                    //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
+                    //  }
+                    //
+                    //  else if (clash.SecondUserMode != RealUsermod2)
+                    //  {
+                    //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
+                    //  }
+                    //
+                    //  else if (clash.SecondDept != RealDept1)
+                    //  {
+                    //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
+                    //  }
+                    //
+                    //  else if (clash.SecondGpset != RealGpset1)
+                    //  {
+                    //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
+                    //  }
+
 
                 }
 
@@ -247,33 +247,47 @@ public class ClashChecker
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
         string DbRef = dbElement.GetString(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
+        string SiteIFC = dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+
+        if (SiteIFC.Contains("IFC"))
+        {
+            int i = SiteIFC.LastIndexOf('_');
+            string index = i >= 0 ? SiteIFC.Substring(i) : "";
+            var deptIFC = DepartmentInfo.Departments.FirstOrDefault(d => d.Mark.Contains(index));
+
+            return deptIFC.ToString();
+
+        }
 
         switch (result)
         {
             case "TUE":
             case "YKE":
-                    string DbName = dbElement.Db.DbItem.ToString();
-                    return DbName.Substring(0, 3);
+                string DbName = dbElement.Db.DbItem.ToString();
+                return DbName.Substring(0, 3);
                 break;
 
             case "GCC":
-                //var UlogId = new <List>
-               string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
+
                 string usermod = History(dbElement, "user").ToLower();
-             //  foreach ()
-             //  {
-             //
-             //  }
+                var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
+                var uW = DbElement.GetElement("/*U");
+                List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
+                var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAME) == usermod);
+                string deptGCC = logid.GetString(DbAttributeInstance.USEF);
+
+                return deptGCC;
+
                 break;
+
             default:
+
                 string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
-                //:UES_DEPART надо ли? isnullorEmpty
+                //:UES_DEPART надо ли? vсмотрел, его со времен царя гороха никто не заполняет
+                //isnullorEmpty
                 if (site.Length > 0)
                 {
                     string index = site.Substring(site.IndexOf('_'), 3);
-
-                    // DBElementCollection collection = new DBElementCollection(pipe);
-                    // List<DbElement> outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH || element.Owner.Owner.ElementType ).ToList();
                     var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
                     bool IsBool = SpecProj.Contains(ProjectName);
                     foreach (var d in dept)
@@ -282,12 +296,11 @@ public class ClashChecker
                         else return d.Dept;
 
                     }
-                   
                 }
                 break;
         }
-            return result;
-        }
+        return null;
+    }
 
     [PMLNetCallable]
 
@@ -300,55 +313,20 @@ public class ClashChecker
         string ProjectName = Project.CurrentProject.Name;
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
-
-        switch (result)
-        {
-            case "TUE":
-            case "YKE":
-                string DbName = dbElement.Db.DbItem.ToString();
-                return DbName.Substring(0, 3);
-                break;
-
-            case "GCC":
-                //var UlogId = new <List>
-                string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
-                string usermod = History(dbElement, "user").ToLower();
-                //  foreach ()
-                //  {
-                //
-                //  }
-                break;
-            default:
-               // string r = dbElement.GetString(DbAttributeInstance.ow)
-               
+        BaseFilter filter = new DBTypeFilter(DbType.System);
+        // var Q = DB
 
 
-                //var e = dbElement.GetString(DbExpression.Parse("HEIGHT OF PREV * 2"));
-                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
-                //:UES_DEPART надо ли? isnullorEmpty
-                if (site.Length > 0)
-                {
-                    string index = site.Substring(site.IndexOf('_'), 3);
-
-                    // DBElementCollection collection = new DBElementCollection(pipe);
-                    // List<DbElement> outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH || element.Owner.Owner.ElementType ).ToList();
-                    var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
-                    foreach (var d in dept)
-                    {
-                        var a = d.Mark;
-                    }
-
-                }
-
-
-
-
-                break;
-        }
+        var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
+        var uW = DbElement.GetElement("/*U");
+        List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
+        // var logid = collection.Where(i => i.GetString(DbAttributeInstance.NAME) == usermod);
+        //string deptGCC = (logid as DbElement).GetString(DbAttributeInstance.USEF);
         return result;
+
     }
 
-   
+
 
     [PMLNetCallable]
     public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
