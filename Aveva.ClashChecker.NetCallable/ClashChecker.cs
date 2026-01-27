@@ -227,15 +227,78 @@ public class ClashChecker
     [PMLNetCallable]
     public string History(DbElement dbElement, string param)
     {
-        string aq = "";
-        return aq;
+        var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
+        string[] HistAr = Hist.Split(' ');
+        string user;
+        string date;
+        for (int i = 0; i <= HistAr.Length; i++)
+        {
+            user = dbElement.EvaluateAsString(DbExpression.Parse($"Q SessU {HistAr[i]}")).ToLower();
+            date = dbElement.EvaluateAsString(DbExpression.Parse($"Q SessD {HistAr[i]}"));
+
+            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
+            // var uW = DbElement.GetElement("/*U");
+            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
+            // foreach (var u in AllUser)
+            // {
+            //     var e = u.GetString(DbAttributeInstance.USRLI);
+            //     if (e.Contains("BIM") || e.Contains("BIM")) {
+            // }
+            //
+            // 
+            if (user != "balashovan" || user != "goncharenko")
+            {
+                break;
+            }
+            else
+            {
+                user = "admin";
+            }
+        }
+           
+            switch (param)
+            {
+                case "user":
+                    return user;
+                    break;
+                case "date":
+                    return date;
+                    break;
+                default:
+                    return "";
+                    break;
+            }
+
+
+
     }
 
     [PMLNetCallable]
     public string GetGroups(DbElement dbElement)
     {
-        string a = "";
-        return a;
+        if (!dbElement.IsValid || !dbElement.IsNull) return "";
+        var ProjName = Project.CurrentProject.Name;
+        int ElementDepth = dbElement.GetInteger(DbAttributeInstance.DEPTH);
+        var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
+        var DbElGroups = dbElement.GetString(DbAttributeInstance.GROUPS);
+        var Site = dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+        var Zone = dbElement.EvaluateAsString(DbExpression.Parse($"ZONE of {dbElement}"));
+        for (int i = 0; i <= ElementDepth; i++)
+        {
+            if (DbElType == "GPSET") return dbElement.Name();
+            else if (DbElGroups != null) return DbElGroups;
+            else if (DbElType == "GENPRI" || DbElType == "GENCUR")
+            {
+                var ZoneGpref = 
+                return DbElGroups;
+            }
+                
+
+
+        }
+        return ProjName;
+
+       
     }
 
 
