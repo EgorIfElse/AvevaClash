@@ -7,8 +7,10 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Remoting;
 using System.Security.Policy;
 using System.Threading;
@@ -229,12 +231,12 @@ public class ClashChecker
     {
         var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
         string[] HistAr = Hist.Split(' ');
-        string user;
-        string date;
-        for (int i = 0; i <= HistAr.Length; i++)
+        string user = "";
+        string date = "";
+        for (int i = 0; i <= HistAr.Length - 1; i++)
         {
-            user = dbElement.EvaluateAsString(DbExpression.Parse($"Q SessU {HistAr[i]}")).ToLower();
-            date = dbElement.EvaluateAsString(DbExpression.Parse($"Q SessD {HistAr[i]}"));
+            user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
+            date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
 
             // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
             // var uW = DbElement.GetElement("/*U");
@@ -272,6 +274,58 @@ public class ClashChecker
 
 
     }
+    [PMLNetCallable]
+    public string HistoryTest(string dbElementref, string param)
+
+    {
+        var dbElement = DbElement.GetElement(dbElementref);
+        //var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
+        var Hist2 = dbElement.GetAsString(DbAttributeInstance.HIST);
+        string[] HistAr = Hist2.Split(' ');
+        string user = "";
+        string date = "";
+        for (int i = 0; i <= HistAr.Length; i++)
+        {
+            user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
+            date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
+
+            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
+            // var uW = DbElement.GetElement("/*U");
+            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
+            // foreach (var u in AllUser)
+            // {
+            //     var e = u.GetString(DbAttributeInstance.USRLI);
+            //     if (e.Contains("BIM") || e.Contains("BIM")) {
+            // }
+            //
+            // 
+            if (user != "balashovan" && user != "goncharenko" && user != "pdmsadmin")
+            {
+                break;
+            }
+            else
+            {
+                user = "admin";
+            }
+        }
+
+        switch (param)
+        {
+            case "user":
+                return user;
+                break;
+            case "date":
+                return date;
+                break;
+            default:
+                return "";
+                break;
+        }
+
+
+
+    }
+
 
     [PMLNetCallable]
     public string GetGroups(DbElement dbElement)
@@ -281,27 +335,78 @@ public class ClashChecker
         int ElementDepth = dbElement.GetInteger(DbAttributeInstance.DEPTH);
         var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
         var DbElGroups = dbElement.GetString(DbAttributeInstance.GROUPS);
-        var Site = dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
-        var Zone = dbElement.EvaluateAsString(DbExpression.Parse($"ZONE of {dbElement}"));
+        var Site = dbElement.GetSite();
+        var Zone = dbElement.GetZone();
+
         for (int i = 0; i <= ElementDepth; i++)
         {
             if (DbElType == "GPSET") return dbElement.Name();
             else if (DbElGroups != null) return DbElGroups;
-            else if (DbElType == "GENPRI" || DbElType == "GENCUR")
+            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC"))
             {
-                var ZoneGpref = 
-                return DbElGroups;
-            }
+                try
+                {
+                    var Gpref = dbElement.GetString(DbAttribute.GetDbAttribute(":UES_GPREF"));
+                    return Gpref;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
                 
-
+            }
 
         }
-        return ProjName;
+        return "";
 
        
     }
+    [PMLNetCallable]
+    public string GetGroupsTest(string dbElementref)
+    {
+        var dbElement = DbElement.GetElement(dbElementref);
+        if (!dbElement.IsValid || dbElement.IsNull) return "";
+        var ProjName = Project.CurrentProject.Name;
+        var ElementDepth = dbElement.GetInteger(DbAttribute.GetDbAttribute("DbDepth"));
+        var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
+        var Site = dbElement.GetSite();
+        var Zone = dbElement.GetZone();
+
+        for (int i = 0; i <= ElementDepth; i++)
+        {
+            if (DbElType == "GPSET") return dbElement.Name();
+                 
+            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC"))
+            {
+                    var sdvds = DbElement.GetElement(Zone.Ref);
+                    var Gpref = sdvds.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF")).ToString();
+                   
+                    return Gpref;
+            }
+            else
+            {
+                try
+                {
+                    var DbElGroups = dbElement.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF"));
+                    if (DbElGroups.IsValid)
+                    {
+                        return DbElGroups.ToString();
+                        break;
+                    }
+                        
+                }
+                catch
+                {
+                    dbElement = dbElement.Owner;
+                }
+            }
+
+            
+        }
+        return "";
 
 
+    }
 
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
@@ -310,7 +415,7 @@ public class ClashChecker
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
         string DbRef = dbElement.GetString(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
-        string SiteIFC = dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+        string SiteIFC = dbElement.GetSite().ToString();
 
         if (SiteIFC.Contains("IFC"))
         {
@@ -374,18 +479,61 @@ public class ClashChecker
         var dbElement = DbElement.GetElement(dbElementRef);
         string ProjectName = Project.CurrentProject.Name;
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
+        var DbRef = dbElement.GetElement(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
-        BaseFilter filter = new DBTypeFilter(DbType.System);
-        // var Q = DB
+        string SiteIFC = dbElement.GetSite().ToString();
 
+        if (SiteIFC.Contains("IFC"))
+        {
+            int i = SiteIFC.LastIndexOf('-');
+            string index = i >= 0 ? SiteIFC.Substring(i) : "";
+            string deptIFC = DepartmentInfo.Departments.FirstOrDefault(d => d.Mark.Contains(index)).ToString();
+            return deptIFC;
 
-        var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
-        var uW = DbElement.GetElement("/*U");
-        List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
-        // var logid = collection.Where(i => i.GetString(DbAttributeInstance.NAME) == usermod);
-        //string deptGCC = (logid as DbElement).GetString(DbAttributeInstance.USEF);
-        return result;
+        }
 
+        switch (result)
+        {
+            case "TUE":
+            case "YKE":
+                string DbName = dbElement.Db.DbItem.ToString();
+                return DbName.Substring(0, 3);
+                break;
+
+            case "GCC":
+
+                string usermod = History(dbElement, "user").ToLower();
+                var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
+                var uW = DbElement.GetElement("/*U");
+                List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
+                var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAMN) == usermod);
+                var deptGCC = logid.GetElement(DbAttributeInstance.USEF);
+                string DbNameGCC = dbElement.Db.DbItem.ToString();
+
+                return deptGCC.ToString();
+
+                break;
+
+            default:
+
+                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+                //:UES_DEPART надо ли? vсмотрел, его со времен царя гороха никто не заполняет
+                //isnullorEmpty
+                if (site.Length > 0)
+                {
+                    string index = site.Substring(site.IndexOf('_'), 3);
+                    var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
+                    bool IsBool = SpecProj.Contains(ProjectName);
+                    foreach (var d in dept)
+                    {
+                        if (IsBool) return d.Tdept;
+                        else return d.Dept;
+
+                    }
+                }
+                break;
+        }
+        return null;
     }
 
 
