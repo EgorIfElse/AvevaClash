@@ -248,7 +248,7 @@ public class ClashChecker
             // }
             //
             // 
-            if (user != "balashovan" || user != "goncharenko")
+            if (user != "balashovan" && user != "goncharenko" && user != "pdmsadmin")
             {
                 break;
             }
@@ -325,8 +325,6 @@ public class ClashChecker
 
 
     }
-
-
     [PMLNetCallable]
     public string GetGroups(DbElement dbElement)
     {
@@ -407,7 +405,6 @@ public class ClashChecker
 
 
     }
-
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
@@ -468,11 +465,6 @@ public class ClashChecker
         }
         return null;
     }
-
-    [PMLNetCallable]
-
-    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
-
     [PMLNetCallable]
     public string GetDepartmentTest(string dbElementRef, string hier)
     {
@@ -508,7 +500,8 @@ public class ClashChecker
                 List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
                 var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAMN) == usermod);
                 var deptGCC = logid.GetElement(DbAttributeInstance.USEF);
-                string DbNameGCC = dbElement.Db.DbItem.ToString();
+                var login = Project.CurrentProject.LoginUser;
+
 
                 return deptGCC.ToString();
 
@@ -535,15 +528,24 @@ public class ClashChecker
         }
         return null;
     }
-
+    [PMLNetCallable]
+    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
 
 
     [PMLNetCallable]
-    public bool DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
+    public void DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
     {
-        /// надо написать метод
+        var HistTableName = $"{tableName} + '_his'";
+        var login = Project.CurrentProject.LoginUser;
+        clashConnection.Open();
 
-        return true;
+        string CreateTableHist = $"insert into {HistTableName} select {tableName} | & |.* ,getdate()  ,'{login}'  ,'{type}' ,'{comment}' from {tableName} where id = {clash.Id}";
+        clashConnection.Execute(CreateTableHist, clashConnection);
+        string DeleteIdTableHist = $"DELETE FROM {tableName} where id = {clash.Id}";
+        clashConnection.Execute(DeleteIdTableHist, clashConnection);
+
+        clashConnection.Close();
+
     }
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
