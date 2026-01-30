@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Aveva.ClashChecker.NetCallable.Models
 {
-    public class DepartmentInfo
+    public struct DepartmentInfo
     {
         public string Dept { get; set; }
         public string Tdept { get; set; }

@@ -418,8 +418,14 @@ public class ClashChecker
         {
             int i = SiteIFC.LastIndexOf('-');
             string index = i >= 0 ? SiteIFC.Substring(i) : "";
-            string deptIFC = DepartmentInfo.Departments.FirstOrDefault(d => d.Mark.Contains(index)).ToString();
-            return deptIFC; 
+            if (DepartmentLookup.MarkToDept.TryGetValue(index, out string dept))
+            {
+                return dept;
+            }
+            else
+            {
+                return "";
+            }
 
         }
 
@@ -436,13 +442,31 @@ public class ClashChecker
                 string usermod = History(dbElement, "user").ToLower();
                 var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
                 var uW = DbElement.GetElement("/*U");
-                List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
-                var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAME) == usermod);
-                string deptGCC = logid.GetString(DbAttributeInstance.USEF);
+                var collection = new DBElementCollection(uW, type).Cast<DbElement>();
+                //var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAME) == usermod);
+                Dictionary<string, string> LognameByDept;
+                LognameByDept = new Dictionary<string, string>();
+                foreach (var el in collection)
+                {
+                    string name = el.GetString(DbAttributeInstance.NAME);
+                    LognameByDept[name] = name;
+                    string dept = el.GetString(DbAttributeInstance.USEF);
+                    LognameByDept[dept] = dept;
+                }
 
-                return deptGCC;
+                //var logid = collection.Tr
+                if (LognameByDept.TryGetValue(usermod, out string deptGCC))
+                {
+                    return deptGCC;
+                }
+                else
+                {
+                    return "";
+                }
 
-                break;
+
+
+                    break;
 
             default:
 
@@ -479,8 +503,14 @@ public class ClashChecker
         {
             int i = SiteIFC.LastIndexOf('-');
             string index = i >= 0 ? SiteIFC.Substring(i) : "";
-            string deptIFC = DepartmentInfo.Departments.FirstOrDefault(d => d.Mark.Contains(index)).ToString();
-            return deptIFC;
+            if (DepartmentLookup.MarkToDept.TryGetValue(index, out string dept))
+            {
+                return dept;
+            }
+            else
+            {
+                return "";
+            }
 
         }
 
@@ -500,7 +530,6 @@ public class ClashChecker
                 List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
                 var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAMN) == usermod);
                 var deptGCC = logid.GetElement(DbAttributeInstance.USEF);
-                var login = Project.CurrentProject.LoginUser;
 
 
                 return deptGCC.ToString();
