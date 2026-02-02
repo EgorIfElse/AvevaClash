@@ -1,22 +1,29 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 	<PropertyGroup>
-		<AssemblyName>ClashChecker</AssemblyName>
+		<AssemblyName>ClashChecker01</AssemblyName>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<UseWindowsForms>False</UseWindowsForms>
 		<TargetFramework>net481</TargetFramework>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 	<PropertyGroup>
 		<LangVersion>12.0</LangVersion>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<PropertyGroup>
-	  <PlatformTarget>x86</PlatformTarget>
+	  <PlatformTarget>AnyCPU</PlatformTarget>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.66" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
 	</ItemGroup>
 	<ItemGroup>
+		<Reference Include="Aveva.Core.Database.Filters">
+		  <HintPath>..\References\Aveva.Core.Database.Filters.dll</HintPath>
+		</Reference>
+		<Reference Include="Aveva.Core.Geometry">
+		  <HintPath>..\References\Aveva.Core.Geometry.dll</HintPath>
+		</Reference>
 		<Reference Include="PMLNet">
 			<HintPath>..\References\PMLNet.dll</HintPath>
 		</Reference>
@@ -28,6 +35,9 @@
 		</Reference>
 		<Reference Include="Aveva.Core">
 			<HintPath>..\References\Aveva.Core.dll</HintPath>
+		</Reference>
+		<Reference Include="Aveva.Core3D.Clasher">
+			<HintPath>..\References\Aveva.Core3D.Clasher.dll</HintPath>
 		</Reference>
 		<Reference Include="System.Data" />
 	</ItemGroup>

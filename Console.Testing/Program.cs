@@ -12,15 +12,11 @@ public class Program
     public static async Task Main(string[] args)
     {
 
-        //string sqlQuery = "select id 'Id', clashtype 'ClashType', El1 'FirstElement', type1 'FirstType', usermod1 'FirstUserMode', dept1 'FirstDept', gpset1 'FirstGpset', El2 'SecondElement', type2 'SecondType', usermod2 'SecondUserMode', dept2 'SecondDept', gpset2 'SecondGpset' from clashtableARM";
-        //string sqlConnection = $"Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID={sqlUserName};Password={sqlPassword};Connection Timeout = 300";
-        //string csvFilePath = "D:\\temp.csv";
-        var temp = await GetClashesAsync();
-        //SQLObject sQLObject = new();
-        //var result = sQLObject.SqlQueryWithCsvOutput(sqlConnection, sqlQuery, csvFilePath);
-        //Console.WriteLine(result);
-
-
+       foreach(var clash in await GetClashesAsync())
+        {
+            Console.WriteLine(clash.Id);
+        }
+        Console.ReadLine();
     }
 
     public static async Task<List<ClashEntity>> GetClashesAsync()

@@ -1,18 +1,18 @@
 using Aveva.ClashChecker.NetCallable.Extensions;
 using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.Core.Database;
+using Aveva.Core.Database.Filters;
 using Aveva.Core.PMLNet;
+using Aveva.Core3D.Clasher;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.Remoting;
-using System.Security.Policy;
-using System.Threading;
-using System.Windows.Forms;
+using System.Threading.Tasks;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
+using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 namespace ClashChecker;
 
 /// <summary>
@@ -34,6 +34,154 @@ public class ClashChecker
 
     public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
 
+    [PMLNetCallable]
+    public async Task CheckAll(string obstType)
+    {
+        try
+        {
+            DbElement world = DbElement.GetElement("*");
+            var projectCode = Project.CurrentProject.Name;
+            string clashTableName = $"clashtable{projectCode}";
+
+            string ifcTableName = $"tableIfc{projectCode}";
+            string clashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
+
+            using SqlConnection clashConnection = GetClashSqlConnection();
+            clashConnection.Open();
+
+            ReplaceRefIFC(clashConnection, clashTableName, ifcTableName, clashRefUpdateLog, projectCode);
+            UpdateClashElementInfo(clashConnection, "FULL", clashTableName);
+
+            await clashConnection.ExecuteAsync($"UPDATE {clashTableName} set Existing = 'false'");
+            int initialClashCount = clashConnection.Query<int>($"SELECT top 1 @@ROWCOUNT from {clashTableName}").First();
+
+
+            string initialClashesLogString = $"Коллизий до проверки: {initialClashCount}";
+
+
+            List<DbElement> colZone;
+
+            //TODO: Проверить быстродействие составного фильтра против пост-обработки LinQ
+            //var filter = new CompoundFilter();
+            //filter.AddShow(new TypeFilter(DbElementTypeInstance.ZONE));
+
+            //Собираем коллекцию зон для obstructionList
+            if (projectCode == "GCC")
+            {
+                colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e=> !e.Name().Contains("PO")
+                && !e.Name().Contains("STUDY")
+                && !e.Name().Contains("ZEMI")
+                && !e.Name().Contains("/??"))];
+            }
+            else
+            {
+                colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e => !e.Owner.Name().Contains(".L")
+                && e.Owner.GetString(DbAttributeInstance.PURP) != "NOCL"
+                && e.GetDouble(DbAttributeInstance.MCOU) != 0
+                && !e.Owner.Name().Contains("ZEMI"))];
+            }
+
+            string zoneCountLogString = $"Всего зон {colZone.Count} шт";
+            var obstructionList = ObstructionList.Create();
+            for (int i = 0; i < colZone.Count; i++)
+            {
+                switch (obstType.ToUpper())
+                {
+                    case "ZONE":
+                        List<DbElement> obstructionZones = [];
+                        var wvolArray = colZone.Select(e => e.GetDoubleArray(DbAttributeInstance.WVOL)).ToList();
+
+                        for (int j = i; j < colZone.Count; j++)
+                            if (WvolClash(wvolArray[i], wvolArray[j]))
+                                obstructionZones.Add(colZone[j]);
+                        obstructionList.AddObstructions([.. obstructionZones]);
+
+                        break;
+                    case "VOL":
+                        obstructionList.AddObstructions([.. new DBElementCollection(new InVolumeFilter(colZone[i], false)).Cast<DbElement>().Where(e =>
+                        {
+                            var site = e.GetOwnerByType(DbElementTypeInstance.SITE);
+                            if (site.Name().Contains(".L"))
+                                return false;
+                            string purpose = site.GetString(DbAttributeInstance.PURP);
+                            if (purpose == "AXES" || purpose == "NOCL")
+                                return false;
+                            if (e.Name().Contains("CLASH"))
+                                return false;
+
+                            return false;
+                        })]);
+                        break;
+                }
+            }
+
+            var clashOptions = ClashOptions.Create();
+            clashOptions.TouchOverlap = 2;
+            clashOptions.IncludeTouches = false;
+            clashOptions.IncludeConnections = false;
+            clashOptions.Clearance = 0;
+            clashOptions.BranchCheckType = BranchCheck.BCHECK;
+
+            clashOptions.NoCheckWithin(
+            [
+                DbElementTypeInstance.EQUIPMENT,
+                DbElementTypeInstance.STRUCTURE,
+                DbElementTypeInstance.BRANCH,
+                DbElementTypeInstance.RESTRAINT,
+            ]);
+
+            var clashSet = ClashSet.Create();
+            var checkResult = Clasher.Instance.CheckAll(clashOptions, obstructionList, clashSet);
+            if (!checkResult)
+                return;
+            CheckResultToBase(clashSet);
+
+
+
+
+
+            clashConnection.Close();
+
+        }
+        catch (Exception ex)
+        {
+
+        }
+
+    }
+
+    /// <summary>
+    /// Обновляет таблицу tableIfc{ProjName}
+    /// </summary>
+    /// <param name="projectName"></param>
+    private void ReplaceRefIFC(SqlConnection clashConnection, string clashTableName, string tableIfcName, string clashRefUpdateLog, string pprojectCode)
+    {
+
+        clashConnection.Open();
+        if (!clashConnection.TableExists(tableIfcName) || !clashConnection.TableExists(clashTableName))
+            return;
+
+        if (!clashConnection.TableExists(clashRefUpdateLog))
+            CreateTableRefUpdateLog(pprojectCode, clashConnection);
+
+        int j = 3;
+        for (int i = 1; i < 3; i++)
+        {
+            j--;
+            //Идём по элементам в таблице коллизий
+            string updateFirstQuery = $"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), " +
+                $"ClashWithMemE{i} AS(SELECT OldE{i}, flnm{i}, LEFT(flnm{i}, CHARINDEX(' of ', flnm{i} + ' of ') - 1) AS mempos{i} FROM ClashElemsE{i}), " +
+                $"OldWithUuidE{i} AS(SELECT c.OldE{i}, c.flnm{i}, i.UUIDowner FROM ClashWithMemE{i} c JOIN {tableIfcName} i ON i.ELEM = c.OldE{i} AND i.fdelnm = c.mempos{i}), " +
+                $"LatestPerUUIDE{i} AS(SELECT UUIDowner, ELEM AS NewE{i}, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), " +
+                $"MapOldNewE{i} AS(SELECT o.OldE{i}, o.flnm{i}, l.NewE{i} FROM OldWithUuidE{i} o JOIN LatestPerUUIDE{i} l ON l.UUIDowner = o.UUIDowner AND l.rn = 1) " +
+                $"UPDATE c SET c.El{i} = m.NewE{i} OUTPUT deleted.id, deleted.El{i}, inserted.El{i}, inserted.flnm{i}, GETDATE() INTO" +
+                $"{clashRefUpdateLog}(RowId, OldEl{j}, NewEl{j}, flnm{j}, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE{i} m ON c.El{i} = m.OldE{i} AND c.flnm{i} = m.flnm{i} WHERE c.type{i} = 'GENPRI' AND m.NewE{i}<> c.El{i} " +
+                "SELECT @@ROWCOUNT AS UpdatedRows;";
+            clashConnection.Execute(updateFirstQuery, commandTimeout: 600);
+        }
+        clashConnection.Close();
+    }
+
     /// <summary>
     /// Обновляет данные по коллизиям (по отдельным комплектам/ по всем комлпекта)
     /// </summary>
@@ -42,7 +190,7 @@ public class ClashChecker
     /// <param name="clashDir"></param>
     /// <param name="gpsetName"></param>
     [PMLNetCallable]
-    public string UpdateClashElementInfo(string checkMode, string projectName, string clashDir, string tableName, string gpsetName = "")
+    public string UpdateClashElementInfo(SqlConnection clashConnection, string checkMode, string tableName, string gpsetName = "")
     {
         try
         {
@@ -50,7 +198,7 @@ public class ClashChecker
             int deleteCount = 0;
             int updateCount = 0;
             int totalCount = 0;
-            using SqlConnection clashConnection = GetClashSqlConnection();
+            //using SqlConnection clashConnection = GetClashSqlConnection();
             clashConnection.Open();
             if (gpsetName == "")
             {
@@ -78,6 +226,8 @@ public class ClashChecker
                 var clashList = clashConnection.Query<ClashEntity>(getGpsetClashQuery).ToList();
                 //TODO: Переписать на c# QueryClashByEl (необходимы объекты E3D)
                 //var secondClashList = QueryClashByEl(gpsetName);
+                QueryClashByEl(gpsetName);
+
 
             }
             stopwatch.Stop();
@@ -94,9 +244,11 @@ public class ClashChecker
         }
     }
 
-    public void WriteLogEx(string logFilePath, string logContent)
-    {
 
+
+    public bool WvolClash(double[] volume1, double[] volume2)
+    {
+        return !(volume1[0] > volume2[3] || volume1[3] < volume2[0]) && !(volume1[1] > volume2[4] || volume1[4] < volume2[1]) && !(volume1[2] > volume2[5] || volume1[5] < volume2[2]);
     }
 
     [PMLNetCallable]
@@ -110,7 +262,6 @@ public class ClashChecker
             if (IsNeedToDeleteClashSimple(clash))
             {
 
-                
                 string comment = "UpdateClashElementInfo один из элементов уже не существует";
                 string type = "badref";
                 DeleteById(clashConnection, tableName, clash, type, comment);
@@ -153,8 +304,8 @@ public class ClashChecker
                         (clash.SecondDept != RealDept2,       $"SecondDept:{clash.SecondDept}->{RealDept2}"),
                         (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}")
                     };
-                    
-                    foreach ( var c in changes )
+
+                    foreach (var c in changes)
                     {
                         if (c.rules)
                         {
@@ -169,38 +320,38 @@ public class ClashChecker
 
 
 
-                  //  string str = $"будет обновлена {clash.Id}";
-                  //
-                  //  if (clash.FirstUserMode != RealUsermod1)
-                  //  {
-                  //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
-                  //  }
-                  //
-                  //  else if (clash.FirstDept != RealDept1)
-                  //  {
-                  //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
-                  //  }
-                  //
-                  //  else if (clash.FirstGpset != RealGpset1)
-                  //  {
-                  //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
-                  //  }
-                  //
-                  //  else if (clash.SecondUserMode != RealUsermod2)
-                  //  {
-                  //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
-                  //  }
-                  //
-                  //  else if (clash.SecondDept != RealDept1)
-                  //  {
-                  //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
-                  //  }
-                  //
-                  //  else if (clash.SecondGpset != RealGpset1)
-                  //  {
-                  //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
-                  //  }
-                   
+                    //  string str = $"будет обновлена {clash.Id}";
+                    //
+                    //  if (clash.FirstUserMode != RealUsermod1)
+                    //  {
+                    //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
+                    //  }
+                    //
+                    //  else if (clash.FirstDept != RealDept1)
+                    //  {
+                    //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
+                    //  }
+                    //
+                    //  else if (clash.FirstGpset != RealGpset1)
+                    //  {
+                    //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
+                    //  }
+                    //
+                    //  else if (clash.SecondUserMode != RealUsermod2)
+                    //  {
+                    //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
+                    //  }
+                    //
+                    //  else if (clash.SecondDept != RealDept1)
+                    //  {
+                    //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
+                    //  }
+                    //
+                    //  else if (clash.SecondGpset != RealGpset1)
+                    //  {
+                    //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
+                    //  }
+
 
                 }
 
@@ -214,6 +365,16 @@ public class ClashChecker
         }
 
     }
+
+    public void WriteLogEx(string logFilePath, string logContent)
+    {
+        //DBElementCollection collection = new DBElementCollection(pipe);
+        //List<DbElement> outlist outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH).ToList();
+    }
+
+
+
+
     /// <summary>
     /// Обновляет данные по коллизиям (по отдельным элементам)
     /// <returns>
@@ -250,32 +411,32 @@ public class ClashChecker
         {
             case "TUE":
             case "YKE":
-                    string DbName = dbElement.Db.DbItem.ToString();
-                    return DbName.Substring(0, 3);
+                string DbName = dbElement.Db.DbItem.ToString();
+                return DbName.Substring(0, 3);
                 break;
 
             case "GCC":
                 //var UlogId = new <List>
-               string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
+                string UlogId = dbElement.GetString(DbAttributeInstance.HULOC);
                 string usermod = History(dbElement, "user").ToLower();
-             //  foreach ()
-             //  {
-             //
-             //  }
+                //  foreach ()
+                //  {
+                //
+                //  }
                 break;
             default:
                 string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.GetString(DbAttributeInstance.OWNER);
                 //:UES_DEPART надо ли? isnullorEmpty
                 if (site.Length > 0)
                 {
-                    string index = site.Substring(site.IndexOf('_'),2);
+                    string index = site.Substring(site.IndexOf('_'), 2);
                 }
-                
+
                 foreach (var dept in DepartmentInfo.Departments)
                 {
                     //var d =  
                 }
-                
+
                 switch (result)
                 {
                     case "DNS":
@@ -283,15 +444,15 @@ public class ClashChecker
                     case "WXT":
 
                         break;
-                    default :
+                    default:
                         break;
                 }
 
 
                 break;
         }
-            return result;
-        }
+        return result;
+    }
 
 
     [PMLNetCallable]
@@ -303,14 +464,12 @@ public class ClashChecker
     }
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
-
-        var dbElem1 = DbElement.GetElement(clash.FirstElement);
-        var dbElem2 = DbElement.GetElement(clash.SecondElement);
-        return (!dbElem1.IsValid || !dbElem2.IsValid);
+        return !(DbElement.GetElement(clash.FirstElement).IsValid && DbElement.GetElement(clash.SecondElement).IsValid);
     }
 
-    public void QueryClashByEl()
+    public void QueryClashByEl(string gpsetName)
     {
+
     }
 
     /// <summary>
@@ -397,40 +556,277 @@ public class ClashChecker
         }
     }
 
-    [PMLNetCallable]
-    public void ReplaceRefIFC(string projectName = "")
+
+
+    private void CheckResultToBase(ClashSet clashSet)
     {
-        if (projectName == "")
-            projectName = Project.CurrentProject.Name;
-
-        string tableIfcName = $"tableIfc{projectName}";
-        string clashRefUpdateLog = $"Clash{projectName}_RefUpdateLog";
-        string clashTableName = $"clashtable{projectName}";
-        using SqlConnection clashConnection = GetClashSqlConnection();
-        clashConnection.Open();
-        if (!clashConnection.TableExists(tableIfcName) || !clashConnection.TableExists(clashTableName))
-            return;
-        if (!clashConnection.TableExists(clashRefUpdateLog))
-            CreateTableRefUpdateLog(projectName, clashConnection);
-
-        int j = 3;
-        for (int i = 1; i < 3; i++)
-        {
-            j--;
-            //Идём по первым элементам в таблице коллизий
-            string updateFirstQuery = $"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), " +
-                $"ClashWithMemE{i} AS(SELECT OldE{i}, flnm{i}, LEFT(flnm{i}, CHARINDEX(' of ', flnm{i} + ' of ') - 1) AS mempos{i} FROM ClashElemsE{i}), " +
-                $"OldWithUuidE{i} AS(SELECT c.OldE{i}, c.flnm{i}, i.UUIDowner FROM ClashWithMemE{i} c JOIN {tableIfcName} i ON i.ELEM = c.OldE{i} AND i.fdelnm = c.mempos{i}), " +
-                $"LatestPerUUIDE{i} AS(SELECT UUIDowner, ELEM AS NewE{i}, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), " +
-                $"MapOldNewE{i} AS(SELECT o.OldE{i}, o.flnm{i}, l.NewE{i} FROM OldWithUuidE{i} o JOIN LatestPerUUIDE{i} l ON l.UUIDowner = o.UUIDowner AND l.rn = 1) " +
-                $"UPDATE c SET c.El{i} = m.NewE{i} OUTPUT deleted.id, deleted.El{i}, inserted.El{i}, inserted.flnm{i}, GETDATE() INTO" +
-                $"{clashRefUpdateLog}(RowId, OldEl{j}, NewEl{j}, flnm{j}, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE{i} m ON c.El{i} = m.OldE{i} AND c.flnm{i} = m.flnm{i} WHERE c.type{i} = 'GENPRI' AND m.NewE{i}<> c.El{i} " +
-                "SELECT @@ROWCOUNT AS UpdatedRows;";
-            clashConnection.Execute(updateFirstQuery, commandTimeout: 600);
-        }
-        clashConnection.Close();
+        foreach (var clash in clashSet.Clashes.Where(e => !IsClashIgnore(e)))
+            InsertOneCLash(clash);
     }
 
+    private void InsertOneCLash(Clash clash)
+    {
+        try
+        {
+
+
+
+
+
+        }
+        catch (Exception ex)
+        {
+
+        }
+    }
+
+    /// <summary>
+    /// Возвращает true, если коллизию следует игнорировать
+    /// </summary>
+    /// <param name="clash"></param>
+    /// <returns></returns>
+    private bool IsClashIgnore(Clash clash)
+    {
+        try
+        {
+            if (CheckPipeWithJntc(clash))
+                return true;
+
+            if (CheckSiteAndZoneNames(clash))
+                return true;
+
+            if (CheckGensecWithPane(clash))
+                return true;
+
+            if (CheckHangWithBranch(clash))
+                return true;
+
+            if (CheckRestWithStlr(clash))
+                return true;
+
+            if (CheckBranWithFrameWork(clash))
+                return true;
+
+            return false;
+        }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
+    #region Проверки для IsClashIgnore
+    private bool CheckBranWithFrameWork(Clash clash)
+    {
+        DbElement firstCheckRef;
+        DbElement secondCheckRef;
+        for (int i = 0; i < 2; i++)
+        {
+            if (i == 0)
+            {
+                firstCheckRef = clash.First;
+                secondCheckRef = clash.Second;
+            }
+            else
+            {
+                firstCheckRef = clash.Second;
+                secondCheckRef = clash.First;
+            }
+            if (!firstCheckRef.TryGetOwnerByType(DbElementTypeInstance.BRANCH, out DbElement firstBran) && firstBran.ElementType == DbElementTypeInstance.BRANCH)
+                firstBran = firstCheckRef;
+            if (firstBran.IsNull)
+                break;
+            DbElement secondBran = DbElement.GetElement("");
+            if ((secondCheckRef.Owner.ElementType == DbElementTypeInstance.FRMWORK || secondCheckRef.Owner.ElementType == DbElementTypeInstance.SBFRAMEWORK) && secondCheckRef.TryGetOwnerByType(DbElementTypeInstance.FRMWORK, out DbElement frmw))
+            {
+                try
+                {
+                    secondBran = frmw.GetElement(DbAttributeInstance.SUPR).Members().First().GetElement(DbAttributeInstance.HREF).Owner;
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+            }
+            if (secondBran.IsNull)
+                break;
+
+            if (firstBran == secondBran)
+                return true;
+
+        }
+
+        return false;
+
+
+    }
+
+    private bool CheckRestWithStlr(Clash clash)
+    {
+        DbElement hmem = NullElement;
+        if (clash.First.TryGetOwnerByType(DbElementTypeInstance.FRMWORK, out DbElement frameWork))
+            hmem = clash.Second;
+        else if (clash.Second.TryGetOwnerByType(DbElementTypeInstance.FRMWORK, out frameWork))
+            hmem = clash.First;
+
+        if (!frameWork.IsNull && !hmem.IsNull && hmem.TryGetOwnerByType(DbElementTypeInstance.RESTRAINT, out DbElement rest) && rest.GetElement(DbAttributeInstance.STLR) == frameWork)
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Проверка по футлярам для pipe
+    /// </summary>
+    private bool CheckPipeWithJntc(Clash clash)
+    {
+        DbElement firstPipe = NullElement;
+        DbElement secondPipe = NullElement;
+
+        if (clash.First.Owner.Owner.ElementType == DbElementTypeInstance.PIPE)
+            firstPipe = clash.First.Owner.Owner;
+        else if (clash.First.Owner.ElementType == DbElementTypeInstance.PIPE)
+            firstPipe = clash.First.Owner.Owner;
+
+        if (clash.Second.Owner.Owner.ElementType == DbElementTypeInstance.PIPE)
+            secondPipe = clash.Second.Owner.Owner;
+        else if (clash.Second.Owner.ElementType == DbElementTypeInstance.PIPE)
+            secondPipe = clash.Second.Owner.Owner;
+        if (!firstPipe.IsNull && !secondPipe.IsNull)
+        {
+            var firstDrrf = firstPipe.GetElement(DbAttributeInstance.DRRF);
+            var secondDrrf = secondPipe.GetElement(DbAttributeInstance.DRRF);
+            var firstJntc = firstPipe.GetDouble(DbAttributeInstance.JNTC);
+            var secondJntc = secondPipe.GetDouble(DbAttributeInstance.JNTC);
+            if (!firstDrrf.IsNull && firstJntc == 2 && secondJntc == 1 && firstDrrf == secondPipe)
+                return true;
+            else if (!secondDrrf.IsNull && secondJntc == 2 && firstJntc == 1 && secondDrrf == firstPipe)
+                return true;
+
+        }
+
+        return false;
+
+    }
+    /// <summary>
+    /// Проверка игнорируемых сайтов, сайтов/зон для экспорта IFC
+    /// </summary>
+    private bool CheckSiteAndZoneNames(Clash clash)
+    {
+
+        //Игнорируем коллизии внутри сайтов, содержащих ".L, /PO в имени. Сайтов, с PURPOSE == NOCL. Коллизий, внутри одного и того же сайта с IFC в имени"
+        if (clash.First.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement firstSite) && clash.Second.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement secondSite))
+        {
+            string firstSiteName = firstSite.Name().ToLower();
+            string secondSiteName = secondSite.Name().ToLower();
+            if (
+          (firstSite.GetString(DbAttributeInstance.PURP) == "NOCL"
+          || secondSite.GetString(DbAttributeInstance.PURP) == "NOCL"
+          || firstSiteName.Contains(".l")
+          || secondSiteName.Contains(".l")
+          || firstSiteName.Contains("/po")
+          || secondSiteName.Contains("/po"))
+          ||
+          (firstSite == secondSite && firstSiteName.Contains("ifc")))
+            {
+                return true;
+            }
+        }
+
+        if (clash.First.TryGetOwnerByType(DbElementTypeInstance.ZONE, out DbElement firstZone) && clash.Second.TryGetOwnerByType(DbElementTypeInstance.ZONE, out DbElement secondZone))
+        {
+            if (firstZone == secondZone && firstZone.Name().ToLower().Contains("ifc"))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool CheckGensecWithPane(Clash clash)
+    {
+
+        var firstType = clash.First.ElementType;
+        var secondType = clash.Second.ElementType;
+        DbElement pane;
+        DbElement sctn;
+
+
+        if (firstType == DbElementTypeInstance.GENSEC && secondType == DbElementTypeInstance.PANEL)
+        {
+            pane = clash.Second;
+            sctn = clash.First;
+        }
+        else if (firstType == DbElementTypeInstance.PANEL && secondType == DbElementTypeInstance.GENSEC)
+        {
+            pane = clash.First;
+            sctn = clash.Second;
+        }
+        else
+        {
+            return false;
+        }
+
+        var stru = sctn.GetOwnerByType(DbElementTypeInstance.STRUCTURE);
+        var zone = pane.GetOwnerByType(DbElementTypeInstance.ZONE);
+        var frmw = pane.GetOwnerByType(DbElementTypeInstance.FRMWORK);
+        if (frmw.IsNull)
+            return false;
+        string zoneName = zone.Name();
+        if (!zoneName.Contains('_') || zoneName.Split('_').Length < 3 || zoneName.Split('_')[2] != "CL")
+            return false;
+        string struName = stru.Name();
+        if (!struName.Contains('_') || struName.Split('_').Length < 4 || struName.Split('_')[3] != "CL")
+            return false;
+
+        string frmwName = frmw.Name();
+        if (!frmwName.Contains('_') || frmwName.Split('_').Length < 5 || frmwName.Split('_')[4].Substring(0, 1) != "CC")
+            return false;
+
+        return true;
+
+    }
+
+    private bool CheckHangWithBranch(Clash clash)
+    {
+        DbElement hMem;
+        DbElement bMem;
+        if (clash.First.Owner.ElementType == DbElementTypeInstance.HANGER && (clash.Second.Owner.ElementType == DbElementTypeInstance.BRANCH || clash.Second.ElementType == DbElementTypeInstance.BRANCH))
+        {
+            hMem = clash.First;
+            bMem = clash.Second;
+        }
+        else if (clash.Second.Owner.ElementType == DbElementTypeInstance.HANGER && (clash.First.Owner.ElementType == DbElementTypeInstance.BRANCH || clash.First.ElementType == DbElementTypeInstance.BRANCH))
+        {
+            hMem = clash.Second;
+            bMem = clash.First;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (!hMem.TryGetOwnerByType(DbElementTypeInstance.HANGER, out DbElement hanger))
+            return false;
+        try
+        {
+            var b1 = hanger.Owner.Members().First().GetElement(DbAttributeInstance.HREF).Owner;
+            if (b1.IsNull)
+                return false;
+            if (!bMem.TryGetOwnerByType(DbElementTypeInstance.BRANCH, out DbElement bran))
+                return false;
+            if (b1 == bran)
+                return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+
+
+        return true;
+    }
+    #endregion Проверки для IsClashIgnore
 
     private void CreateTableRefUpdateLog(string projectCode, SqlConnection sqlConnection)
     {
