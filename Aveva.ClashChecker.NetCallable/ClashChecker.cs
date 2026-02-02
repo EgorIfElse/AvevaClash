@@ -9,12 +9,14 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Remoting;
 using System.Security.Policy;
 using System.Threading;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 using System.Xml.Linq;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 namespace ClashChecker;
@@ -473,60 +475,7 @@ public class ClashChecker
         }
         return null;
     }
-    /// <summary>
-    /// ТЕСТ
-    /// </summary>
-    [PMLNetCallable]
-    public string HistoryTest(string dbElementref, string param)
 
-    {
-        var dbElement = DbElement.GetElement(dbElementref);
-        //var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
-        var Hist2 = dbElement.GetAsString(DbAttributeInstance.HIST);
-        string[] HistAr = Hist2.Split(' ');
-        string user = "";
-        string date = "";
-        for (int i = 0; i <= HistAr.Length; i++)
-        {
-            user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
-            date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
-
-            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
-            // var uW = DbElement.GetElement("/*U");
-            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
-            // foreach (var u in AllUser)
-            // {
-            //     var e = u.GetString(DbAttributeInstance.USRLI);
-            //     if (e.Contains("BIM") || e.Contains("BIM")) {
-            // }
-            //
-            // 
-            if (user != "balashovan" && user != "goncharenko" && user != "pdmsadmin")
-            {
-                break;
-            }
-            else
-            {
-                user = "admin";
-            }
-        }
-
-        switch (param)
-        {
-            case "user":
-                return user;
-                break;
-            case "date":
-                return date;
-                break;
-            default:
-                return "";
-                break;
-        }
-
-
-
-    }
     /// <summary>
     /// ТЕСТ
     /// </summary>
@@ -589,9 +538,9 @@ public class ClashChecker
         clashConnection.Open();
 
         string CreateTableHist = $"insert into {HistTableName} select {tableName} | & |.* ,getdate()  ,'{login}'  ,'{type}' ,'{comment}' from {tableName} where id = {clash.Id}";
-        clashConnection.Execute(CreateTableHist, clashConnection);
+        clashConnection.Execute(CreateTableHist);
         string DeleteIdTableHist = $"DELETE FROM {tableName} where id = {clash.Id}";
-        clashConnection.Execute(DeleteIdTableHist, clashConnection);
+        clashConnection.Execute(DeleteIdTableHist);
 
         clashConnection.Close();
 
@@ -604,8 +553,118 @@ public class ClashChecker
         return (!dbElem1.IsValid || !dbElem2.IsValid);
     }
 
-    public void QueryClashByEl()
+    // public List<string> QueryClashByEl(DbElement dbElement, string wherestring)
+
+    public List<ClashEntity> QueryClashByEl(string dbElementref, string wherestring)
+
     {
+        var dbElement = DbElement.GetElement(dbElementref);
+
+        //собираем элементы
+        //var CurEl = DbElement.GetElement(dbElement.ToString());
+        var collection = new DBElementCollection(dbElement).Cast<DbElement>().ToList();
+        string[] els = { };
+        string tablename = "";
+        var Login = Project.CurrentProject.LoginUser;
+        var ProjectName = Project.CurrentProject.Name;
+        var ProjectTableName = $"clashtable{ProjectName}";
+        for (int i = 0; i <= collection.Count - 1; i++)
+        {
+            var tmp = "";
+            var CE = collection[i];
+            if (CE.ElementType.Description.ToString() == "Tubing")
+            {
+                tmp = $"ileav tube of {CE.ToString()}";
+            }
+
+            els.Append(tmp.Replace("ileav rod of", "ileav tube of"));
+
+        }
+        // ХРЕНЬ КАКАЯ-ТО , УБРАЛ
+        //int s = els.Length;
+
+        //if (s > 400000)
+        //{
+        //    MessageBox.Show($"более 400000 элементов {s}. действие отменено");
+        //    return "";
+        //}
+
+        string Host = Environment.MachineName;
+
+        if (Host.Contains("GPU") || Host.Contains("GRU") || Host.Contains("0047"))
+        {
+            var file = File.ReadAllLines("X:\\App\\PDMS\\PDMS_TEP\\ADMIN\\User_TO_VM.csv");
+
+            foreach (string line in file)
+            {
+                string trimUS = line.Trim('"');
+                string[] User = trimUS.Split('\t');
+                if (Login.ToLower() == User[0].ToLower())
+                {
+                    tablename = $"{User[1]}{User[0]}";
+                }
+
+            }
+
+        }
+        else
+        {
+            tablename = $"{Host}{Login}";
+
+        }
+        using SqlConnection clashConnection = GetClashSqlConnection();
+        clashConnection.Open();
+
+        string SelectTableName = $"SELECT * FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME = {tablename}";
+        var select = clashConnection.Execute(SelectTableName);
+
+        //!!SA = !sqlarray
+
+        if (select == 0)
+        {
+            string CreateTable = $"CREATE TABLE {tablename} ( [El] NVARCHAR(40) );";
+            var create = clashConnection.Execute(CreateTable);
+        }
+
+        //1 очистить tmptable
+
+        string DeleteTable = $"delete from {tablename}";
+        var delete = clashConnection.Execute(DeleteTable);
+
+        //2 получить всех потомков и записать refno в таблицу
+
+        // ЭТО ЖЕ НЕ НАДО?
+        // var!DllPath EVAR DLLPATH
+        //!LoadDll = | IMPORT '| & !DllPath & '\' & 'SQLOBJ14.1' & |' | $*ВРЕМЕННО
+        // $!LoadDll
+        // handle(1000, 0)
+        // endhandle
+        // using namespace 'SQLOBJ2'
+        // !OBJ = object SQLObject()
+        // !OBJ.SqlConnect(!conn)
+
+        for (int i = 0; i <= els.Length - 1; i++)
+        {
+            string InsertTable = $"insert into {tablename} ( el) values ({els[i]})";
+            var Insert = clashConnection.Execute(InsertTable);
+        }
+        clashConnection.Close();
+
+        //получить из базы всё по этому элементу
+
+        string GetRowTableName = $"select id 'Id', clashtype 'ClashType', El1 'FirstElement', type1 'FirstType', usermod1 'FirstUserMode', dept1 'FirstDept', gpset1 'FirstGpset', El2 'SecondElement', type2 'SecondType', usermod2 'SecondUserMode', dept2 'SecondDept', gpset2 'SecondGpset', date 'Date', x 'X', y 'Y', z 'Z', existing 'Existing', RequestToDept 'RequestToDept', RequestUser 'RequestUser', RequestDate 'RequestDate', ApproveUser 'ApproveUser', ApproveDate 'ApproveDate', ApproveReason 'ApproveReason', InWorkUser 'InWorkUser', InWorkDate 'InWorkDate' " +
+            $"from {ProjectTableName} where ((el1 in (select el from {tablename}) or el2 in (select el from {tablename})) {wherestring} )";
+        var clashList = clashConnection.Query<ClashEntity>(GetRowTableName).ToList();
+
+        string TempTableName = $"SELECT count(*) FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME = {tablename}";
+        var TempSelect = clashConnection.Execute(SelectTableName);
+        if (TempSelect > 0)
+        {
+            clashConnection.Execute($"drop TABLE {tablename}");
+        }
+
+        return clashList;
+
     }
 
     /// <summary>
