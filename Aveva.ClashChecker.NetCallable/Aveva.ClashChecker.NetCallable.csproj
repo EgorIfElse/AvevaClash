@@ -4,7 +4,7 @@
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<UseWindowsForms>False</UseWindowsForms>
 		<TargetFramework>net481</TargetFramework>
-		<Nullable>enable</Nullable>
+		<Nullable>Enable</Nullable>
 	</PropertyGroup>
 	<PropertyGroup>
 		<LangVersion>12.0</LangVersion>

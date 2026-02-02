@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Aveva.ClashChecker.NetCallable.Models
 {
-    public class DepartmentInfo
+    public struct DepartmentInfo
     {
         public string Dept { get; set; }
         public string Tdept { get; set; }
@@ -25,37 +25,37 @@ namespace Aveva.ClashChecker.NetCallable.Models
                 Tdept = "TEPRDASU",
                 Mark = new[]{"_AS"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "ETO",
                 Tdept = "TEPRDETO",
                 Mark = new[]{"_ED"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "OGS",
                 Tdept = "TEPRDOGS",
                 Mark = new[]{"_HS"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "OIV",
                 Tdept = "TEPRDOIV",
                 Mark = new[]{"_HV"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "OMK",
                 Tdept = "TEPRDOMK",
                 Mark = new[]{"_SC"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "OVS",
                 Tdept = "TEPRDOVS",
                 Mark = new[]{"_VS"}
             },
-            new DepartmentInfo
+            new ()
             {
                 Dept = "SOT",
                 Tdept = "TEPRDSOT",
