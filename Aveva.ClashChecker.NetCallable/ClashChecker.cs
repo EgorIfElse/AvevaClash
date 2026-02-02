@@ -102,7 +102,14 @@ public class ClashChecker
     {
 
     }
-
+    /// <summary>
+    /// Обновляет данные по коллизиям (по отдельным элементам)
+    /// <returns>
+    /// 0 - если обновление не требовалось(NONE)
+    /// 1 - если было призведено обновление(UPDATE)
+    /// -1 - если удалили коллизию(DELETE)
+    /// </returns>
+    /// </summary>
     [PMLNetCallable]
     public double UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
     {
@@ -219,12 +226,7 @@ public class ClashChecker
 
     }
     /// <summary>
-    /// Обновляет данные по коллизиям (по отдельным элементам)
-    /// <returns>
-    /// 0 - если обновление не требовалось(NONE)
-    /// 1 - если было призведено обновление(UPDATE)
-    /// -1 - если удалили коллизию(DELETE)
-    /// </returns>
+    /// функция возвращает автора последнего изменения но не pdmsadmin
     /// </summary>
     [PMLNetCallable]
     public string History(DbElement dbElement, string param)
@@ -274,57 +276,10 @@ public class ClashChecker
 
 
     }
-    [PMLNetCallable]
-    public string HistoryTest(string dbElementref, string param)
-
-    {
-        var dbElement = DbElement.GetElement(dbElementref);
-        //var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
-        var Hist2 = dbElement.GetAsString(DbAttributeInstance.HIST);
-        string[] HistAr = Hist2.Split(' ');
-        string user = "";
-        string date = "";
-        for (int i = 0; i <= HistAr.Length; i++)
-        {
-            user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
-            date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
-
-            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
-            // var uW = DbElement.GetElement("/*U");
-            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
-            // foreach (var u in AllUser)
-            // {
-            //     var e = u.GetString(DbAttributeInstance.USRLI);
-            //     if (e.Contains("BIM") || e.Contains("BIM")) {
-            // }
-            //
-            // 
-            if (user != "balashovan" && user != "goncharenko" && user != "pdmsadmin")
-            {
-                break;
-            }
-            else
-            {
-                user = "admin";
-            }
-        }
-
-        switch (param)
-        {
-            case "user":
-                return user;
-                break;
-            case "date":
-                return date;
-                break;
-            default:
-                return "";
-                break;
-        }
-
-
-
-    }
+   
+    /// <summary>
+    /// функция возвращает имя комплекта или пустую строку
+    /// </summary>
     [PMLNetCallable]
     public string GetGroups(DbElement dbElement)
     {
@@ -359,52 +314,10 @@ public class ClashChecker
 
        
     }
-    [PMLNetCallable]
-    public string GetGroupsTest(string dbElementref)
-    {
-        var dbElement = DbElement.GetElement(dbElementref);
-        if (!dbElement.IsValid || dbElement.IsNull) return "";
-        var ProjName = Project.CurrentProject.Name;
-        var ElementDepth = dbElement.GetInteger(DbAttribute.GetDbAttribute("DbDepth"));
-        var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
-        var Site = dbElement.GetSite();
-        var Zone = dbElement.GetZone();
-
-        for (int i = 0; i <= ElementDepth; i++)
-        {
-            if (DbElType == "GPSET") return dbElement.Name();
-                 
-            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC"))
-            {
-                    var sdvds = DbElement.GetElement(Zone.Ref);
-                    var Gpref = sdvds.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF")).ToString();
-                   
-                    return Gpref;
-            }
-            else
-            {
-                try
-                {
-                    var DbElGroups = dbElement.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF"));
-                    if (DbElGroups.IsValid)
-                    {
-                        return DbElGroups.ToString();
-                        break;
-                    }
-                        
-                }
-                catch
-                {
-                    dbElement = dbElement.Owner;
-                }
-            }
-
-            
-        }
-        return "";
-
-
-    }
+   
+    /// <summary>
+    /// Функция возвращает отдел по элементу
+    /// </summary>
     [PMLNetCallable]
     public string GetDepartment(DbElement dbElement, string hier)
     {
@@ -489,6 +402,9 @@ public class ClashChecker
         }
         return null;
     }
+    /// <summary>
+    /// ТЕСТ
+    /// </summary>
     [PMLNetCallable]
     public string GetDepartmentTest(string dbElementRef, string hier)
     {
@@ -557,6 +473,110 @@ public class ClashChecker
         }
         return null;
     }
+    /// <summary>
+    /// ТЕСТ
+    /// </summary>
+    [PMLNetCallable]
+    public string HistoryTest(string dbElementref, string param)
+
+    {
+        var dbElement = DbElement.GetElement(dbElementref);
+        //var Hist = dbElement.GetAsString(DbAttributeInstance.HIST);
+        var Hist2 = dbElement.GetAsString(DbAttributeInstance.HIST);
+        string[] HistAr = Hist2.Split(' ');
+        string user = "";
+        string date = "";
+        for (int i = 0; i <= HistAr.Length; i++)
+        {
+            user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
+            date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
+
+            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
+            // var uW = DbElement.GetElement("/*U");
+            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
+            // foreach (var u in AllUser)
+            // {
+            //     var e = u.GetString(DbAttributeInstance.USRLI);
+            //     if (e.Contains("BIM") || e.Contains("BIM")) {
+            // }
+            //
+            // 
+            if (user != "balashovan" && user != "goncharenko" && user != "pdmsadmin")
+            {
+                break;
+            }
+            else
+            {
+                user = "admin";
+            }
+        }
+
+        switch (param)
+        {
+            case "user":
+                return user;
+                break;
+            case "date":
+                return date;
+                break;
+            default:
+                return "";
+                break;
+        }
+
+
+
+    }
+    /// <summary>
+    /// ТЕСТ
+    /// </summary>
+    [PMLNetCallable]
+    public string GetGroupsTest(string dbElementref)
+    {
+        var dbElement = DbElement.GetElement(dbElementref);
+        if (!dbElement.IsValid || dbElement.IsNull) return "";
+        var ProjName = Project.CurrentProject.Name;
+        var ElementDepth = dbElement.GetInteger(DbAttribute.GetDbAttribute("DbDepth"));
+        var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
+        var Site = dbElement.GetSite();
+        var Zone = dbElement.GetZone();
+
+        for (int i = 0; i <= ElementDepth; i++)
+        {
+            if (DbElType == "GPSET") return dbElement.Name();
+
+            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC"))
+            {
+                var sdvds = DbElement.GetElement(Zone.Ref);
+                var Gpref = sdvds.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF")).ToString();
+
+                return Gpref;
+            }
+            else
+            {
+                try
+                {
+                    var DbElGroups = dbElement.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF"));
+                    if (DbElGroups.IsValid)
+                    {
+                        return DbElGroups.ToString();
+                        break;
+                    }
+
+                }
+                catch
+                {
+                    dbElement = dbElement.Owner;
+                }
+            }
+
+
+        }
+        return "";
+
+
+    }
+
     [PMLNetCallable]
     static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
 
