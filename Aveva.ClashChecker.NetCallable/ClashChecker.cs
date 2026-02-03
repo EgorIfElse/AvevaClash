@@ -8,17 +8,10 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.Remoting;
-using System.Security.Policy;
-using System.Threading;
-using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
-using System.Xml.Linq;
+using System.Threading.Tasks;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 namespace ClashChecker;
@@ -41,6 +34,7 @@ public class ClashChecker
 
 
     public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
+    public DbElement NullElement { get; private set; }
 
     [PMLNetCallable]
     public async Task CheckAll(string obstType)
@@ -70,8 +64,10 @@ public class ClashChecker
             List<DbElement> colZone;
 
             //TODO: Проверить быстродействие составного фильтра против пост-обработки LinQ
-            //var filter = new CompoundFilter();
-            //filter.AddShow(new TypeFilter(DbElementTypeInstance.ZONE));
+            var filter = new CompoundFilter();
+            //filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
+//filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
+            //filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
 
             //Собираем коллекцию зон для obstructionList
             if (projectCode == "GCC")
@@ -234,7 +230,7 @@ public class ClashChecker
                 var clashList = clashConnection.Query<ClashEntity>(getGpsetClashQuery).ToList();
                 //TODO: Переписать на c# QueryClashByEl (необходимы объекты E3D)
                 //var secondClashList = QueryClashByEl(gpsetName);
-                QueryClashByEl(gpsetName);
+                QueryClashByEl(gpsetName, "");
 
 
             }
@@ -251,9 +247,6 @@ public class ClashChecker
             return ConvertExceptionToPmlMessage(ex, "");
         }
     }
-
-
-
     public bool WvolClash(double[] volume1, double[] volume2)
     {
         return !(volume1[0] > volume2[3] || volume1[3] < volume2[0]) && !(volume1[1] > volume2[4] || volume1[4] < volume2[1]) && !(volume1[2] > volume2[5] || volume1[5] < volume2[2]);
@@ -380,16 +373,12 @@ public class ClashChecker
         }
 
     }
-
+    [PMLNetCallable]
     public void WriteLogEx(string logFilePath, string logContent)
     {
         //DBElementCollection collection = new DBElementCollection(pipe);
         //List<DbElement> outlist outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH).ToList();
     }
-
-
-
-
     /// <summary>
     /// функция возвращает автора последнего изменения но не pdmsadmin
     /// </summary>
@@ -424,24 +413,23 @@ public class ClashChecker
                 user = "admin";
             }
         }
-           
-            switch (param)
-            {
-                case "user":
-                    return user;
-                    break;
-                case "date":
-                    return date;
-                    break;
-                default:
-                    return "";
-                    break;
-            }
+
+        switch (param)
+        {
+            case "user":
+                return user;
+                break;
+            case "date":
+                return date;
+                break;
+            default:
+                return "";
+                break;
+        }
 
 
 
     }
-   
     /// <summary>
     /// функция возвращает имя комплекта или пустую строку
     /// </summary>
@@ -471,15 +459,14 @@ public class ClashChecker
                 {
                     return ex.Message;
                 }
-                
+
             }
 
         }
         return "";
 
-       
+
     }
-   
     /// <summary>
     /// Функция возвращает отдел по элементу
     /// </summary>
@@ -544,7 +531,7 @@ public class ClashChecker
 
 
 
-                    break;
+                break;
 
             default:
 
@@ -638,7 +625,6 @@ public class ClashChecker
         }
         return null;
     }
-
     /// <summary>
     /// ТЕСТ
     /// </summary>
@@ -688,11 +674,9 @@ public class ClashChecker
 
 
     }
-
     [PMLNetCallable]
+
     static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
-
-
     [PMLNetCallable]
     public void DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
     {
@@ -708,13 +692,12 @@ public class ClashChecker
         clashConnection.Close();
 
     }
+    [PMLNetCallable]
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
         return !(DbElement.GetElement(clash.FirstElement).IsValid && DbElement.GetElement(clash.SecondElement).IsValid);
     }
-
-    // public List<string> QueryClashByEl(DbElement dbElement, string wherestring)
-
+    [PMLNetCallable]
     public List<ClashEntity> QueryClashByEl(string dbElementref, string wherestring)
 
     {
@@ -826,7 +809,6 @@ public class ClashChecker
         return clashList;
 
     }
-
     /// <summary>
     /// Возвращает имя таблицы для коллизий по проекту
     /// </summary>
@@ -848,52 +830,6 @@ public class ClashChecker
     /// Возвращает наименование отдела
     /// </summary>
     [PMLNetCallable]
-    public string GetDepartment()
-    {
-        try
-        {
-
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    [PMLNetCallable]
-    public string History()
-    {
-        try
-        {
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    [PMLNetCallable]
-    public string GetGroups()
-    {
-        try
-        {
-
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-
-    }
 
     /// <summary>
     /// Возвращает sql соединение для clash-таблиц по наименованию проекта
@@ -921,18 +857,36 @@ public class ClashChecker
 
     private void InsertOneCLash(Clash clash)
     {
-        try
+        var tablename = $"clashtable{Project.CurrentProject.Name}";
+        var FirstType = clash.First.ElementType;
+        var SecondType = clash.Second.ElementType;
+
+        var flnm1 = clash.First.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' "," ");
+        var flnm2 = clash.Second.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
+
+        var FirstDept = GetDepartment(clash.First, " ");
+        var SecondDept = GetDepartment(clash.Second, " ");
+
+        var FirstGroups = GetGroups(clash.First);
+        var SecondGroups = GetGroups(clash.Second);
+
+        var FirstUserMode = History(clash.First, "user");
+        var SecondUserMode = History(clash.Second, "user");
+
+        //var ClashFromBase = QueryOneSqlClash(Clash clash);
+        var ClashFromBase = "sdvsd";
+        if (ClashFromBase != null)
         {
+            using SqlConnection sqlConnection = GetClashSqlConnection();
+            sqlConnection.Open();
 
+            string InsertQuery = $"insert into {tablename} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clash.Type} ,{clash.First}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, { clash.Second}, { SecondType}, { SecondUserMode}, { flnm2}, { SecondDept}, { SecondGroups}, $!x,$!y,$!z, '$!date', 'true')";
 
-
-
+            sqlConnection.Close();
 
         }
-        catch (Exception ex)
-        {
 
-        }
+
     }
 
     /// <summary>
