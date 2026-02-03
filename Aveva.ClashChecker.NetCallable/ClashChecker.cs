@@ -77,8 +77,10 @@ public class ClashChecker
             List<DbElement> colZone;
 
             //TODO: Проверить быстродействие составного фильтра против пост-обработки LinQ
-            //var filter = new CompoundFilter();
-            //filter.AddShow(new TypeFilter(DbElementTypeInstance.ZONE));
+            var filter = new CompoundFilter();
+            //filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
+//filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
+            //filter.AddSkip(new AttributeStringFilter(DbAttributeInstance.NAME, FilterOperator.Contains, "PO"));
 
             //Собираем коллекцию зон для obstructionList
             if (projectCode == "GCC")
@@ -240,6 +242,16 @@ public class ClashChecker
                     totalCount++;
                 }
             }
+            else
+            {
+                string getGpsetClashQuery = $"SELECT id, clashtype, El1, type1, usermod1, dept1, gpset1, El2, type2, usermod2, dept2, gpset2 from $!tablename WHERE(gpset1 = {gpsetName} or gpset2 = {gpsetName})";
+                var clashList = clashConnection.Query<ClashEntity>(getGpsetClashQuery).ToList();
+                //TODO: Переписать на c# QueryClashByEl (необходимы объекты E3D)
+                //var secondClashList = QueryClashByEl(gpsetName);
+                QueryClashByEl(gpsetName, "");
+
+
+            }
             stopwatch.Stop();
             var ellapsedSeconds = stopwatch.ElapsedMilliseconds * 0.001;
 
@@ -343,13 +355,12 @@ public class ClashChecker
         }
 
     }
-
+    [PMLNetCallable]
     public void WriteLogEx(string logFilePath, string logContent)
     {
         //DBElementCollection collection = new DBElementCollection(pipe);
         //List<DbElement> outlist outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH).ToList();
     }
-
     /// <summary>
     /// функция возвращает автора последнего изменения но не pdmsadmin
     /// </summary>
@@ -401,7 +412,6 @@ public class ClashChecker
 
 
     }
-
     /// <summary>
     /// функция возвращает имя комплекта или пустую строку
     /// </summary>
@@ -439,7 +449,6 @@ public class ClashChecker
 
 
     }
-
     /// <summary>
     /// Функция возвращает отдел по элементу
     /// </summary>
@@ -591,7 +600,6 @@ public class ClashChecker
         }
         return null;
     }
-
     /// <summary>
     /// ТЕСТ
     /// </summary>
@@ -641,6 +649,9 @@ public class ClashChecker
 
     }
 
+    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
+    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
+
 
     [PMLNetCallable]
     public void DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
@@ -657,6 +668,7 @@ public class ClashChecker
         clashConnection.Close();
 
     }
+    [PMLNetCallable]
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
         return !(DbElement.GetElement(clash.FirstElement).IsValid && DbElement.GetElement(clash.SecondElement).IsValid);
@@ -815,18 +827,36 @@ public class ClashChecker
 
     private void InsertOneCLash(Clash clash)
     {
-        try
+        var tablename = $"clashtable{Project.CurrentProject.Name}";
+        var FirstType = clash.First.ElementType;
+        var SecondType = clash.Second.ElementType;
+
+        var flnm1 = clash.First.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' "," ");
+        var flnm2 = clash.Second.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
+
+        var FirstDept = GetDepartment(clash.First, " ");
+        var SecondDept = GetDepartment(clash.Second, " ");
+
+        var FirstGroups = GetGroups(clash.First);
+        var SecondGroups = GetGroups(clash.Second);
+
+        var FirstUserMode = History(clash.First, "user");
+        var SecondUserMode = History(clash.Second, "user");
+
+        //var ClashFromBase = QueryOneSqlClash(Clash clash);
+        var ClashFromBase = "sdvsd";
+        if (ClashFromBase != null)
         {
+            using SqlConnection sqlConnection = GetClashSqlConnection();
+            sqlConnection.Open();
 
-            
+            string InsertQuery = $"insert into {tablename} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clash.Type} ,{clash.First}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, { clash.Second}, { SecondType}, { SecondUserMode}, { flnm2}, { SecondDept}, { SecondGroups}, $!x,$!y,$!z, '$!date', 'true')";
 
-
+            sqlConnection.Close();
 
         }
-        catch (Exception ex)
-        {
 
-        }
+
     }
 
     /// <summary>
