@@ -8,17 +8,10 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.Remoting;
-using System.Security.Policy;
-using System.Threading;
-using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
-using System.Xml.Linq;
+using System.Threading.Tasks;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 namespace ClashChecker;
@@ -39,8 +32,22 @@ public class ClashChecker
     {
     }
 
-
+    private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
     public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
+    private static string ClashSql = $"id '{nameof(ClashEntity.Id)}'," +
+        $" clashtype '{nameof(ClashEntity.ClashType)}'," +
+        $" El1 '{nameof(ClashEntity.FirstElement)}'," +
+        $" type1 '{nameof(ClashEntity.FirstType)}'," +
+        $" usermod1 '{nameof(ClashEntity.FirstUserMode)}'," +
+        $" dept1 '{nameof(ClashEntity.FirstDept)}'," +
+        $" gpset1 '{nameof(ClashEntity.FirstGpset)}'," +
+        $" El2 '{nameof(ClashEntity.SecondElement)}'," +
+        $" type2 '{nameof(ClashEntity.SecondType)}'," +
+        $" usermod2 '{nameof(ClashEntity.SecondUserMode)}'," +
+        $" dept2 '{nameof(ClashEntity.SecondDept)}'," +
+        $" gpset2 '{nameof(ClashEntity.SecondGpset)}'" +
+        "" +
+        "";
 
     [PMLNetCallable]
     public async Task CheckAll(string obstType)
@@ -143,11 +150,6 @@ public class ClashChecker
             if (!checkResult)
                 return;
             CheckResultToBase(clashSet);
-
-
-
-
-
             clashConnection.Close();
 
         }
@@ -208,13 +210,23 @@ public class ClashChecker
             int totalCount = 0;
             //using SqlConnection clashConnection = GetClashSqlConnection();
             clashConnection.Open();
-            if (gpsetName == "")
+            if (gpsetName != "")
+            {
+                string getGpsetClashQuery = $"SELECT id, clashtype, El1, type1, usermod1, dept1, gpset1, El2, type2, usermod2, dept2, gpset2 from $!tablename WHERE(gpset1 = {gpsetName} or gpset2 = {gpsetName})";
+                var clashList = clashConnection.Query<ClashEntity>(getGpsetClashQuery).ToList();
+                //TODO: Переписать на c# QueryClashByEl (необходимы объекты E3D)
+                //var secondClashList = QueryClashByEl(gpsetName);
+                var clashes = QueryClashByEl(gpsetName, "");
+
+
+            }
+            else
             {
                 string getAllClashesQuery = $"SELECT id, clashType, El1, type1, usermod1, dept1, gpset1, El2, type2, usermod2, dept2, gpset2 from {tableName}";
                 var clashes = clashConnection.Query<ClashEntity>(getAllClashesQuery);
                 foreach (var clash in clashes)
                 {
-                    switch (UpdateOneClashElementInfo(clash, tableName, checkMode))
+                    switch (UpdateOneClashElementInfo(clashConnection, clash, tableName, checkMode))
                     {
                         case 1:
                             updateCount++;
@@ -227,16 +239,6 @@ public class ClashChecker
                     }
                     totalCount++;
                 }
-            }
-            else
-            {
-                string getGpsetClashQuery = $"SELECT id, clashtype, El1, type1, usermod1, dept1, gpset1, El2, type2, usermod2, dept2, gpset2 from $!tablename WHERE(gpset1 = {gpsetName} or gpset2 = {gpsetName})";
-                var clashList = clashConnection.Query<ClashEntity>(getGpsetClashQuery).ToList();
-                //TODO: Переписать на c# QueryClashByEl (необходимы объекты E3D)
-                //var secondClashList = QueryClashByEl(gpsetName);
-                QueryClashByEl(gpsetName);
-
-
             }
             stopwatch.Stop();
             var ellapsedSeconds = stopwatch.ElapsedMilliseconds * 0.001;
@@ -253,11 +255,14 @@ public class ClashChecker
     }
 
 
-
+    /// <summary>
+    /// Проверяет вхождние одого объёма в другой
+    /// </summary>
     public bool WvolClash(double[] volume1, double[] volume2)
     {
         return !(volume1[0] > volume2[3] || volume1[3] < volume2[0]) && !(volume1[1] > volume2[4] || volume1[4] < volume2[1]) && !(volume1[2] > volume2[5] || volume1[5] < volume2[2]);
     }
+
     /// <summary>
     /// Обновляет данные по коллизиям (по отдельным элементам)
     /// <returns>
@@ -267,9 +272,8 @@ public class ClashChecker
     /// </returns>
     /// </summary>
     [PMLNetCallable]
-    public double UpdateOneClashElementInfo(ClashEntity clash, string tableName, string checkMode)
+    public double UpdateOneClashElementInfo(SqlConnection clashConnection, ClashEntity clash, string tableName, string checkMode)
     {
-        using SqlConnection clashConnection = GetClashSqlConnection();
         clashConnection.Open();
         double retval = 0;
         try
@@ -320,54 +324,13 @@ public class ClashChecker
                         (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}")
                     };
 
-                    foreach (var c in changes)
+                    foreach (var change in changes.Where(e => e.rules))
                     {
-                        if (c.rules)
-                        {
-                            str += c.message;
-                            retval = 1;
-                            string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
-                            clashConnection.Execute(QueryUpdate, commandTimeout: 600);
-                        }
+                        str += change.message;
+                        retval = 1;
+                        string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
+                        clashConnection.Execute(QueryUpdate, commandTimeout: 600);
                     }
-
-
-
-
-
-                    //  string str = $"будет обновлена {clash.Id}";
-                    //
-                    //  if (clash.FirstUserMode != RealUsermod1)
-                    //  {
-                    //      str += $"FirstUserMode:{clash.FirstUserMode}->{RealUsermod1}";
-                    //  }
-                    //
-                    //  else if (clash.FirstDept != RealDept1)
-                    //  {
-                    //      str += $"FirstDept:{clash.FirstDept}->{RealDept1}";
-                    //  }
-                    //
-                    //  else if (clash.FirstGpset != RealGpset1)
-                    //  {
-                    //      str += $"FirstGpset:{clash.FirstGpset}->{RealGpset1}";
-                    //  }
-                    //
-                    //  else if (clash.SecondUserMode != RealUsermod2)
-                    //  {
-                    //      str += $"SecondUserMode:{clash.SecondUserMode}->{RealUsermod2}";
-                    //  }
-                    //
-                    //  else if (clash.SecondDept != RealDept1)
-                    //  {
-                    //      str += $"SecondDept:{clash.SecondDept}->{RealDept2}";
-                    //  }
-                    //
-                    //  else if (clash.SecondGpset != RealGpset1)
-                    //  {
-                    //      str += $"SecondGpset:{clash.SecondGpset}->{RealGpset2}";
-                    //  }
-
-
                 }
 
             }
@@ -386,9 +349,6 @@ public class ClashChecker
         //DBElementCollection collection = new DBElementCollection(pipe);
         //List<DbElement> outlist outlist = collection.Cast<DbElement>().Where(element => element.Owner.ElementType == DbElementTypeInstance.BRANCH).ToList();
     }
-
-
-
 
     /// <summary>
     /// функция возвращает автора последнего изменения но не pdmsadmin
@@ -424,24 +384,24 @@ public class ClashChecker
                 user = "admin";
             }
         }
-           
-            switch (param)
-            {
-                case "user":
-                    return user;
-                    break;
-                case "date":
-                    return date;
-                    break;
-                default:
-                    return "";
-                    break;
-            }
+
+        switch (param)
+        {
+            case "user":
+                return user;
+                break;
+            case "date":
+                return date;
+                break;
+            default:
+                return "";
+                break;
+        }
 
 
 
     }
-   
+
     /// <summary>
     /// функция возвращает имя комплекта или пустую строку
     /// </summary>
@@ -471,15 +431,15 @@ public class ClashChecker
                 {
                     return ex.Message;
                 }
-                
+
             }
 
         }
         return "";
 
-       
+
     }
-   
+
     /// <summary>
     /// Функция возвращает отдел по элементу
     /// </summary>
@@ -544,7 +504,7 @@ public class ClashChecker
 
 
 
-                    break;
+                break;
 
             default:
 
@@ -601,8 +561,6 @@ public class ClashChecker
             case "YKE":
                 string DbName = dbElement.Db.DbItem.ToString();
                 return DbName.Substring(0, 3);
-                break;
-
             case "GCC":
 
                 string usermod = History(dbElement, "user").ToLower();
@@ -611,12 +569,7 @@ public class ClashChecker
                 List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
                 var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAMN) == usermod);
                 var deptGCC = logid.GetElement(DbAttributeInstance.USEF);
-
-
                 return deptGCC.ToString();
-
-                break;
-
             default:
 
                 string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
@@ -672,7 +625,6 @@ public class ClashChecker
                     if (DbElGroups.IsValid)
                     {
                         return DbElGroups.ToString();
-                        break;
                     }
 
                 }
@@ -688,9 +640,6 @@ public class ClashChecker
 
 
     }
-
-    [PMLNetCallable]
-    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
 
 
     [PMLNetCallable]
@@ -713,7 +662,21 @@ public class ClashChecker
         return !(DbElement.GetElement(clash.FirstElement).IsValid && DbElement.GetElement(clash.SecondElement).IsValid);
     }
 
-    // public List<string> QueryClashByEl(DbElement dbElement, string wherestring)
+    private ClashEntity QueryOneSqlClash(SqlConnection clashConnection, string clashTableName, string clashType, string firstElement, string secondElement)
+    {
+        string firstType = clashType.Substring(0, 1);
+        string secondType = clashType.Substring(1, 1);
+        string invt = $"{firstType}{secondType} CLASH";
+        string query;
+        if (clashType == "*" || firstType == secondType)
+            query = $"select * from {clashTableName} where (el1 = {firstElement} and el2 = {secondElement} or el1 = {secondElement} and el2 = {firstElement})";
+        else
+            query = $"select * from {clashTableName} where (el1 = {firstElement} and el2 = {secondElement} and ClashType = {clashType}  or el1 = {secondElement} and el2 = {firstElement} and ClashType = {invt})";
+
+        var clashes = clashConnection.Query<ClashEntity>(query);
+
+        return clashes.First();
+    }
 
     public List<ClashEntity> QueryClashByEl(string dbElementref, string wherestring)
 
@@ -828,74 +791,6 @@ public class ClashChecker
     }
 
     /// <summary>
-    /// Возвращает имя таблицы для коллизий по проекту
-    /// </summary>
-    [PMLNetCallable]
-    public string GetClashTableName()
-    {
-        try
-        {
-
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-    }
-
-    /// <summary>
-    /// Возвращает наименование отдела
-    /// </summary>
-    [PMLNetCallable]
-    public string GetDepartment()
-    {
-        try
-        {
-
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    [PMLNetCallable]
-    public string History()
-    {
-        try
-        {
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    [PMLNetCallable]
-    public string GetGroups()
-    {
-        try
-        {
-
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return ConvertExceptionToPmlMessage(ex, "");
-        }
-
-    }
-
-    /// <summary>
     /// Возвращает sql соединение для clash-таблиц по наименованию проекта
     /// </summary>
     /// <returns></returns>
@@ -912,7 +807,6 @@ public class ClashChecker
     }
 
 
-
     private void CheckResultToBase(ClashSet clashSet)
     {
         foreach (var clash in clashSet.Clashes.Where(e => !IsClashIgnore(e)))
@@ -924,7 +818,7 @@ public class ClashChecker
         try
         {
 
-
+            
 
 
 
