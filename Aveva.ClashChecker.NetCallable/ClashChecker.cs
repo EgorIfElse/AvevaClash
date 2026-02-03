@@ -688,7 +688,7 @@ public class ClashChecker
 
         var clashes = clashConnection.Query<ClashEntity>(query);
 
-        return [..clashes];
+        return [.. clashes];
     }
 
     public List<ClashEntity> QueryClashByEl(string dbElementref, string wherestring)
@@ -862,7 +862,7 @@ public class ClashChecker
 
 
 
-        if (ClashFromBase.Count  == 0)
+        if (ClashFromBase.Count == 0)
         {
             try
             {
@@ -913,7 +913,7 @@ public class ClashChecker
                 //он будет отрабатывать впустую
                 string Id = resultClash.Id.ToString();
                 ResurRectClash(Id);
-                if  (!resultClash.Existing)
+                if (!resultClash.Existing)
                 {
                     //воскрешаем коллизию
 
@@ -1190,5 +1190,112 @@ public class ClashChecker
     {
         string ClashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
         sqlConnection.Execute($"CREATE TABLE [{ClashRefUpdateLog}]( [RunId] INT IDENTITY(1,1) NOT NULL, [UpdateTime] DATETIME NOT NULL, [RowId] INT NOT NULL, [OldEl1] NVARCHAR(50) NULL, [NewEl1] NVARCHAR(50) NULL, [flnm1] NVARCHAR(500) NULL);");
+    }
+
+
+    [PMLNetCallable]
+    public string InsertOneCLashTest(string clashtype, string el1, string el2, double x, double y, double z)
+    {
+        string InsertQuery = "";
+        var TableName = $"clashtable{Project.CurrentProject.Name}";
+        var clashType = clashtype;
+        var FirstElement = DbElement.GetElement(el1);
+        var SecondElement = DbElement.GetElement(el2);
+        var FirstType = FirstElement.ElementType;
+        var SecondType = SecondElement.ElementType;
+
+        var flnm1 = FirstElement.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
+        var flnm2 = SecondElement.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
+
+        var FirstDept = GetDepartment(FirstElement, " ");
+        var SecondDept = GetDepartment(SecondElement, " ");
+
+        var FirstGroups = GetGroups(FirstElement);
+        var SecondGroups = GetGroups(SecondElement);
+
+        var FirstUserMode = History(FirstElement, "user");
+        var SecondUserMode = History(SecondElement, "user");
+
+        var Date = DateTime.Now;
+
+        using SqlConnection clashConnection = GetClashSqlConnection();
+        clashConnection.Open();
+
+        var ClashFromBase = QueryOneSqlClash(clashConnection, TableName, clashType, FirstElement.ToString(), SecondElement.ToString());
+
+       // double x = clash.ClashPosition.X;
+
+
+
+        if (ClashFromBase.Count == 0)
+        {
+            try
+            {
+
+
+                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clashType} ,{FirstElement}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {SecondElement}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {x},{y},{z}, {Date}, 'true')";
+                clashConnection.Execute(InsertQuery);
+                return "0";
+            }
+
+            catch (Exception ex)
+            {
+                PML.CreateCommand($"$p Ошибка запроса {InsertQuery}  {ex.Message}");
+                //MessageBox.Show($"Ошибка запроса {InsertQuery}" + ex.Message);
+                return "1";
+            }
+
+}
+        else if (ClashFromBase.Count > 1)
+        {
+            string str = $"ВНИМАНИЕ в базе более чем одна такая коллизия {FirstElement} {SecondElement}";
+            PML.CreateCommand($"$p {str}");
+            return "2";
+        }
+        else
+        {
+            var resultClash = ClashFromBase.First();
+            double x0 = Convert.ToDouble(resultClash.X);
+            double y0 = Convert.ToDouble(resultClash.Y);
+            double z0 = Convert.ToDouble(resultClash.Z);
+
+            if ((Math.Abs(x0 - x) >= 25) && (Math.Abs(y0 - y)) >= 25 && (Math.Abs(z0 - z)) >= 25)
+            {
+                var Id = ClashFromBase[0];
+                string QueryDel = $"DELETE FROM {TableName} where id = {Id}";
+                clashConnection.Execute(QueryDel);
+
+                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clashType} ,{FirstElement}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {SecondElement}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {x},{y},{z}, {Date}, 'true')";
+                clashConnection.Execute(InsertQuery);
+
+                //более подробная информация о перезаписываемом клеше пока не удалили его
+
+                //Тут надо переписать лог файл. ПОЗЖЕ
+            }
+            else
+            {
+                //ничего не делаем т.к. эта коллизия с этой же координатой
+                //тут надо обновить статус existing потомучто перед чеком он сбрасывается(в false)
+                //а потом удаляются все которые не existing
+                //этот метод воскрешения для CheckGpset (он им воспользуется после вставки всех коллизий) для checkall
+                //он будет отрабатывать впустую
+                string Id = resultClash.Id.ToString();
+                ResurRectClash(Id);
+                if (!resultClash.Existing)
+                {
+                    //воскрешаем коллизию
+
+
+                    //этот запрос можно не делать если точно знать что это проверка комплекта, а не checkall()
+                    //тоесть эта функция вызывается из двух мест и эта строка для подстраховки, тк она обязательно нужна для CheckAll
+
+                    string QueryUpdate = $"update {TableName} SET existing = 'True' WHERE id = {Id}";
+                    clashConnection.Execute(QueryUpdate);
+                }
+
+            }
+            return "1";
+        }
+
     }
 }
