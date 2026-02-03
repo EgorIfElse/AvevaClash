@@ -649,8 +649,6 @@ public class ClashChecker
 
     }
 
-    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
-    static readonly HashSet<string> SpecProj = new() { "SVB", "DNS", "WXT" };
 
 
     [PMLNetCallable]
