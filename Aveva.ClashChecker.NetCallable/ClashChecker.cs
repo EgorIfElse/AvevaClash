@@ -831,7 +831,7 @@ public class ClashChecker
         string InsertQuery = "";
 
 
-       
+
         var TableName = $"clashtable{Project.CurrentProject.Name}";
         var clashType = clash.Type.ToString();
         var FirstElement = clash.First.ToString();
@@ -858,7 +858,7 @@ public class ClashChecker
 
         var ClashFromBase = QueryOneSqlClash(clashConnection, TableName, clashType, FirstElement, SecondElement);
 
-       double x = clash.ClashPosition.X;
+        double x = clash.ClashPosition.X;
 
 
 
@@ -877,7 +877,7 @@ public class ClashChecker
                 PML.CreateCommand($"$p Ошибка запроса {InsertQuery}  {ex.Message}");
                 //MessageBox.Show($"Ошибка запроса {InsertQuery}" + ex.Message);
             }
-            
+
         }
         else if (ClashFromBase.Count > 1)
         {
@@ -1245,7 +1245,7 @@ public class ClashChecker
                 return "1";
             }
 
-}
+        }
         else if (ClashFromBase.Count > 1)
         {
             string str = $"ВНИМАНИЕ в базе более чем одна такая коллизия {FirstElement} {SecondElement}";
