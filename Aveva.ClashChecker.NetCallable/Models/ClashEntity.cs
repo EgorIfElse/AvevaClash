@@ -4,6 +4,8 @@ namespace Aveva.ClashChecker.NetCallable.Models;
 
 public record ClashEntity
 {
+    public static string Flnm2 { get; set; } = "";
+    public static string Flnm1 { get; set; } = "";
     public int Id { get; set; }
     public string ClashType { get; set; } = "";
     public string FirstElement { get; set; } = "";
@@ -29,6 +31,7 @@ public record ClashEntity
     public string ApproveReason { get; set; } = "";
     public string InWorkUser { get; set; } = "";
     public DateTime InWorkDate { get; set; }
+
 }
 
 

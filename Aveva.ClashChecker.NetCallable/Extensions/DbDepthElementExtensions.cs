@@ -24,17 +24,17 @@ namespace Aveva.ClashChecker.NetCallable.Extensions
             return ElDepth == DbDepth ? dbElement : null;
         }
 
-        public static DbElement? GetSite(this DbElement dbElement)
+        public static DbElement GetSite(this DbElement dbElement)
         {
             return dbElement.GetOwnerByDepth(1);
         }
 
-        public static DbElement? GetZone(this DbElement dbElement)
+        public static DbElement GetZone(this DbElement dbElement)
         {
             return dbElement.GetOwnerByDepth(2);
         }
 
-        public static DbElement? GetPipe(this DbElement dbElement)
+        public static DbElement GetPipe(this DbElement dbElement)
         {
             return dbElement.GetOwnerByDepth(3);
         }

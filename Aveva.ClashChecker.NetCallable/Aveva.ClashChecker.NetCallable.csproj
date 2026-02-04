@@ -11,7 +11,7 @@
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<PropertyGroup>
-	  <PlatformTarget>AnyCPU</PlatformTarget>
+	  <PlatformTarget>x86</PlatformTarget>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.66" />
