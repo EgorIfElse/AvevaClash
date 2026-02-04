@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 	<PropertyGroup>
-		<AssemblyName>ClashChecker01</AssemblyName>
+		<AssemblyName>ClashChecker</AssemblyName>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<UseWindowsForms>False</UseWindowsForms>
 		<TargetFramework>net481</TargetFramework>
@@ -12,6 +12,7 @@
 	</PropertyGroup>
 	<PropertyGroup>
 	  <PlatformTarget>x86</PlatformTarget>
+	  <GenerateDocumentationFile>False</GenerateDocumentationFile>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.66" />
@@ -41,4 +42,7 @@
 		</Reference>
 		<Reference Include="System.Data" />
 	</ItemGroup>
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	  <Exec Command="xcopy /Y /R &quot;$(TargetPath)&quot; &quot;X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1&quot;&#xD;&#xA;xcopy /Y /R &quot;$(TargetDir)*.dll&quot; &quot;X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1&quot;" />
+	</Target>
 </Project>

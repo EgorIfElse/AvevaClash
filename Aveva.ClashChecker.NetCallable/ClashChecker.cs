@@ -13,10 +13,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
-using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
+using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 namespace ClashChecker;
 
 /// <summary>
@@ -74,7 +73,7 @@ public class ClashChecker
     }
 
     [PMLNetCallable]
-    public async Task CheckAll(string obstType, bool testMode = false, string logDirectoryPath = DefaultLogDirectoryPath)
+    public void CheckAll(string obstType, bool testMode = false, string logDirectoryPath = DefaultLogDirectoryPath)
     {
         try
         {
@@ -101,7 +100,7 @@ public class ClashChecker
             UpdateClashElementInfo(clashConnection, "FULL", clashTableName);
             Logger.WriteLine("Выполнен UpdateClashElementInfo");
 
-            await clashConnection.ExecuteAsync($"UPDATE {clashTableName} set Existing = 'false'");
+            clashConnection.Execute($"UPDATE {clashTableName} set Existing = 'false'");
             int initialClashCount = clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}");
 
 
@@ -939,7 +938,11 @@ public class ClashChecker
         Logger.WriteLine($"Количесво проигнорированных коллизий: {clashSet.Clashes.Length - notIgnoredClashes.Count()}");
 
         foreach (var clash in notIgnoredClashes)
+        {
             InsertOneCLash(sqlConnection, clashTableName, clash);
+
+        }
+        PML.CreateCommand($"$p {notIgnoredClashes.Count()} коллизий подтвердилось после проверки");
     }
 
     private void InsertOneCLash(SqlConnection clashConnection, string clashTableName, Clash clash)
@@ -1239,7 +1242,6 @@ public class ClashChecker
         string struName = stru.Name();
         if (!struName.Contains('_') || struName.Split('_').Length < 4 || struName.Split('_')[3] != "CL")
             return false;
-
         string frmwName = frmw.Name();
         if (!frmwName.Contains('_') || frmwName.Split('_').Length < 5 || frmwName.Split('_')[4].Substring(0, 1) != "CC")
             return false;
@@ -1327,7 +1329,7 @@ public class ClashChecker
 
         var ClashFromBase = QueryOneSqlClash(clashConnection, TableName, clashType, FirstElement.ToString(), SecondElement.ToString());
 
-       // double x = clash.ClashPosition.X;
+        // double x = clash.ClashPosition.X;
 
 
 

@@ -38,8 +38,11 @@ public class ClashLogger
     public void WriteLine(string log, LogType logType = LogType.Message)
     {
         if (logType == LogType.Error)
-            log = $"{DateTime.Now.TimeOfDay} <ОШИБКА> {log}";
-        Logs.Add(log);
+        {
+            Logs.Add($"{DateTime.Now.TimeOfDay} <ОШИБКА> {log}");
+            return;
+        }
+        Logs.Add($"{DateTime.Now.TimeOfDay} {log}");
     }
 
     public void FinishLog()
