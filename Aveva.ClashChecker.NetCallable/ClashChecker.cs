@@ -536,21 +536,12 @@ public class ClashChecker
             }
         }
 
-        switch (param)
+        return param switch
         {
-            case "user":
-                return user;
-                break;
-            case "date":
-                return date;
-                break;
-            default:
-                return "";
-                break;
-        }
-
-
-
+            "user" => user,
+            "date" => date,
+            _ => "",
+        };
     }
     /// <summary>
     /// функция возвращает имя комплекта или пустую строку
@@ -627,7 +618,7 @@ public class ClashChecker
                 var collection = new DBElementCollection(uW, type).Cast<DbElement>();
                 //var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAME) == usermod);
                 Dictionary<string, string> LognameByDept;
-                LognameByDept = new Dictionary<string, string>();
+                LognameByDept = [];
                 foreach (var el in collection)
                 {
                     string name = el.GetString(DbAttributeInstance.NAME);
@@ -710,7 +701,7 @@ public class ClashChecker
                 string usermod = History(dbElement, "user").ToLower();
                 var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
                 var uW = DbElement.GetElement("/*U");
-                List<DbElement> collection = new DBElementCollection(uW, type).Cast<DbElement>().ToList();
+                List<DbElement> collection = [.. new DBElementCollection(uW, type).Cast<DbElement>()];
                 var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAMN) == usermod);
                 var deptGCC = logid.GetElement(DbAttributeInstance.USEF);
                 return deptGCC.ToString();
@@ -823,7 +814,7 @@ public class ClashChecker
         //собираем элементы
         //var CurEl = DbElement.GetElement(dbElement.ToString());
         var collection = new DBElementCollection(dbElement).Cast<DbElement>().ToList();
-        string[] els = { };
+        string[] els = [];
         string tablename = "";
         var Login = Project.CurrentProject.LoginUser;
         for (int i = 0; i <= collection.Count - 1; i++)
@@ -935,7 +926,7 @@ public class ClashChecker
         {
             return new SqlConnection(ClashConnectionString);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return null;
         }
@@ -953,11 +944,6 @@ public class ClashChecker
 
     private void InsertOneCLash(SqlConnection clashConnection, string clashTableName, Clash clash)
     {
-        string InsertQuery = "";
-
-
-
-        var TableName = $"clashtable{Project.CurrentProject.Name}";
         var clashType = clash.Type.ToString();
         var FirstElement = clash.First.ToString();
         var SecondElement = clash.Second.ToString();
@@ -978,22 +964,15 @@ public class ClashChecker
 
         var Date = DateTime.Now;
 
-        using SqlConnection clashConnection = GetClashSqlConnection();
-        clashConnection.Open();
 
-        var ClashFromBase = QueryOneSqlClash(clashConnection, TableName, clashType, FirstElement, SecondElement);
+        var ClashFromBase = QueryOneSqlClash(clashConnection, clashTableName, clashType, FirstElement, SecondElement);
 
-        double x = clash.ClashPosition.X;
-
-
-
+        string InsertQuery = "";
         if (ClashFromBase.Count == 0)
         {
             try
             {
-
-
-                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clash.Type} ,{clash.First}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {clash.Second}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {clash.ClashPosition.X},{clash.ClashPosition.Y},{clash.ClashPosition.Z}, {Date}, 'true')";
+                InsertQuery = $"insert into {clashTableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ('{clash.Type}' ,'{clash.First}', '{FirstType}', '{FirstUserMode}', '{flnm1}','{FirstDept}', '{FirstGroups}', '{clash.Second}', '{SecondType}', '{SecondUserMode}', '{flnm2}', '{SecondDept}', '{SecondGroups}', {clash.ClashPosition.X},{clash.ClashPosition.Y},{clash.ClashPosition.Z}, '{Date}', 'true')";
                 clashConnection.Execute(InsertQuery);
             }
 
@@ -1019,10 +998,10 @@ public class ClashChecker
             if ((Math.Abs(x0 - clash.ClashPosition.X) >= 25) && (Math.Abs(y0 - clash.ClashPosition.Y)) >= 25 && (Math.Abs(z0 - clash.ClashPosition.Z)) >= 25)
             {
                 var Id = ClashFromBase[0];
-                string QueryDel = $"DELETE FROM {TableName} where id = {Id}";
+                string QueryDel = $"DELETE FROM {clashTableName} where id = {Id}";
                 clashConnection.Execute(QueryDel);
 
-                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clash.Type} ,{clash.First}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {clash.Second}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {clash.ClashPosition.X},{clash.ClashPosition.Y},{clash.ClashPosition.Z}, {Date}, 'true')";
+                InsertQuery = $"insert into {clashTableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ('{clash.Type}' ,'{clash.First}', '{FirstType}', '{FirstUserMode}', '{flnm1}', '{FirstDept}', '{FirstGroups}', '{clash.Second}', '{SecondType}', '{SecondUserMode}', '{flnm2}', '{SecondDept}', '{SecondGroups}', {clash.ClashPosition.X},{clash.ClashPosition.Y},{clash.ClashPosition.Z}, '{Date}', 'true')";
                 clashConnection.Execute(InsertQuery);
 
                 //более подробная информация о перезаписываемом клеше пока не удалили его
@@ -1046,7 +1025,7 @@ public class ClashChecker
                     //этот запрос можно не делать если точно знать что это проверка комплекта, а не checkall()
                     //тоесть эта функция вызывается из двух мест и эта строка для подстраховки, тк она обязательно нужна для CheckAll
 
-                    string QueryUpdate = $"update {TableName} SET existing = 'True' WHERE id = {Id}";
+                    string QueryUpdate = $"update {clashTableName} SET existing = 'True' WHERE id = {Id}";
                     clashConnection.Execute(QueryUpdate);
                 }
 
