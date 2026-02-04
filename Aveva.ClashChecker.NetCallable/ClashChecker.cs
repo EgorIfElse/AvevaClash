@@ -36,7 +36,7 @@ public class ClashChecker
 
     private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
     private static DbElement NullElement = DbElement.GetElement("");
-    public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
+    public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300;TrustServerCertificate=True";
     private static string ClashSql = $"id '{nameof(ClashEntity.Id)}'," +
         $" clashtype '{nameof(ClashEntity.ClashType)}'," +
         $" El1 '{nameof(ClashEntity.FirstElement)}'," +
@@ -343,7 +343,7 @@ public class ClashChecker
                     {
                         str += change.message;
                         retval = 1;
-                        string QueryUpdate = $"update {tableName} SET dept1 = {RealDept1}, gpset1 = {RealGpset1}, usermod1 = {RealUsermod1}, dept2 = {RealDept2}, gpset2 = {RealGpset2}, usermod2 = {RealUsermod1} WHERE id = {clash.Id}";
+                        string QueryUpdate = $"update {tableName} SET dept1 = '{RealDept1}', gpset1 = '{RealGpset1}', usermod1 = '{RealUsermod1}', dept2 = '{RealDept2}', gpset2 = '{RealGpset2}', usermod2 = '{RealUsermod1}' WHERE id = '{clash.Id}'";
                         clashConnection.Execute(QueryUpdate, commandTimeout: 600);
                     }
                 }
@@ -460,7 +460,7 @@ public class ClashChecker
     {
         string ProjectName = Project.CurrentProject.Name;
         string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
-        string DbRef = dbElement.GetString(DbAttributeInstance.REF);
+        string DbRef = dbElement.GetAsString(DbAttributeInstance.REF);
         string result = DbFileName.Split('%')[1].Substring(0, 3);
         string SiteIFC = dbElement.GetSite().ToString();
 
@@ -661,9 +661,9 @@ public class ClashChecker
         var login = Project.CurrentProject.LoginUser;
         clashConnection.Open();
 
-        string CreateTableHist = $"insert into {HistTableName} select {tableName} | & |.* ,getdate()  ,'{login}'  ,'{type}' ,'{comment}' from {tableName} where id = {clash.Id}";
+        string CreateTableHist = $"insert into {HistTableName} select {tableName} | & |.* ,getdate()  ,'{login}'  ,'{type}' ,'{comment}' from {tableName} where id = '{clash.Id}'";
         clashConnection.Execute(CreateTableHist);
-        string DeleteIdTableHist = $"DELETE FROM {tableName} where id = {clash.Id}";
+        string DeleteIdTableHist = $"DELETE FROM {tableName} where id = '{clash.Id}'";
         clashConnection.Execute(DeleteIdTableHist);
 
         clashConnection.Close();
@@ -682,9 +682,9 @@ public class ClashChecker
         string invt = $"{firstType}{secondType} CLASH";
         string query;
         if (clashType == "*" || firstType == secondType)
-            query = $"select * from {clashTableName} where (el1 = {firstElement} and el2 = {secondElement} or el1 = {secondElement} and el2 = {firstElement})";
+            query = $"select * from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
         else
-            query = $"select * from {clashTableName} where (el1 = {firstElement} and el2 = {secondElement} and ClashType = {clashType}  or el1 = {secondElement} and el2 = {firstElement} and ClashType = {invt})";
+            query = $"select * from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
 
         var clashes = clashConnection.Query<ClashEntity>(query);
 
@@ -751,7 +751,7 @@ public class ClashChecker
         using SqlConnection clashConnection = GetClashSqlConnection();
         clashConnection.Open();
 
-        string SelectTableName = $"SELECT * FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME = {tablename}";
+        string SelectTableName = $"SELECT * FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{tablename}'";
         var select = clashConnection.Execute(SelectTableName);
 
         //!!SA = !sqlarray
@@ -1204,8 +1204,8 @@ public class ClashChecker
         var FirstType = FirstElement.ElementType;
         var SecondType = SecondElement.ElementType;
 
-        var flnm1 = FirstElement.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
-        var flnm2 = SecondElement.GetAttribute(DbAttributeInstance.FLNM).ToString().Replace(" ' ", " ");
+        var flnm1 = FirstElement.GetString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
+        var flnm2 = SecondElement.GetString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
 
         var FirstDept = GetDepartment(FirstElement, " ");
         var SecondDept = GetDepartment(SecondElement, " ");
@@ -1233,7 +1233,7 @@ public class ClashChecker
             {
 
 
-                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clashType} ,{FirstElement}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {SecondElement}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {x},{y},{z}, {Date}, 'true')";
+                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ('{clashType}' ,'{FirstElement}', '{FirstType}', '{FirstUserMode}', '{flnm1}', '{FirstDept}', '{FirstGroups}', '{SecondElement}', '{SecondType}', '{SecondUserMode}', '{flnm2}', '{SecondDept}', '{SecondGroups}', '{x}','{y}','{z}', '{Date}', 'true')";
                 clashConnection.Execute(InsertQuery);
                 return "0";
             }
@@ -1265,7 +1265,7 @@ public class ClashChecker
                 string QueryDel = $"DELETE FROM {TableName} where id = {Id}";
                 clashConnection.Execute(QueryDel);
 
-                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ({clashType} ,{FirstElement}, {FirstType}, {FirstUserMode}, {flnm1}, {FirstDept}, {FirstGroups}, {SecondElement}, {SecondType}, {SecondUserMode}, {flnm2}, {SecondDept}, {SecondGroups}, {x},{y},{z}, {Date}, 'true')";
+                InsertQuery = $"insert into {TableName} ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, x, y, z, date, existing) values ('{clashType}' ,'{FirstElement}', '{FirstType}', '{FirstUserMode}', '{flnm1}', '{FirstDept}', '{FirstGroups}', '{SecondElement}', '{SecondType}', '{SecondUserMode}', '{flnm2}', '{SecondDept}', '{SecondGroups}', '{x}','{y}','{z}', '{Date}', 'true')";
                 clashConnection.Execute(InsertQuery);
 
                 //более подробная информация о перезаписываемом клеше пока не удалили его
@@ -1289,7 +1289,7 @@ public class ClashChecker
                     //этот запрос можно не делать если точно знать что это проверка комплекта, а не checkall()
                     //тоесть эта функция вызывается из двух мест и эта строка для подстраховки, тк она обязательно нужна для CheckAll
 
-                    string QueryUpdate = $"update {TableName} SET existing = 'True' WHERE id = {Id}";
+                    string QueryUpdate = $"update {TableName} SET existing = 'True' WHERE id = '{Id}'";
                     clashConnection.Execute(QueryUpdate);
                 }
 
