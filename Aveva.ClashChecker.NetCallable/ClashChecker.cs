@@ -64,7 +64,7 @@ public class ClashChecker
     $"InWorkUser '{nameof(ClashEntity.InWorkUser)}', " +
     $"InWorkDate '{nameof(ClashEntity.InWorkDate)}'";
 
-    private const string DefaultLogDirectoryPath = "D:\\AVEVA\\Everething3D2.10\\ClashLog.log";
+    private const string DefaultLogDirectoryPath = "D:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
 
     [PMLNetCallable]
