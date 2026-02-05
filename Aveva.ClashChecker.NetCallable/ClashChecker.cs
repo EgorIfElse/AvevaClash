@@ -31,7 +31,7 @@ public class ClashChecker
     }
 
     private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
-    public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
+    public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;Encrypt=False; User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300";
 
     private static readonly DbElement NullElement = DbElement.GetElement("*");
 
@@ -82,7 +82,10 @@ public class ClashChecker
 
             DbElement world = DbElement.GetElement("*");
             var projectCode = Project.CurrentProject.Name;
+            if (testMode)
+                projectCode += "_TEST";
             string clashTableName = $"clashtable{projectCode}";
+       
 
             string ifcTableName = $"tableIfc{projectCode}";
             string clashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
@@ -125,7 +128,7 @@ public class ClashChecker
             {
                 colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e => !e.Owner.Name().Contains(".L")
                 && e.Owner.GetString(DbAttributeInstance.PURP) != "NOCL"
-                && e.GetDouble(DbAttributeInstance.MCOU) != 0
+                && e.GetDbDouble(DbAttributeInstance.MCOU).Value != 0
                 && !e.Owner.Name().Contains("ZEMI"))];
             }
 
