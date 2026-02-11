@@ -48,9 +48,10 @@ public class ClashLogger
     public void FinishLog()
     {
         DateTime currentTime = DateTime.Now;
-        string filePath = $"{LogDirectory}\\ClashChecker_{currentTime.ToString().Replace(" ", "").Replace('.','_').Replace(':','_')}.log";
-        File.Create(filePath).Close();
-        WriteLine($"Время выполнения: {(currentTime - StartTime).TotalSeconds} секунд");
+        var filetime = currentTime.ToString("yyyy-MM-dd_HH-mm-ss");
+        string filePath = $"{LogDirectory}\\ClashChecker_{filetime}.log";
+       // File.Create(filePath);
+       Logs.Add($"Время выполнения: {(currentTime - StartTime).TotalSeconds} секунд");
         File.WriteAllLines(filePath, Logs);
     }
 
