@@ -494,7 +494,7 @@ public class ClashChecker
         string[] HistAr = Hist.Split(' ');
         string user = "";
         string date = "";
-        for (int i = 0; i <= HistAr.Length - 1; i++)
+        for (int i = 0; i < HistAr.Length; i++)
         {
             user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
             date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
@@ -665,7 +665,7 @@ public class ClashChecker
 
         if (SiteIFC.Contains("IFC"))
         {
-            int i = SiteIFC.LastIndexOf('-');
+            int i = SiteIFC.LastIndexOf('_');
             string index = i >= 0 ? SiteIFC.Substring(i) : "";
             if (DepartmentLookup.MarkToDept.TryGetValue(index, out string dept))
             {
