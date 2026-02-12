@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
@@ -85,7 +84,7 @@ public class ClashChecker
             if (testMode)
                 projectCode += "_TEST";
             string clashTableName = $"clashtable{projectCode}";
-       
+
 
             string ifcTableName = $"tableIfc{projectCode}";
             string clashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
@@ -117,7 +116,7 @@ public class ClashChecker
             //var filter = new CompoundFilter();
 
             //Собираем коллекцию зон для obstructionList
-            if (projectCode == "GCC")
+            if (projectCode.Replace("_TEST", "") == "GCC")
             {
                 colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e=> !e.Name().Contains("PO")
                 && !e.Name().Contains("STUDY")
@@ -126,203 +125,80 @@ public class ClashChecker
             }
             else
             {
-                colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e => !e.Owner.Name().Contains(".L")
-                && e.Owner.GetString(DbAttributeInstance.PURP) != "NOCL"
-                && e.GetAsString(DbAttributeInstance.MCOU) != "0"
-                && !e.Owner.Name().Contains("ZEMI"))];
+                colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e =>
+                {
+                    DbElement site = e.Owner;
+                    string siteName = site.Name();
+                    if(siteName.Contains(".L") || siteName.Contains("ZEMI") || siteName.Contains("/po") || site.GetString(DbAttributeInstance.PURP) == "NOCL" || e.GetAsString(DbAttributeInstance.MCOU) == "0")
+                        return false;
+                    return true;
                 //&& e.GetAsString(DbAttributeInstance.NAME).Contains("10UHJ_RC_FF11")
                 //|| e.GetAsString(DbAttributeInstance.NAME).Contains("144N70-10UHJ-AC.ifc"))];
+                })];
             }
 
             string zoneCountLogString = $"Всего зон {colZone.Count} шт";
-            var obstructionList = ObstructionList.Create();
+
             var wvolArray = colZone.Select(e => e.GetDoubleArray(DbAttributeInstance.WVOL))
                             //.Where(arr => arr != null && arr.Length > 0)
                             .ToList();
 
-            int n = colZone.Count;
-            var visited = new bool[n];
-
-            for (int i = 0; i < colZone.Count; i++)
-            {
-                if (wvolArray[i].Length < 6) continue;
-                if (!colZone[i].GetBool(DbAttributeInstance.DBWRIT)) continue; //нужно ли проверять зоны которые dbwrite = false? Нужно ли с ней сравнивать(добавлять в o)?
-                if (visited[i]) continue;
-
-                List<DbElement> Group = [];
-
-
-
-                for (int j = i; j < colZone.Count; j++)
-                {
-                    
-                    if (visited[j]) continue;
-                    if (wvolArray[j].Length < 6) continue; // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
-                    if (WvolClash(wvolArray[i], wvolArray[j]))
-                    {
-                        Group.Add(colZone[j]);
-                    }
-
-
-                }
-
-                if (Group.Count < 1) return;
-
-                visited[i] = true; // тут вопрос нужно ли проверяющую зону добавлять в obstrList? Но для ifc точно не нужноя думаю
-
-                obstructionList.AddObstructions([.. Group]);
-
-                //check()
-                var clashOptions = ClashOptions.Create();
-
-                clashOptions.Override = true;
-                clashOptions.Midpoint = true;
-                clashOptions.TouchGap = 0.0;
-                clashOptions.TouchOverlap = 2;
-                clashOptions.Clearance = 0.0;
-                clashOptions.IncludeTouches = false;
-                clashOptions.BranchCheckType = BranchCheck.BCHECK;
-                clashOptions.IncludeConnections = false;
-                
-               // clashOptions.HullDesign = false;
-               // clashOptions.HullProduction = false;
-               // clashOptions.IgnoreConnectionsWithSpecifications = false;
-               // clashOptions.LMIDisplay = LMIDisplayType.CELLS;
-               // clashOptions.LMIDisplayExpandCells = 0.0;
-               // clashOptions.LMITestExact = false;   
-               // clashOptions.Segments = false;
-                
-
-                clashOptions.NoCheckWithin(
-                [
+            var clashOptions = ClashOptions.Create();
+            clashOptions.Override = true;
+            clashOptions.Midpoint = true;
+            clashOptions.TouchGap = 0.0;
+            clashOptions.TouchOverlap = 2;
+            clashOptions.Clearance = 0.0;
+            clashOptions.IncludeTouches = false;
+            clashOptions.BranchCheckType = BranchCheck.BCHECK;
+            clashOptions.IncludeConnections = false;
+            clashOptions.NoCheckWithin(
+            [
                 DbElementTypeInstance.EQUIPMENT,
                 DbElementTypeInstance.STRUCTURE,
                 DbElementTypeInstance.BRANCH,
                 DbElementTypeInstance.RESTRAINT,
-                ]);
+            ]);
+
+            for (int i = 0; i < colZone.Count; i++)
+            {
+
+                if (wvolArray[i].Length < 6)
+                    continue;
+                bool firstZoneReadOnlyDb = !colZone[i].GetBool(DbAttributeInstance.DBWRIT); //Первая зона Read-Only
+                var obstructionList = ObstructionList.Create();
+                var firstSite = colZone[i].Owner;
+
+                for (int j = i; j < colZone.Count; j++)
+                {
+                    var secondSite = colZone[j].Owner;
+                    if(firstSite == secondSite && firstSite.Name().Contains("ifc")) //Если обе зоны лежат в одном и том же сайте с ifc - скип
+                        continue;
+
+                    bool secondZoneReadOnlyDb = !colZone[j].GetBool(DbAttributeInstance.DBWRIT); //Вторая зона Read-Only
+                    if (firstZoneReadOnlyDb && secondZoneReadOnlyDb) //Скип, если обе зоны Read-Only
+                        continue;
+
+                    if (wvolArray[j].Length < 6) // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
+                        continue; 
+                    if (WvolClash(wvolArray[i], wvolArray[j]))
+                        obstructionList.AddObstructions([colZone[j]]);
+
+                }
 
                 var clashSet = ClashSet.Create();
                 //PML.CreateCommand("MAP BUILD MDB");
-                DbElement Zone = colZone[i];
-                DbElement[] CheckCurrent = new[] { Zone };
-                var checkResult = Clasher.Instance.Check(CheckCurrent, clashOptions, obstructionList, clashSet);
-                // var ccc = Clasher.Instance.CheckAdd()
-
-
+                var checkResult = Clasher.Instance.Check([colZone[i]], clashOptions, obstructionList, clashSet);
                 //DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
                 if (!checkResult)
-                    return;
+                    continue;
 
-
+                CheckResultToBase(clashConnection, clashTableName, clashSet);
 
             }
 
+            clashConnection.Close();
 
-
-            // for (int i = 0; i < wvolArray.Count; i++)
-            // {
-            //
-            //     switch (obstType.ToUpper())
-            //     {
-            //         case "ZONE":
-            //             List<DbElement> obstructionZones = [];
-            //             
-            //
-            //             for (int j = i; j < wvolArray.Count; j++)
-            //                 {
-            //                     if (WvolClash(wvolArray[i], wvolArray[j]))
-            //                         obstructionZones.Add(colZone[j]);
-            //                     
-            //                 }    
-            //             if (obstructionZones.Count > 0)
-            //                 obstructionList.AddObstructions([.. obstructionZones]);
-            //
-            //             break;
-            //         case "VOL":
-            //             obstructionList.AddObstructions([.. new DBElementCollection(new InVolumeFilter(colZone[i], false)).Cast<DbElement>().Where(e =>
-            //             {
-            //                  if (e.Name().Contains("CLASH"))
-            //                     return false;
-            //                 var site = e.GetOwnerByType(DbElementTypeInstance.SITE);
-            //                 if (site.Name().Contains(".L"))
-            //                     return false;
-            //
-            //                 if(new HashSet<string>(){"AXES", "NOCL" }.Contains( site.GetString(DbAttributeInstance.PURP))){
-            //                     return false;
-            //                 }
-            //                 return false;
-            //             })]);
-            //             break;
-            //     }
-            // }
-
-            //var clashOptions = ClashOptions.Create();
-            //
-            // clashOptions.BranchCheckType = BranchCheck.BCHECK;
-            // clashOptions.Clearance = 0.0;
-            // clashOptions.HullDesign = false;
-            // clashOptions.HullProduction = false;
-            // clashOptions.IgnoreConnectionsWithSpecifications = false;
-            // clashOptions.IncludeConnections = false;
-            // clashOptions.IncludeTouches = true;
-            // clashOptions.LMIDisplay = LMIDisplayType.CELLS;
-            // clashOptions.LMIDisplayExpandCells = 0.0;
-            // clashOptions.LMITestExact = false;
-            // clashOptions.Override = true;
-            // clashOptions.Segments = false;
-            // clashOptions.TouchGap = 0.0;
-            // clashOptions.TouchOverlap = 0.0;
-            //
-            //
-            // clashOptions.NoCheckWithin(
-            // [
-            //     DbElementTypeInstance.EQUIPMENT,
-            //     DbElementTypeInstance.STRUCTURE,
-            //     DbElementTypeInstance.BRANCH,
-            //     DbElementTypeInstance.RESTRAINT,
-            // ]);
-            //
-            // var clashSet = ClashSet.Create();
-            // //PML.CreateCommand("MAP BUILD MDB");
-            // var checkResult = Clasher.Instance.Check(colZone.ToArray(), clashOptions, obstructionList, clashSet);
-            //
-            //
-            // //DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
-            // if (!checkResult)
-            //     return;
-            //
-            // Logger.WriteLine($"Процедура DESCLAH выполнена. Количество коллизий: {clashSet.Clashes.Length}");
-            // CheckResultToBase(clashConnection, clashTableName, clashSet);
-            //
-            //
-            // int resultClashCount = clashConnection.ExecuteScalar<int>($"select  count (*) from {clashTableName}");
-            // Logger.WriteLine($"Коллизий после проверки: {resultClashCount}");
-            //
-            //
-            // int clashForDeleteCount = clashConnection.ExecuteScalar<int>($"select count (*) from {clashTableName} WHERE(Existing = 'False')");
-            //
-            // if (clashForDeleteCount < resultClashCount / 4)
-            // {
-            //     Logger.WriteLine("Удаление несуществующих коллизий...");
-            //
-            //     //TODO: Написать лог по удалённым коллизиям
-            //     //!!sqlArrayToFile()
-            //
-            //
-            //     clashConnection.Execute($"delete from {clashTableName} WHERE (Existing = 'False')");
-            //
-            //     int clashCountAfterDelete = clashConnection.ExecuteScalar<int>($"select  count (*) from {clashTableName}");
-            //     Logger.WriteLine($"Коллизий после удаления: {clashCountAfterDelete}");
-            //
-            // }
-            // else
-            // {
-            //     Logger.WriteLine($"Удаление несуществующих коллизий не производилось т.к. слишком много потенциально удаляемых {clashForDeleteCount} шт из {resultClashCount} шт");
-            // }
-            //
-            // clashConnection.Close();
-            // Logger.FinishLog();
-            //
         }
         catch (Exception ex)
         {
@@ -1058,7 +934,6 @@ public class ClashChecker
         foreach (var clash in notIgnoredClashes)
         {
             InsertOneCLash(sqlConnection, clashTableName, clash);
-
         }
         PML.CreateCommand($"$p {notIgnoredClashes.Count()} коллизий подтвердилось после проверки");
     }
@@ -1175,8 +1050,9 @@ public class ClashChecker
             if (CheckPipeWithJntc(clash))
                 return true;
 
-            if (CheckSiteAndZoneNames(clash))
-                return true;
+            //Проверка упразднена, т.к. сценарии исключаются заранее
+            //if (CheckSiteAndZoneNames(clash)) 
+            //    return true;
 
             if (CheckGensecWithPane(clash))
                 return true;
