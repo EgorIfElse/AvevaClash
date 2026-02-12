@@ -166,8 +166,10 @@ public class ClashChecker
                 if (wvolArray[i].Length < 6)
                     continue;
                 bool firstZoneReadOnlyDb = !colZone[i].GetBool(DbAttributeInstance.DBWRIT); //Первая зона Read-Only
+
+                
                 var obstructionList = ObstructionList.Create();
-                var firstSite = colZone[i].Owner;
+                var firstSite = colZone[i].Owner; // Можно спросить сайт через DbDepthElementExtensions
 
                 for (int j = i; j < colZone.Count; j++)
                 {
