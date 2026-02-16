@@ -78,6 +78,12 @@ namespace Aveva.ClashChecker.NetCallable.Models
                 Dept = "VIK",
                 Tdept = "TEPRDVIK",
                 Mark = new[]{"_WS","_FP"}
+            },
+             new()
+            {
+                Dept = "XXX",
+                Tdept = "TEPRDXXX",
+                Mark = new[]{"XXX"}
             }
             ];
     }
