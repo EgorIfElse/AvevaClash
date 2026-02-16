@@ -129,9 +129,9 @@ public class ClashChecker
                 {
                     DbElement site = e.Owner;
                     string siteName = site.Name();
-                    if(siteName.Contains("20UHJ_SC"))
-                        return true;
-                    return false;
+                    if(siteName.Contains(".L") || siteName.Contains("ZEMI") || siteName.Contains("/po") || site.GetString(DbAttributeInstance.PURP) == "NOCL" || e.GetAsString(DbAttributeInstance.MCOU) == "0")
+                        return false;
+                    return true;
                 //&& e.GetAsString(DbAttributeInstance.NAME).Contains("10UHJ_RC_FF11")
                 //|| e.GetAsString(DbAttributeInstance.NAME).Contains("144N70-10UHJ-AC.ifc"))];
                 })];
