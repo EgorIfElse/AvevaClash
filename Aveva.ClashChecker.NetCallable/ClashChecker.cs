@@ -130,7 +130,7 @@ public class ClashChecker
                     DbElement site = e.Owner;
                     string siteName = site.Name();
                     if(siteName.Contains("20UHJ_SC"))
-                    return true;
+                        return true;
                     return false;
                 //&& e.GetAsString(DbAttributeInstance.NAME).Contains("10UHJ_RC_FF11")
                 //|| e.GetAsString(DbAttributeInstance.NAME).Contains("144N70-10UHJ-AC.ifc"))];
@@ -167,7 +167,7 @@ public class ClashChecker
                     continue;
                 bool firstZoneReadOnlyDb = !colZone[i].GetBool(DbAttributeInstance.DBWRIT); //Первая зона Read-Only
 
-                
+
                 var obstructionList = ObstructionList.Create();
                 var firstSite = colZone[i].Owner; // Можно спросить сайт через DbDepthElementExtensions
 
@@ -182,7 +182,7 @@ public class ClashChecker
                         continue;
 
                     if (wvolArray[j].Length < 6) // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
-                        continue; 
+                        continue;
                     if (WvolClash(wvolArray[i], wvolArray[j]))
                         obstructionList.AddObstructions([colZone[j]]);
 
@@ -799,16 +799,16 @@ public class ClashChecker
 
 
 
-        string firstType = clashType.Substring(0, 1);
-        string secondType = clashType.Substring(1, 1);
-        string invt = $"{firstType}{secondType} CLASH";
-        string query;
-        if (clashType == "*" || firstType == secondType)
-            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
-        else
-            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
+            string firstType = clashType.Substring(0, 1);
+            string secondType = clashType.Substring(1, 1);
+            string invt = $"{firstType}{secondType} CLASH";
+            string query;
+            if (clashType == "*" || firstType == secondType)
+                query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
+            else
+                query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
 
-        return [.. clashConnection.Query<ClashEntity>(query)];
+            return [.. clashConnection.Query<ClashEntity>(query)];
  
 
     }
@@ -946,7 +946,7 @@ public class ClashChecker
 
         foreach (var clash in notIgnoredClashes)
         {
-            InsertOneCLash(sqlConnection, clashTableName, clash);
+             InsertOneCLash(sqlConnection, clashTableName, clash);
         }
         PML.CreateCommand($"$p {notIgnoredClashes.Count()} коллизий подтвердилось после проверки");
     }
@@ -1350,5 +1350,5 @@ public class ClashChecker
     }
 
 
-
-        }
+    
+}
