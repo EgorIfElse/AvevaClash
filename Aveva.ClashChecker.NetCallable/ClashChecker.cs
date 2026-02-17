@@ -116,10 +116,11 @@ public class ClashChecker
             clashConnection.Execute($"UPDATE {clashTableName} set Existing = 'false'");
             int initialClashCount = clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}");
 
-                
+
             string initialClashesLogString = $"Коллизий до проверки: {initialClashCount}";
 
             Logger.WriteLine(initialClashesLogString);
+
 
             List<DbElement> colZone;
 
@@ -177,7 +178,7 @@ public class ClashChecker
 
                 if (wvolArray[i].Length < 6)
                     continue;
-                bool firstZoneReadOnlyDb = !colZone[i].GetBool(DbAttributeInstance.DBWRIT); //Первая зона Read-Only
+                //bool firstZoneReadOnlyDb = !colZone[i].GetBool(DbAttributeInstance.DBWRIT); //Первая зона Read-Only
 
 
                 var obstructionList = ObstructionList.Create();
@@ -191,7 +192,7 @@ public class ClashChecker
                     //if(firstSite == secondSite && firstSite.Name().Contains("ifc")) //Если обе зоны лежат в одном и том же сайте с ifc - скип
                     //    continue;
 
-                    bool secondZoneReadOnlyDb = !colZone[j].GetBool(DbAttributeInstance.DBWRIT); //Вторая зона Read-Only
+                    //bool secondZoneReadOnlyDb = !colZone[j].GetBool(DbAttributeInstance.DBWRIT); //Вторая зона Read-Only
                     //TODO: Добавить в проверку признак принадлжености зон к разным проектам (тогда отсев по данному правилу можно будет оживить)
                     //if (firstZoneReadOnlyDb && secondZoneReadOnlyDb) //Скип, если обе зоны Read-Only
                     //    continue;
@@ -210,7 +211,7 @@ public class ClashChecker
                 if (!checkResult)
                     continue;
 
-                CheckResultToBase(clashConnection, clashTableName, clashSet);
+                _ = CheckResultToBase(clashConnection, clashTableName, clashSet);
 
             }
 
@@ -230,40 +231,48 @@ public class ClashChecker
     }
 
 
+    private void VolumeCreationTest()
+    {
+        var parent = DbElement.GetElement("*");
+
+
+        var temp = DbElement.GetElement().Create(1, DbElementTypeInstance.VOLMODEL);
+    }
+
     private void CreateClashDbIfNotExist(string clashTableName, SqlConnection clashConnection)
     {
         if (!clashConnection.TableExists(clashTableName))
         {
-            Logger.WriteLine($"Таблица {clashTableName} не найдена! Создание таблицы...");
-            clashConnection.Execute($"CREATE TABLE [{clashTableName}]( [id] INT NOT NULL IDENTITY (1,1)," +
-                " [ClashType] NVARCHAR(20) NOT NULL," +
-                " [El1] NVARCHAR(40) NOT NULL," +
-                "  [type1] NVARCHAR(10) NOT NULL," +
-                "  [usermod1] NVARCHAR(20) NOT NULL," +
-                "  [flnm1] NVARCHAR(250)," +
-                "  [Dept1] NVARCHAR(20)," +
-                "  [Gpset1] NVARCHAR(100)," +
-                "  [El2] NVARCHAR(40) NOT NULL," +
-                "  [type2] NVARCHAR(10) NOT NULL," +
-                "  [usermod2] NVARCHAR(20) NOT NULL," +
-                "  [flnm2] NVARCHAR(250)," +
-                "  [Dept2] NVARCHAR(20)," +
-                "  [Gpset2] NVARCHAR(100)," +
-                "  [date] DATETIME NOT NULL," +
-                "  [x] INT NOT NULL," +
-                "  [y] INT NOT NULL," +
-                "  [z] INT NOT NULL," +
-                "  [existing] BIT NOT NULL," +
-                "  [Building] NVARCHAR(20)," +
-                "  [Sequence] NVARCHAR(20) ," +
-                "  [RequestToDept] NVARCHAR(20)," +
-                "  [RequestUser] NVARCHAR(20)," +
-                "  [RequestDate] DATETIME," +
-                "  [ApproveUser] NVARCHAR(20)," +
-                "  [ApproveDate] DATETIME," +
-                "  [ApproveReason] NVARCHAR(255)," +
-                "  [InWorkUser] NVARCHAR(20)," +
-                "  [InWorkDate] DATETIME );");
+            Logger.WriteLine($@"Таблица {clashTableName} не найдена! Создание таблицы...");
+            clashConnection.Execute($@"CREATE TABLE [{clashTableName}]( [id] INT NOT NULL IDENTITY (1,1), 
+                [ClashType] NVARCHAR(20) NOT NULL, 
+                 [El1] NVARCHAR(40) NOT NULL, 
+                [type1] NVARCHAR(10) NOT NULL, 
+                [usermod1] NVARCHAR(20) NOT NULL, 
+                [flnm1] NVARCHAR(250), 
+                [Dept1] NVARCHAR(20), 
+                [Gpset1] NVARCHAR(100), 
+                [El2] NVARCHAR(40) NOT NULL, 
+                [type2] NVARCHAR(10) NOT NULL, 
+                [usermod2] NVARCHAR(20) NOT NULL, 
+                [flnm2] NVARCHAR(250), 
+                [Dept2] NVARCHAR(20), 
+                [Gpset2] NVARCHAR(100), 
+                [date] DATETIME NOT NULL, 
+                [x] INT NOT NULL, 
+                [y] INT NOT NULL, 
+                [z] INT NOT NULL, 
+                [existing] BIT NOT NULL, 
+                [Building] NVARCHAR(20), 
+                [Sequence] NVARCHAR(20) , 
+                [RequestToDept] NVARCHAR(20), 
+                [RequestUser] NVARCHAR(20), 
+                [RequestDate] DATETIME, 
+                [ApproveUser] NVARCHAR(20), 
+                [ApproveDate] DATETIME, 
+                [ApproveReason] NVARCHAR(255), 
+                [InWorkUser] NVARCHAR(20), 
+                [InWorkDate] DATETIME );");
 
             Logger.WriteLine($"Таблица {clashTableName} создана!");
             Logger.WriteLine($"Генерация индексов...");
@@ -285,11 +294,11 @@ public class ClashChecker
         {
             Logger.WriteLine($"Таблица {historyTableName} не найдена! Создание таблицы...");
 
-            clashConnection.Execute($"CREATE TABLE[{historyTableName}]([id] INT NOT NULL," +
-            "[LogDate] DATETIME NOT NULL DEFAULT GETDATE()," +
-            "[LoginName] NVARCHAR(50), " +
-            "[ActionType] NVARCHAR(20), " +
-            "[Comment] NVARCHAR(100));");
+            clashConnection.Execute(@$"CREATE TABLE[{historyTableName}]([id] INT NOT NULL,
+            [LogDate] DATETIME NOT NULL DEFAULT GETDATE(),
+            [LoginName] NVARCHAR(50), 
+            [ActionType] NVARCHAR(20),
+            [Comment] NVARCHAR(100));");
 
 
             Logger.WriteLine($"Таблица {historyTableName} создана!");
@@ -320,14 +329,14 @@ public class ClashChecker
             {
                 j--;
                 //Идём по элементам в таблице коллизий
-                string updateFirstQuery = $"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), " +
-                    $"ClashWithMemE{i} AS(SELECT OldE{i}, flnm{i}, LEFT(flnm{i}, CHARINDEX(' of ', flnm{i} + ' of ') - 1) AS mempos{i} FROM ClashElemsE{i}), " +
-                    $"OldWithUuidE{i} AS(SELECT c.OldE{i}, c.flnm{i}, i.UUIDowner FROM ClashWithMemE{i} c JOIN {tableIfcName} i ON i.ELEM = c.OldE{i} AND i.fdelnm = c.mempos{i}), " +
-                    $"LatestPerUUIDE{i} AS(SELECT UUIDowner, ELEM AS NewE{i}, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), " +
-                    $"MapOldNewE{i} AS(SELECT o.OldE{i}, o.flnm{i}, l.NewE{i} FROM OldWithUuidE{i} o JOIN LatestPerUUIDE{i} l ON l.UUIDowner = o.UUIDowner AND l.rn = 1) " +
-                    $"UPDATE c SET c.El{i} = m.NewE{i} OUTPUT deleted.id, deleted.El{i}, inserted.El{i}, inserted.flnm{i}, GETDATE() INTO" +
-                    $"{clashRefUpdateLog}(RowId, OldEl{j}, NewEl{j}, flnm{j}, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE{i} m ON c.El{i} = m.OldE{i} AND c.flnm{i} = m.flnm{i} WHERE c.type{i} = 'GENPRI' AND m.NewE{i}<> c.El{i} " +
-                    "SELECT @@ROWCOUNT AS UpdatedRows;";
+                string updateFirstQuery = @$"WITH ClashElemsE{i} AS(SELECT DISTINCT El{i} AS OldE{i}, flnm{i} AS flnm{i} FROM {clashTableName} WHERE type{i} = 'GENPRI'), 
+                    ClashWithMemE{i} AS(SELECT OldE{i}, flnm{i}, LEFT(flnm{i}, CHARINDEX(' of ', flnm{i} + ' of ') - 1) AS mempos{i} FROM ClashElemsE{i}), 
+                    OldWithUuidE{i} AS(SELECT c.OldE{i}, c.flnm{i}, i.UUIDowner FROM ClashWithMemE{i} c JOIN {tableIfcName} i ON i.ELEM = c.OldE{i} AND i.fdelnm = c.mempos{i}), 
+                    LatestPerUUIDE{i} AS(SELECT UUIDowner, ELEM AS NewE{i}, ROW_NUMBER() OVER (PARTITION BY UUIDowner ORDER BY [DATE] DESC ) AS rn FROM {tableIfcName} ), 
+                    MapOldNewE{i} AS(SELECT o.OldE{i}, o.flnm{i}, l.NewE{i} FROM OldWithUuidE{i} o JOIN LatestPerUUIDE{i} l ON l.UUIDowner = o.UUIDowner AND l.rn = 1) 
+                    UPDATE c SET c.El{i} = m.NewE{i} OUTPUT deleted.id, deleted.El{i}, inserted.El{i}, inserted.flnm{i}, GETDATE() INTO
+                    {clashRefUpdateLog}(RowId, OldEl{j}, NewEl{j}, flnm{j}, UpdateTime) FROM {clashTableName} c JOIN MapOldNewE{i} m ON c.El{i} = m.OldE{i} AND c.flnm{i} = m.flnm{i} WHERE c.type{i} = 'GENPRI' AND m.NewE{i}<> c.El{i} 
+                    SELECT @@ROWCOUNT AS UpdatedRows;";
                 clashConnection.Execute(updateFirstQuery, commandTimeout: 600);
             }
 
@@ -810,17 +819,17 @@ public class ClashChecker
 
 
 
-            string firstType = clashType.Substring(0, 1);
-            string secondType = clashType.Substring(1, 1);
-            string invt = $"{firstType}{secondType} CLASH";
-            string query;
-            if (clashType == "*" || firstType == secondType)
-                query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
-            else
-                query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
+        string firstType = clashType.Substring(0, 1);
+        string secondType = clashType.Substring(1, 1);
+        string invt = $"{firstType}{secondType} CLASH";
+        string query;
+        if (clashType == "*" || firstType == secondType)
+            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
+        else
+            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
 
-            return [.. clashConnection.Query<ClashEntity>(query)];
- 
+        return [.. clashConnection.Query<ClashEntity>(query)];
+
 
     }
 
@@ -868,7 +877,7 @@ public class ClashChecker
         }
         //string SelectTableName = $"SELECT * FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{tableName}'";
         //var select = clashConnection.Execute(SelectTableName);
-        
+
         if (!clashConnection.TableExists(tableName))
             clashConnection.Execute($"CREATE TABLE {tableName} ( [El] NVARCHAR(40) )");
 
@@ -888,7 +897,7 @@ public class ClashChecker
         //получить из базы всё по этому элементу
 
         string GetRowTableName = $"select id 'Id', clashtype 'ClashType', El1 'FirstElement', type1 'FirstType', usermod1 'FirstUserMode', dept1 'FirstDept', gpset1 'FirstGpset', El2 'SecondElement', type2 'SecondType', usermod2 'SecondUserMode', dept2 'SecondDept', gpset2 'SecondGpset', date 'Date', x 'X', y 'Y', z 'Z', existing 'Existing',Building 'Building', Sequence 'Sequence', RequestToDept 'RequestToDept', RequestUser 'RequestUser', RequestDate 'RequestDate', ApproveUser 'ApproveUser', ApproveDate 'ApproveDate', ApproveReason 'ApproveReason', InWorkUser 'InWorkUser', InWorkDate 'InWorkDate' " +
-            $"from {clashTableName} where ((el1 in (select el from {tablename}) or el2 in (select el from {tablename})) {wherestring} )";
+            $"from {clashTableName} where ((el1 in (select el from {tableName}) or el2 in (select el from {tableName})) {wherestring} )";
         var clashList = clashConnection.Query<ClashEntity>(GetRowTableName).ToList();
 
         if (clashConnection.TableExists(tableName))
@@ -896,22 +905,6 @@ public class ClashChecker
 
         return clashList;
 
-    }
-
-    /// <summary>
-    /// Возвращает sql соединение для clash-таблиц по наименованию проекта
-    /// </summary>
-    /// <returns></returns>
-    private SqlConnection GetClashSqlConnection()
-    {
-        try
-        {
-            return new SqlConnection(ClashConnectionString);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 
 
@@ -936,11 +929,11 @@ public class ClashChecker
     private void InsertOneCLash(SqlConnection clashConnection, string clashTableName, Clash clash)
     {
         var clashType = clash.Type.ToString();
-        var firstElement = clash.First.ToString();
-        var secondElement = clash.Second.ToString();
+        var firstElement = clash.First;
+        var secondElement = clash.Second;
         var firstType = clash.First.ElementType;
         var secondType = clash.Second.ElementType;
-
+        var date = DateTime.Now;
         var flnm1 = clash.First.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
         var flnm2 = clash.Second.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
 
@@ -953,21 +946,15 @@ public class ClashChecker
         var firstUserMode = History(clash.First, "user");
         var secondUserMode = History(clash.Second, "user");
 
-        var Building = "";
-        var BuildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
-        var BuildingSecond = clash.Second.GetAsString(DbAttributeInstance.DBNA);
-        if (BuildingFirst == BuildingSecond)
-        {
-            Building = BuildingFirst.Split('/')[1].Split('_')[0];
-        }
-        else
-        {
-            Building = "";
-        }
+        var building = "";
+        var buildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
+        if (buildingFirst == clash.Second.GetAsString(DbAttributeInstance.DBNA))
+            building = buildingFirst.Split('/')[1].Split('_')[0];
 
-            var ClashFromBase = QueryOneSqlClash(clashConnection, clashTableName, clashType, FirstElement, SecondElement);
 
-        if (ClashFromBase.Count == 0)
+        var clashesFromBase = QueryOneSqlClash(clashConnection, clashTableName, clashType, firstElement.ToString(), secondElement.ToString());
+
+        if (clashesFromBase.Count == 0)
         {
             try
             {
@@ -978,23 +965,23 @@ public class ClashChecker
                 new
                 {
                     ClashType = clashType,
-                    el1 = FirstElement,
-                    el2 = SecondElement,
-                    type1 = FirstType.ToString(),
-                    type2 = SecondType.ToString(),
-                    usermod1 = FirstUserMode,
-                    usermod2 = SecondUserMode,
+                    el1 = firstElement,
+                    el2 = secondElement,
+                    type1 = firstType,
+                    type2 = secondType,
+                    usermod1 = firstUserMode,
+                    usermod2 = secondUserMode,
                     flnm1 = flnm1,
                     flnm2 = flnm2,
-                    dept1 = FirstDept,
-                    dept2 = SecondDept,
-                    gpset1 = FirstGroups,
-                    gpset2 = SecondGroups,
+                    dept1 = firstDept,
+                    dept2 = secondDept,
+                    gpset1 = firstGroups,
+                    gpset2 = secondGroups,
                     x = clash.ClashPosition.X,
                     y = clash.ClashPosition.Y,
                     z = clash.ClashPosition.Z,
-                    date = Date,
-                    Building = Building
+                    date = date,
+                    Building = building
                 });
             }
 
@@ -1004,51 +991,51 @@ public class ClashChecker
             }
 
         }
-        else if (ClashFromBase.Count > 1)
+        else if (clashesFromBase.Count > 1)
         {
-            string str = $"ВНИМАНИЕ в базе более чем одна такая коллизия {FirstElement} {SecondElement}";
+            string str = $"ВНИМАНИЕ в базе более чем одна такая коллизия {firstElement} {secondElement}";
             PML.CreateCommand($"$p {str}");
         }
         else
         {
-            var resultClash = ClashFromBase.First();
+            var resultClash = clashesFromBase.First();
             double x0 = Convert.ToDouble(resultClash.X);
             double y0 = Convert.ToDouble(resultClash.Y);
             double z0 = Convert.ToDouble(resultClash.Z);
 
-                if ((Math.Abs(x0 - clash.ClashPosition.X) >= 25) && (Math.Abs(y0 - clash.ClashPosition.Y)) >= 25 && (Math.Abs(z0 - clash.ClashPosition.Z)) >= 25)
-                {
-                    var Id = clashFromBase[0];
-                    string QueryDel = $"DELETE FROM {clashTableName} where id = '{Id}'";
-                    clashConnection.Execute(QueryDel);
+            if ((Math.Abs(x0 - clash.ClashPosition.X) >= 25) && (Math.Abs(y0 - clash.ClashPosition.Y)) >= 25 && (Math.Abs(z0 - clash.ClashPosition.Z)) >= 25)
+            {
+                var Id = clashesFromBase[0];
+                string QueryDel = $"DELETE FROM {clashTableName} where id = '{Id}'";
+                clashConnection.Execute(QueryDel);
 
-               
-                    clashConnection.Execute($@"INSERT INTO {clashTableName} 
+
+                clashConnection.Execute($@"INSERT INTO {clashTableName} 
                                                         ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, Building)
                                         VALUES 
                                                          ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 'true', @Building);",
-                    new
-                    {
-                        ClashType = clashType,
-                        el1 = FirstElement,
-                        el2 = SecondElement,
-                        type1 = FirstType.ToString(),
-                        type2 = SecondType.ToString(),
-                        usermod1 = FirstUserMode,
-                        usermod2 = SecondUserMode,
-                        flnm1 = flnm1,
-                        flnm2 = flnm2,
-                        dept1 = FirstDept,
-                        dept2 = SecondDept,
-                        gpset1 = FirstGroups,
-                        gpset2 = SecondGroups,
-                        x = clash.ClashPosition.X,
-                        y = clash.ClashPosition.Y,
-                        z = clash.ClashPosition.Z,
-                        date = Date,
-                        Building = Building
-                    });
-               
+                new
+                {
+                    ClashType = clashType,
+                    el1 = firstElement,
+                    el2 = secondElement,
+                    type1 = firstType.ToString(),
+                    type2 = secondType.ToString(),
+                    usermod1 = firstUserMode,
+                    usermod2 = secondUserMode,
+                    flnm1 = flnm1,
+                    flnm2 = flnm2,
+                    dept1 = firstDept,
+                    dept2 = secondDept,
+                    gpset1 = firstGroups,
+                    gpset2 = secondGroups,
+                    x = clash.ClashPosition.X,
+                    y = clash.ClashPosition.Y,
+                    z = clash.ClashPosition.Z,
+                    date = date,
+                    Building = building
+                });
+
 
 
                 //более подробная информация о перезаписываемом клеше пока не удалили его
@@ -1322,5 +1309,5 @@ public class ClashChecker
     }
 
 
-    
+
 }

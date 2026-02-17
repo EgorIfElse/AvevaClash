@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <AssemblyName>AvevaTest</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <UseWindowsForms>True</UseWindowsForms>
+    <TargetFramework>net481</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup>
+    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+  </ItemGroup>
+  <ItemGroup>
+	  <Reference Include="Aveva.Core.Database.Filters">
+		  <HintPath>..\References\Aveva.Core.Database.Filters.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Aveva.Core.Geometry">
+		  <HintPath>..\References\Aveva.Core.Geometry.dll</HintPath>
+	  </Reference>
+	  <Reference Include="PMLNet">
+		  <HintPath>..\References\PMLNet.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Aveva.Core.Database">
+		  <HintPath>..\References\Aveva.Core.Database.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Aveva.Core.Utilities">
+		  <HintPath>..\References\Aveva.Core.Utilities.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Aveva.Core">
+		  <HintPath>..\References\Aveva.Core.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Aveva.Core3D.Clasher">
+		  <HintPath>..\References\Aveva.Core3D.Clasher.dll</HintPath>
+	  </Reference>
+	  <Reference Include="System.Data" />
+	  </ItemGroup>
+</Project>
