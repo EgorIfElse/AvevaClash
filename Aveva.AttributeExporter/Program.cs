@@ -10,6 +10,8 @@ namespace AVEVA_AttributeExporter
     {
         public static void Main(string[] args)
         {
+            Aveva.Core.PdmsApplication.Start(false, 78, true, false, "");
+
             // Инициализация приложения AVEVA
             //Application.Initialize();
 
@@ -20,9 +22,9 @@ namespace AVEVA_AttributeExporter
 
             // Экспортируем атрибуты
             //exporter.ExportAttributes(@"C:\Export\attributes.att");
-            Aveva.E3D.Standalone.Standalone.Start(78);
-            Aveva.E3D.Standalone.Standalone.Open("ARM", "SYSTEM", "XXXXXX", "ALL", out PdmsMessage error);
-            DbElement dbWorld = MDB.CurrentMDB.GetFirstWorld(DbType.Design);
+            //Aveva.E3D.Standalone.Standalone.Start(78);
+            //Aveva.E3D.Standalone.Standalone.Open("ARM", "SYSTEM", "XXXXXX", "ALL", out PdmsMessage error);
+            //DbElement dbWorld = MDB.CurrentMDB.GetFirstWorld(DbType.Design);
         }
 
 
