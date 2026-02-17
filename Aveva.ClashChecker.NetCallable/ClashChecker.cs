@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
@@ -54,6 +55,8 @@ public class ClashChecker
     $"Y '{nameof(ClashEntity.Y)}', " +
     $"Z '{nameof(ClashEntity.Z)}', " +
     $"Existing '{nameof(ClashEntity.Existing)}', " +
+    $"Sequence '{nameof(ClashEntity.Sequence)}', " +
+    $"Building '{nameof(ClashEntity.Building)}', " +
     $"RequestToDept '{nameof(ClashEntity.RequestToDept)}', " +
     $"RequestUser '{nameof(ClashEntity.RequestUser)}', " +
     $"RequestDate '{nameof(ClashEntity.RequestDate)}', " +
@@ -62,6 +65,7 @@ public class ClashChecker
     $"ApproveReason '{nameof(ClashEntity.ApproveReason)}', " +
     $"InWorkUser '{nameof(ClashEntity.InWorkUser)}', " +
     $"InWorkDate '{nameof(ClashEntity.InWorkDate)}'";
+
 
     private const string DefaultLogDirectoryPath = "D:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
@@ -72,7 +76,7 @@ public class ClashChecker
     }
 
     [PMLNetCallable]
-    public string CheckAll(string obstType, bool testMode = false, string logDirectoryPath = DefaultLogDirectoryPath)
+    public async Task<string> CheckAll(string obstType, bool testMode = true, string logDirectoryPath = DefaultLogDirectoryPath)
     {
         try
         {
@@ -129,11 +133,15 @@ public class ClashChecker
                 {
                     DbElement site = e.Owner;
                     string siteName = site.Name();
-                    if(siteName.Contains(".L") || siteName.Contains("ZEMI") || siteName.Contains("/po") || site.GetString(DbAttributeInstance.PURP) == "NOCL" || e.GetAsString(DbAttributeInstance.MCOU) == "0")
-                        return false;
-                    return true;
-                //&& e.GetAsString(DbAttributeInstance.NAME).Contains("10UHJ_RC_FF11")
-                //|| e.GetAsString(DbAttributeInstance.NAME).Contains("144N70-10UHJ-AC.ifc"))];
+                    if(siteName.Contains("10UHJ_TD_EQUI") || siteName.Contains("10UHJ_SC_PL"))
+                        return true;
+                    return false;
+                //   DbElement site = e.Owner;
+                //   string siteName = site.Name();
+                //   if(siteName.Contains(".L") || siteName.Contains("ZEMI") || siteName.Contains("/po") || site.GetString(DbAttributeInstance.PURP) == "NOCL" || e.GetAsString(DbAttributeInstance.MCOU) == "0")
+                //       return false;
+                //   return true;
+                
                 })];
             }
 
@@ -239,6 +247,8 @@ public class ClashChecker
                 "  [y] INT NOT NULL," +
                 "  [z] INT NOT NULL," +
                 "  [existing] BIT NOT NULL," +
+                "  [Building] NVARCHAR(20)," +
+                "  [Sequence] NVARCHAR(20) ," +
                 "  [RequestToDept] NVARCHAR(20)," +
                 "  [RequestUser] NVARCHAR(20)," +
                 "  [RequestDate] DATETIME," +
@@ -247,6 +257,7 @@ public class ClashChecker
                 "  [ApproveReason] NVARCHAR(255)," +
                 "  [InWorkUser] NVARCHAR(20)," +
                 "  [InWorkDate] DATETIME );");
+
             Logger.WriteLine($"Таблица {clashTableName} создана!");
             Logger.WriteLine($"Генерация индексов...");
 
@@ -257,6 +268,8 @@ public class ClashChecker
             clashConnection.Execute($"CREATE INDEX dept2_ind ON {clashTableName}(dept2)");
             clashConnection.Execute($"CREATE INDEX gpset1_ind ON {clashTableName}(gpset1)");
             clashConnection.Execute($"CREATE INDEX gpset2_ind ON {clashTableName}(gpset2)");
+            clashConnection.Execute($"CREATE INDEX Sequence_ind ON {clashTableName}(Sequence)");
+            clashConnection.Execute($"CREATE INDEX Building_ind ON {clashTableName}(Building)");
             Logger.WriteLine($"Индексы для {clashTableName} сформированы!");
         }
 
@@ -283,7 +296,7 @@ public class ClashChecker
     /// Обновляет таблицу tableIfc{ProjName}
     /// </summary>
     /// <param name="projectName"></param>
-    private void ReplaceRefIFC(SqlConnection clashConnection, string clashTableName, string tableIfcName, string clashRefUpdateLog, string pprojectCode)
+    private async Task ReplaceRefIFC(SqlConnection clashConnection, string clashTableName, string tableIfcName, string clashRefUpdateLog, string pprojectCode)
     {
         try
         {
@@ -739,7 +752,7 @@ public class ClashChecker
         {
             if (DbElType == "GPSET") return dbElement.Name();
 
-            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC"))
+            else if (DbElType == "GENPRI" || DbElType == "GENCUR" && Site.Name().Contains("_AC")) //// ?????
             {
                 var sdvds = DbElement.GetElement(Zone.Ref);
                 var Gpref = sdvds.GetElement(DbAttribute.GetDbAttribute(":UES_GPREF")).ToString();
@@ -907,7 +920,7 @@ public class ClashChecker
 
         //получить из базы всё по этому элементу
 
-        string GetRowTableName = $"select id 'Id', clashtype 'ClashType', El1 'FirstElement', type1 'FirstType', usermod1 'FirstUserMode', dept1 'FirstDept', gpset1 'FirstGpset', El2 'SecondElement', type2 'SecondType', usermod2 'SecondUserMode', dept2 'SecondDept', gpset2 'SecondGpset', date 'Date', x 'X', y 'Y', z 'Z', existing 'Existing', RequestToDept 'RequestToDept', RequestUser 'RequestUser', RequestDate 'RequestDate', ApproveUser 'ApproveUser', ApproveDate 'ApproveDate', ApproveReason 'ApproveReason', InWorkUser 'InWorkUser', InWorkDate 'InWorkDate' " +
+        string GetRowTableName = $"select id 'Id', clashtype 'ClashType', El1 'FirstElement', type1 'FirstType', usermod1 'FirstUserMode', dept1 'FirstDept', gpset1 'FirstGpset', El2 'SecondElement', type2 'SecondType', usermod2 'SecondUserMode', dept2 'SecondDept', gpset2 'SecondGpset', date 'Date', x 'X', y 'Y', z 'Z', existing 'Existing',Building 'Building', Sequence 'Sequence', RequestToDept 'RequestToDept', RequestUser 'RequestUser', RequestDate 'RequestDate', ApproveUser 'ApproveUser', ApproveDate 'ApproveDate', ApproveReason 'ApproveReason', InWorkUser 'InWorkUser', InWorkDate 'InWorkDate' " +
             $"from {clashTableName} where ((el1 in (select el from {tablename}) or el2 in (select el from {tablename})) {wherestring} )";
         var clashList = clashConnection.Query<ClashEntity>(GetRowTableName).ToList();
 
@@ -939,7 +952,7 @@ public class ClashChecker
     }
 
 
-    private void CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
+    private async Task CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
         var notIgnoredClashes = clashSet.Clashes.Where(e => !IsClashIgnore(e));
         Logger.WriteLine($"Количесво проигнорированных коллизий: {clashSet.Clashes.Length - notIgnoredClashes.Count()}");
@@ -973,17 +986,28 @@ public class ClashChecker
 
         var Date = DateTime.Now;
 
+        var Building = "";
+        var BuildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
+        var BuildingSecond = clash.Second.GetAsString(DbAttributeInstance.DBNA);
+        if (BuildingFirst == BuildingSecond)
+        {
+            Building = BuildingFirst.Split('/')[1].Split('_')[0];
+        }
+        else
+        {
+            Building = "";
+        }
 
-        var ClashFromBase = QueryOneSqlClash(clashConnection, clashTableName, clashType, FirstElement, SecondElement);
+            var ClashFromBase = QueryOneSqlClash(clashConnection, clashTableName, clashType, FirstElement, SecondElement);
 
         if (ClashFromBase.Count == 0)
         {
             try
             {
                 clashConnection.Execute($@"INSERT INTO {clashTableName} 
-                                                        ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing)
+                                                        ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, Building)
                                         VALUES 
-                                                         ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 'true');",
+                                                         ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 'true', @Building);",
                 new
                 {
                     ClashType = clashType,
@@ -1002,7 +1026,8 @@ public class ClashChecker
                     x = clash.ClashPosition.X,
                     y = clash.ClashPosition.Y,
                     z = clash.ClashPosition.Z,
-                    date = Date
+                    date = Date,
+                    Building = Building
                 });
             }
 
@@ -1030,31 +1055,33 @@ public class ClashChecker
                 string QueryDel = $"DELETE FROM {clashTableName} where id = '{Id}'";
                 clashConnection.Execute(QueryDel);
 
-                clashConnection.Execute($@"INSERT INTO {clashTableName} 
-                                                        ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing)
+               
+                    clashConnection.Execute($@"INSERT INTO {clashTableName} 
+                                                        ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, Building)
                                         VALUES 
-                                                         ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 'true');",
-                new
-                {
-                    ClashType = clashType,
-                    el1 = FirstElement,
-                    el2 = SecondElement,
-                    type1 = FirstType.ToString(),
-                    type2 = SecondType.ToString(),
-                    usermod1 = FirstUserMode,
-                    usermod2 = SecondUserMode,
-                    flnm1 = flnm1,
-                    flnm2 = flnm2,
-                    dept1 = FirstDept,
-                    dept2 = SecondDept,
-                    gpset1 = FirstGroups,
-                    gpset2 = SecondGroups,
-                    x = clash.ClashPosition.X,
-                    y = clash.ClashPosition.Y,
-                    z = clash.ClashPosition.Z,
-                    date = Date
-                });
-
+                                                         ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 'true', @Building);",
+                    new
+                    {
+                        ClashType = clashType,
+                        el1 = FirstElement,
+                        el2 = SecondElement,
+                        type1 = FirstType.ToString(),
+                        type2 = SecondType.ToString(),
+                        usermod1 = FirstUserMode,
+                        usermod2 = SecondUserMode,
+                        flnm1 = flnm1,
+                        flnm2 = flnm2,
+                        dept1 = FirstDept,
+                        dept2 = SecondDept,
+                        gpset1 = FirstGroups,
+                        gpset2 = SecondGroups,
+                        x = clash.ClashPosition.X,
+                        y = clash.ClashPosition.Y,
+                        z = clash.ClashPosition.Z,
+                        date = Date,
+                        Building = Building
+                    });
+               
 
 
                 //более подробная информация о перезаписываемом клеше пока не удалили его
