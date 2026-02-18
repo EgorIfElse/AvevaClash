@@ -85,7 +85,7 @@ public partial class ClashChecker
     /// Точка входа
     /// </summary>
     [PMLNetCallable]
-    public async void CheckAll(string obstType, double initialZoneIndex, bool testMode = true,  string logDirectoryPath = DefaultLogDirectoryPath)
+    public void CheckAll(string obstType, double initialZoneIndex, bool testMode = true,  string logDirectoryPath = DefaultLogDirectoryPath)
     {
         try
         {
