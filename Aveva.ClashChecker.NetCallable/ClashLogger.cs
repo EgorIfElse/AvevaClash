@@ -24,6 +24,9 @@ public class ClashLogger
     public DateTime StartTime { get; set; }
     
     public string LogDirectory { get; set; }
+
+    public bool LogInPdmsConsole { get; set; } = false;
+
     public ClashLogger(string logDirectory)
     {
         if (!Directory.Exists(logDirectory))
@@ -37,12 +40,16 @@ public class ClashLogger
 
     public void WriteLine(string log, LogType logType = LogType.Message)
     {
+
+        string logMessage = $"{DateTime.Now.TimeOfDay}";
         if (logType == LogType.Error)
-        {
-            Logs.Add($"{DateTime.Now.TimeOfDay} <ОШИБКА> {log}");
-            return;
-        }
-        Logs.Add($"{DateTime.Now.TimeOfDay} {log}");
+           logMessage +=$" <ОШИБКА> ";
+        logMessage += " ";
+        logMessage += log;
+        if (LogInPdmsConsole)
+            PmlHelper.WriteLine(logMessage);
+
+        Logs.Add(logMessage);
     }
 
     public void FinishLog()
