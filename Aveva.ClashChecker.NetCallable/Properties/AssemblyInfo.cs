@@ -12,5 +12,5 @@ using Aveva.Core.PMLNet;
 [assembly: AssemblyDescription("Clash sql processing")]
 [assembly: ComVisible(false)]
 [assembly: AssemblyCompany("TEP")]
-[assembly: AssemblyProduct("ClashChecker1")]
+[assembly: AssemblyProduct("ClashChecker")]
 [assembly: AssemblyVersion("1.0.0.0")]
