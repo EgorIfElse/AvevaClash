@@ -21,7 +21,7 @@ using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 
-namespace ClashChecker;
+namespace Aveva.ClashChecker.NetCallable;
 
 /// <summary>
 /// Класс для обработки коллизий
@@ -1030,6 +1030,8 @@ public partial class ClashChecker
 
     private void CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
+        if(sqlConnection.State != ConnectionState.Open)
+            sqlConnection.Open();
         Logger.WriteLine($"Запись колизий в базу...");
         Logger.WriteLine($"Количесво коллизий: {clashSet.Clashes.Length}");
         var notIgnoredClashes = new List<Clash>(clashSet.Clashes.Length);
@@ -1054,8 +1056,8 @@ public partial class ClashChecker
                             CREATE TABLE #pairs
                                   ( 
                                       ClashType NVARCHAR(20) NOT NULL,
-                                      El1 NVARCHAR(40) NOT NULL,
-                                      El2 NVARCHAR(40) NOT NULL
+                                      El1 NVARCHAR(100) NOT NULL,
+                                      El2 NVARCHAR(100) NOT NULL,
                                       X INT NOT NULL,
                                       Y INT NOT NULL,
                                       Z INT NOT NULL
@@ -1074,15 +1076,15 @@ public partial class ClashChecker
 
             foreach (var n in notIgnoredClashes)
             {
-                Pairs.Rows.Add(new
-                {
-                    ClashType = n.Type.ToString(),
-                    El1 = n.First.GetAsString(DbAttributeInstance.REF),
-                    El2 = n.Second.GetAsString(DbAttributeInstance.REF),
-                    X = n.ClashPosition.X,
-                    Y = n.ClashPosition.Y,
-                    Z = n.ClashPosition.Z,
-                });
+                Pairs.Rows.Add(
+                
+                    n.Type.ToString(),
+                    n.First.GetAsString(DbAttributeInstance.REF),
+                    n.Second.GetAsString(DbAttributeInstance.REF),
+                    (int)n.ClashPosition.X,
+                    (int)n.ClashPosition.Y,
+                    (int)n.ClashPosition.Z
+                );
             }
 
             //sqlConnection.Execute("INSERT INTO #pairs(ClashType,El1,El2) VALUES (@ClashType,@El1,@El2);", Pairs);
@@ -1133,7 +1135,7 @@ public partial class ClashChecker
                 string k1 = MakeKey(e.ClashType, e.El1, e.El2, e.X, e.Y, e.Z);
                 string k2 = MakeKey(e.ClashType, e.El2, e.El1, e.X, e.Y, e.Z);
                 ExistingByKey[k1] = e;
-                ExistingByKey[k2] = e;
+                ExistingByKey[k2] = e; 
             }
             var dt = CreateTableForInsert();
 
@@ -1166,6 +1168,7 @@ public partial class ClashChecker
         finally
         {
             sqlConnection.Execute("DROP TABLE #pairs;");
+
         }
     }
 
