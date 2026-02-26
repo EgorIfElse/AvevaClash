@@ -41,7 +41,7 @@ namespace Aveva.ClashChecker.NetCallable
 
             var Gpset = DbElement.GetElement(GpsetRef);
             var User = Project.CurrentProject.LoginUser;
-            var checker = ClashChecker();
+            var checker = new Aveva.ClashChecker.NetCallable.ClashChecker();
             var now = DateTime.Now;
 
             if (Gpset.IsNull || !Gpset.IsValid ) return false;
