@@ -21,7 +21,7 @@ using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 
-namespace Aveva.ClashChecker.NetCallable;
+namespace ClashChecker;
 
 /// <summary>
 /// Класс для обработки коллизий
@@ -88,7 +88,7 @@ public partial class ClashChecker
     /// Точка входа
     /// </summary>
     [PMLNetCallable]
-    public void CheckAll(string obstType, double initialZoneIndex, bool testMode = true,  string logDirectoryPath = DefaultLogDirectoryPath)
+    public void CheckAll(string obstType, double initialZoneIndex, bool testMode = true, string logDirectoryPath = DefaultLogDirectoryPath)
     {
         try
         {
@@ -137,6 +137,21 @@ public partial class ClashChecker
             string initialClashesLogString = $"Коллизий до проверки: {clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}")}";
 
             Logger.WriteLine(initialClashesLogString);
+            СolZone(clashConnection, initialZoneIndexInt, projectCode, clashTableName, logDirectoryPath = DefaultLogDirectoryPath,"");
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteLine(ex.Message, LogType.Error);
+            Logger.FinishLog();
+
+            return;
+        }
+
+    }
+    public void СolZone(SqlConnection clashConnection, int initialZoneIndexInt, string projectCode, string clashTableName, string logDirectoryPath,string GpsetRef)
+    {
+        try
+        {
 
 
             List<DbElement> colZone;
@@ -196,30 +211,53 @@ public partial class ClashChecker
 
             int zoneCount = colZone.Count;
             GC.Collect();
+            if (GpsetRef == "")
+            {
+                for (int i = initialZoneIndexInt; i < colZone.Count; i++)
+                {
 
-            // Используем Partitioner для равномерного распределения работы
-            for (int i = initialZoneIndexInt; i < colZone.Count; i++)
+                    if (wvolArray[i].Length < 6)
+                        continue;
+                    var obstructionList = ObstructionList.Create();
+                    for (int j = i; j < colZone.Count; j++)
+                    {
+                        if (wvolArray[j].Length < 6) // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
+                            continue;
+                        if (WvolClash(wvolArray[i], wvolArray[j]))
+                            obstructionList.AddObstructions([colZone[j]]);
+
+                    }
+                    CheckZone(colZone[i], obstructionList, clashOptions, clashConnection, clashTableName, i, zoneCount);
+                }
+            }
+          else
             {
 
-                if (wvolArray[i].Length < 6)
-                    continue;
+                var Gpset = DbElement.GetElement(GpsetRef);
+                var wvolarrayGpset = Gpset.GetDoubleArray(DbAttributeInstance.WVOL);
                 var obstructionList = ObstructionList.Create();
-                for (int j = i; j < colZone.Count; j++)
-                {
-                    if (wvolArray[j].Length < 6) // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
-                        continue;
-                    if (WvolClash(wvolArray[i], wvolArray[j]))
-                        obstructionList.AddObstructions([colZone[j]]);
+                var index = 0;
+                    for (int j = 0; j < colZone.Count; j++)
+                    {
+                        index++;
+                        if (wvolArray[j].Length < 6) // как тут скиповать? i это double[]. Норм когда double[6] , стрем когда double[0]
+                            continue;
+                        if (WvolClash(wvolarrayGpset, wvolArray[j]))
+                            obstructionList.AddObstructions([colZone[j]]);
 
-                }
-                CheckZone(colZone[i], obstructionList, clashOptions, clashConnection, clashTableName, i, zoneCount);
+                    }
+                    
+                
+                CheckZone(Gpset, obstructionList, clashOptions, clashConnection, clashTableName, index, zoneCount);
             }
+
             clashConnection.Close();
             Logger.WriteLine("Обработка завершена!");
             Logger.FinishLog();
             return;
-
         }
+
+
         catch (Exception ex)
         {
             Logger.WriteLine(ex.Message, LogType.Error);
@@ -1030,7 +1068,7 @@ public partial class ClashChecker
 
     private void CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
-        if(sqlConnection.State != ConnectionState.Open)
+        if (sqlConnection.State != ConnectionState.Open)
             sqlConnection.Open();
         Logger.WriteLine($"Запись колизий в базу...");
         Logger.WriteLine($"Количесво коллизий: {clashSet.Clashes.Length}");
@@ -1077,7 +1115,7 @@ public partial class ClashChecker
             foreach (var n in notIgnoredClashes)
             {
                 Pairs.Rows.Add(
-                
+
                     n.Type.ToString(),
                     n.First.GetAsString(DbAttributeInstance.REF),
                     n.Second.GetAsString(DbAttributeInstance.REF),
@@ -1135,7 +1173,7 @@ public partial class ClashChecker
                 string k1 = MakeKey(e.ClashType, e.El1, e.El2, e.X, e.Y, e.Z);
                 string k2 = MakeKey(e.ClashType, e.El2, e.El1, e.X, e.Y, e.Z);
                 ExistingByKey[k1] = e;
-                ExistingByKey[k2] = e; 
+                ExistingByKey[k2] = e;
             }
             var dt = CreateTableForInsert();
 
@@ -1151,7 +1189,7 @@ public partial class ClashChecker
                 string key1 = MakeKey(clashType, El1Ref, El2Ref, X, Y, Z);
                 string key2 = MakeKey(clashType, El2Ref, El1Ref, X, Y, Z);
                 if (!ExistingByKey.TryGetValue(key1, out var existing) && !ExistingByKey.TryGetValue(key2, out existing))
-                    AdditionTableForInsert(clash, dt, X,Y,Z);
+                    AdditionTableForInsert(clash, dt, X, Y, Z);
                 //else SelectClash(sqlConnection, clashTableName, clash);
 
             }
@@ -1210,85 +1248,85 @@ public partial class ClashChecker
     /// <param name="clash"></param>
     private void AdditionTableForInsert(Clash clash, DataTable dt, int x, int y, int z)
     {
-            var clashType = clash.Type.ToString();
-            var firstElement = clash.First;
-            var secondElement = clash.Second;
-            var firstType = clash.First.ElementType;
-            var secondType = clash.Second.ElementType;
-            var date = DateTime.Now;
-            var flnm1 = clash.First.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
-            var flnm2 = clash.Second.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
+        var clashType = clash.Type.ToString();
+        var firstElement = clash.First;
+        var secondElement = clash.Second;
+        var firstType = clash.First.ElementType;
+        var secondType = clash.Second.ElementType;
+        var date = DateTime.Now;
+        var flnm1 = clash.First.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
+        var flnm2 = clash.Second.GetAsString(DbAttributeInstance.FLNM).Replace(" ' ", " ");
 
-            var firstDept = GetDepartment(clash.First, " ");
-            var secondDept = GetDepartment(clash.Second, " ");
+        var firstDept = GetDepartment(clash.First, " ");
+        var secondDept = GetDepartment(clash.Second, " ");
 
-            var firstGroups = GetGroups(clash.First);
-            var secondGroups = GetGroups(clash.Second);
+        var firstGroups = GetGroups(clash.First);
+        var secondGroups = GetGroups(clash.Second);
 
-            var firstUserMode = History(clash.First, "user");
-            var secondUserMode = History(clash.Second, "user");
+        var firstUserMode = History(clash.First, "user");
+        var secondUserMode = History(clash.Second, "user");
 
-            var building = "";
-            var buildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
-            if (buildingFirst == clash.Second.GetAsString(DbAttributeInstance.DBNA))
-                building = buildingFirst.Split('/')[1].Split('_')[0];
+        var building = "";
+        var buildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
+        if (buildingFirst == clash.Second.GetAsString(DbAttributeInstance.DBNA))
+            building = buildingFirst.Split('/')[1].Split('_')[0];
 
-            var row = dt.NewRow();
-            row["ClashType"] = clashType;
-            row["El1"] = firstElement;
-            row["Type1"] = firstType;
-            row["Usermod1"] = firstUserMode;
-            row["Flnm1"] = flnm1;
-            row["Dept1"] = firstDept != null ? firstDept : DBNull.Value;
-            row["Gpset1"] = firstGroups != null ? firstGroups : DBNull.Value;
-            
-            row["El2"] = secondElement;
-            row["Type2"] = secondType;
-            row["Usermod2"] = secondUserMode;
-            row["Flnm2"] = flnm2;
-            row["Dept2"] = secondDept != null ? secondDept : DBNull.Value;
-            row["Gpset2"] = secondGroups != null ? secondGroups : DBNull.Value;
-            
-            row["Date"] = DateTime.Now;
-            row["X"] = x;
-            row["Y"] = y;
-            row["Z"] = z;
-            row["Existing"] = true;
-            row["Building"] = building != null ? building : DBNull.Value;
-            
-            dt.Rows.Add(row);
+        var row = dt.NewRow();
+        row["ClashType"] = clashType;
+        row["El1"] = firstElement;
+        row["Type1"] = firstType;
+        row["Usermod1"] = firstUserMode;
+        row["Flnm1"] = flnm1;
+        row["Dept1"] = firstDept != null ? firstDept : DBNull.Value;
+        row["Gpset1"] = firstGroups != null ? firstGroups : DBNull.Value;
+
+        row["El2"] = secondElement;
+        row["Type2"] = secondType;
+        row["Usermod2"] = secondUserMode;
+        row["Flnm2"] = flnm2;
+        row["Dept2"] = secondDept != null ? secondDept : DBNull.Value;
+        row["Gpset2"] = secondGroups != null ? secondGroups : DBNull.Value;
+
+        row["Date"] = DateTime.Now;
+        row["X"] = x;
+        row["Y"] = y;
+        row["Z"] = z;
+        row["Existing"] = true;
+        row["Building"] = building != null ? building : DBNull.Value;
+
+        dt.Rows.Add(row);
     }
 
 
     private void InsertBullshitSQL(SqlConnection sqlConnection, DataTable dt, string clashTableName)
-{
-        if ( dt.Rows.Count == 0)
-        using (var bulk = new SqlBulkCopy(sqlConnection))
+    {
+        if (dt.Rows.Count == 0)
+            using (var bulk = new SqlBulkCopy(sqlConnection))
             {
                 bulk.DestinationTableName = clashTableName;
-            bulk.ColumnMappings.Add("ClashType", "ClashType");
-            bulk.ColumnMappings.Add("El1", "El1");
-            bulk.ColumnMappings.Add("Type1", "Type1");
-            bulk.ColumnMappings.Add("Usermod1", "Usermod1");
-            bulk.ColumnMappings.Add("Flnm1", "Flnm1");
-            bulk.ColumnMappings.Add("Dept1", "Dept1");
-            bulk.ColumnMappings.Add("Gpset1", "Gpset1");
+                bulk.ColumnMappings.Add("ClashType", "ClashType");
+                bulk.ColumnMappings.Add("El1", "El1");
+                bulk.ColumnMappings.Add("Type1", "Type1");
+                bulk.ColumnMappings.Add("Usermod1", "Usermod1");
+                bulk.ColumnMappings.Add("Flnm1", "Flnm1");
+                bulk.ColumnMappings.Add("Dept1", "Dept1");
+                bulk.ColumnMappings.Add("Gpset1", "Gpset1");
 
-            bulk.ColumnMappings.Add("El2", "El2");
-            bulk.ColumnMappings.Add("Type2", "Type2");
-            bulk.ColumnMappings.Add("Usermod2", "Usermod2");
-            bulk.ColumnMappings.Add("Flnm2", "Flnm2");
-            bulk.ColumnMappings.Add("Dept2", "Dept2");
-            bulk.ColumnMappings.Add("Gpset2", "Gpset2");
+                bulk.ColumnMappings.Add("El2", "El2");
+                bulk.ColumnMappings.Add("Type2", "Type2");
+                bulk.ColumnMappings.Add("Usermod2", "Usermod2");
+                bulk.ColumnMappings.Add("Flnm2", "Flnm2");
+                bulk.ColumnMappings.Add("Dept2", "Dept2");
+                bulk.ColumnMappings.Add("Gpset2", "Gpset2");
 
-            bulk.ColumnMappings.Add("Date", "Date");
-            bulk.ColumnMappings.Add("X", "X");
-            bulk.ColumnMappings.Add("Y", "Y");
-            bulk.ColumnMappings.Add("Z", "Z");
-            bulk.ColumnMappings.Add("Existing", "Existing");
-            bulk.ColumnMappings.Add("Building", "Building");
+                bulk.ColumnMappings.Add("Date", "Date");
+                bulk.ColumnMappings.Add("X", "X");
+                bulk.ColumnMappings.Add("Y", "Y");
+                bulk.ColumnMappings.Add("Z", "Z");
+                bulk.ColumnMappings.Add("Existing", "Existing");
+                bulk.ColumnMappings.Add("Building", "Building");
 
-            bulk.WriteToServer(dt);
+                bulk.WriteToServer(dt);
             }
     }
 
@@ -1296,40 +1334,40 @@ public partial class ClashChecker
 
 
 
-           // try
-           // {
-           //     clashConnection.Execute($@"INSERT INTO {clashTableName} 
-           //                                             ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, Building)
-           //                             VALUES 
-           //                                              ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 1, @Building);",
-           //     new
-           //     {
-           //         clashtype = clashType,
-           //         el1 = firstElement.GetAsString(DbAttributeInstance.REF),
-           //         el2 = secondElement.GetAsString(DbAttributeInstance.REF),
-           //         type1 = firstType.ToString(),
-           //         type2 = secondType.ToString(),
-           //         usermod1 = firstUserMode,
-           //         usermod2 = secondUserMode,
-           //         flnm1 = flnm1,
-           //         flnm2 = flnm2,
-           //         dept1 = firstDept,
-           //         dept2 = secondDept,
-           //         gpset1 = firstGroups,
-           //         gpset2 = secondGroups,
-           //         x = (int)clash.ClashPosition.X,
-           //         y = (int)clash.ClashPosition.Y,
-           //         z = (int)clash.ClashPosition.Z,
-           //         date = date,
-           //         Building = building
-           //     });
-           //
-           // }
-           // catch (Exception ex)
-           // {
-           //     Logger.WriteLine($"Ошибка в InsertOneCLash {ex.Message}");
-           // }
-           //
+    // try
+    // {
+    //     clashConnection.Execute($@"INSERT INTO {clashTableName} 
+    //                                             ( clashtype, el1, type1, usermod1, flnm1, dept1, gpset1, el2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, Building)
+    //                             VALUES 
+    //                                              ( @clashtype ,@el1, @type1, @usermod1, @flnm1, @dept1, @gpset1, @el2, @type2, @usermod2, @flnm2, @dept2, @gpset2, @date, @x, @y, @z, 1, @Building);",
+    //     new
+    //     {
+    //         clashtype = clashType,
+    //         el1 = firstElement.GetAsString(DbAttributeInstance.REF),
+    //         el2 = secondElement.GetAsString(DbAttributeInstance.REF),
+    //         type1 = firstType.ToString(),
+    //         type2 = secondType.ToString(),
+    //         usermod1 = firstUserMode,
+    //         usermod2 = secondUserMode,
+    //         flnm1 = flnm1,
+    //         flnm2 = flnm2,
+    //         dept1 = firstDept,
+    //         dept2 = secondDept,
+    //         gpset1 = firstGroups,
+    //         gpset2 = secondGroups,
+    //         x = (int)clash.ClashPosition.X,
+    //         y = (int)clash.ClashPosition.Y,
+    //         z = (int)clash.ClashPosition.Z,
+    //         date = date,
+    //         Building = building
+    //     });
+    //
+    // }
+    // catch (Exception ex)
+    // {
+    //     Logger.WriteLine($"Ошибка в InsertOneCLash {ex.Message}");
+    // }
+    //
 
 
 
@@ -1577,7 +1615,7 @@ public partial class ClashChecker
 
 
 
-    public static string MakeKey(string clashType, string el1, string el2, int X, int Y, int Z )
+    public static string MakeKey(string clashType, string el1, string el2, int X, int Y, int Z)
               => $"{clashType}|{el1}|{el2}|{X}|{Y}|{Z}";
 
 

@@ -38,5 +38,10 @@ namespace Aveva.ClashChecker.NetCallable.Extensions
         {
             return dbElement.GetOwnerByDepth(3);
         }
+
+        public static DbElement GetGpwl(this DbElement dbElement)
+        {
+            return dbElement.GetOwnerByDepth(4);
+        }
     }
 }
