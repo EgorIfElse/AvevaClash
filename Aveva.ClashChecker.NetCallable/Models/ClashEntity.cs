@@ -4,8 +4,8 @@ namespace Aveva.ClashChecker.NetCallable.Models;
 
 public record ClashEntity
 {
-    public static string Flnm2 { get; set; } = "";
-    public static string Flnm1 { get; set; } = "";
+    public string Flnm2 { get; set; } = "";
+    public string Flnm1 { get; set; } = "";
     public int Id { get; set; }
     public string ClashType { get; set; } = "";
     public string FirstElement { get; set; } = "";
@@ -23,8 +23,8 @@ public record ClashEntity
     public int Y { get; set; }
     public int Z { get; set; }
     public bool Existing { get; set; }
-    public string Building { get; set; } = "";
-    public string Sequence { get; set; } = "";
+  //  public string Building { get; set; } = "";
+  //  public string Sequence { get; set; } = "";
     public string RequestToDept { get; set; } = "";
     public string RequestUser { get; set; } = "";
     public DateTime? RequestDate { get; set; }

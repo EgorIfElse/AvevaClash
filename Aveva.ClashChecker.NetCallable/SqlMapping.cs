@@ -29,8 +29,8 @@ public static class SqlMapping
      $"Y '{nameof(ClashEntity.Y)}', " +
      $"Z '{nameof(ClashEntity.Z)}', " +
      $"Existing '{nameof(ClashEntity.Existing)}', " +
-     $"Sequence '{nameof(ClashEntity.Sequence)}', " +
-     $"Building '{nameof(ClashEntity.Building)}', " +
+    // $"Sequence '{nameof(ClashEntity.Sequence)}', " +
+    // $"Building '{nameof(ClashEntity.Building)}', " +
      $"RequestToDept '{nameof(ClashEntity.RequestToDept)}', " +
      $"RequestUser '{nameof(ClashEntity.RequestUser)}', " +
      $"RequestDate '{nameof(ClashEntity.RequestDate)}', " +

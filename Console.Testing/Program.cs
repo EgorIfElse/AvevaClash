@@ -16,7 +16,7 @@ public class Program
         //Console.WriteLine($"GUID DUPL {syncRecord.NewGuid} | GUID ORIG {syncRecord.OldGuid} | PRIMOBJIDDUPL {syncRecord.NewPrimObjid} | PRIMOBJIDORIG {syncRecord.OldPrimObjid}" );
     }
 
-    connection.Close();
+   //connection.Close();
         //var reader = connection.ExecuteScalar("select top 1 COUNT(*) from clashtableARM");
         ////while(c)
         ////while (reader.Read())
@@ -77,7 +77,8 @@ public record SyncRecord
     public int NewParentPrimObjid { get; set; }
     public string OldGuid { get; set; }
     public string NewGuid { get; set; }
-    }
+
+    
 
 private static void SyncSets()
     {
@@ -154,3 +155,4 @@ private static void SyncSets()
         }
     }
 }
+

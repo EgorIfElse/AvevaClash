@@ -10,7 +10,7 @@ using Aveva.Core.PMLNet;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCopyright("Copyright © TEP 2026")]
 [assembly: AssemblyDescription("Clash sql processing")]
-[assembly: ComVisible(false)]
+[assembly: ComVisible(true)]
 [assembly: AssemblyCompany("TEP")]
 [assembly: AssemblyProduct("ClashChecker")]
 [assembly: AssemblyVersion("1.0.0.0")]

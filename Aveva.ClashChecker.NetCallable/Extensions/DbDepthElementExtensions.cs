@@ -41,7 +41,7 @@ namespace Aveva.ClashChecker.NetCallable.Extensions
 
         public static DbElement GetGpwl(this DbElement dbElement)
         {
-            return dbElement.GetOwnerByDepth(4);
+            return dbElement.GetOwnerByDepth(1);
         }
     }
 }
