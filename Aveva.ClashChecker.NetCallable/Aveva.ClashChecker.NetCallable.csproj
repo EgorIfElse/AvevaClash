@@ -17,17 +17,6 @@
 	  <GenerateDocumentationFile>False</GenerateDocumentationFile>
 	</PropertyGroup>
 	<ItemGroup>
-	  <COMReference Include="TDMS">
-	    <WrapperTool>tlbimp</WrapperTool>
-	    <VersionMinor>0</VersionMinor>
-	    <VersionMajor>1</VersionMajor>
-	    <Guid>7d609c9a-fde1-48ad-bc9d-7b39d11b3806</Guid>
-	    <Lcid>0</Lcid>
-	    <Isolated>false</Isolated>
-	    <EmbedInteropTypes>true</EmbedInteropTypes>
-	  </COMReference>
-	</ItemGroup>
-	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.72" />
 		<PackageReference Include="DataGridExtensions" Version="2.9.1" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
@@ -64,23 +53,23 @@
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationFramework.dll</HintPath>
 		</Reference>
 		<Reference Include="SetPDMSStatus">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\SetPDMSStatus.dll</HintPath>
+		  <HintPath>bin\Debug\net481\SetPDMSStatus.dll</HintPath>
 		</Reference>
 		<Reference Include="System.Data" />
 		<Reference Include="TDMSApp">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS.dll</HintPath>
+		  <HintPath>bin\Debug\net481\TDMS.dll</HintPath>
 		</Reference>
 		<Reference Include="TDMSSYS">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMSSYS.dll</HintPath>
+		  <HintPath>bin\Debug\net481\TDMSSYS.dll</HintPath>
 		</Reference>
 		<Reference Include="TepCommonFiles">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepCommonFiles.dll</HintPath>
+		  <HintPath>bin\Debug\net481\TepCommonFiles.dll</HintPath>
 		</Reference>
 		<Reference Include="TepTDMSClasses">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepTDMSClasses.dll</HintPath>
+		  <HintPath>bin\Debug\net481\TepTDMSClasses.dll</HintPath>
 		</Reference>
 		<Reference Include="ViewForm">
-		  <HintPath>..\ViewForm\bin\x86\Debug\ViewForm.exe</HintPath>
+		  <HintPath>bin\Debug\net481\ViewForm.exe</HintPath>
 		</Reference>
 		<Reference Include="WindowsBase">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\WindowsBase.dll</HintPath>

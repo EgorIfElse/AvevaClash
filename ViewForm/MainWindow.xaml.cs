@@ -1,14 +1,10 @@
 ﻿using Aveva.ClashChecker.NetCallable;
 using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.Core.Database;
-using Azure.Core;
 using Dapper;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
-using Microsoft.Identity.Client;
 using Microsoft.VisualBasic;
 using System;
-using System.Drawing;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,9 +12,6 @@ using CC = global::ClashChecker.ClashChecker;
 using CVF = global::ClashViewForm.ClashViewForm;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using Brushes = System.Windows.Media.Brushes;
-//using System.Data.SqlClient;
-using Microsoft.Data.SqlClient;
-using System.Linq.Expressions;
 using System.Collections.Generic;
 
 namespace ViewForm
@@ -83,9 +76,6 @@ namespace ViewForm
             }
 
         }
-
-
-
         private void CbGpset_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
 
@@ -114,9 +104,9 @@ namespace ViewForm
         }
         private void Search1_MouseRightButtonDown(object sender, RoutedEventArgs e)
         {
+            if (DgClashes.SelectedItem == null) return;
             ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             string Search1 = selectedClash.FirstElement;
-            if (Search1 == null) return;
 
             var dbElement = DbElement.GetElement(Search1);
 
@@ -130,9 +120,9 @@ namespace ViewForm
         }
         private void Search2_MouseRightButtonDown(object sender, RoutedEventArgs e)
         {
+            if (DgClashes.SelectedItem == null) return;
             ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             string Search2 = selectedClash.SecondElement;
-            if (Search2 == null) return;
             var dbElement = DbElement.GetElement(Search2);
 
             if (dbElement.IsNull)
@@ -149,7 +139,7 @@ namespace ViewForm
         {
             ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             int count = DgClashes.SelectedItems.Count;
-            if (count < 0)
+            if (count == 0)
             {
                 System.Windows.MessageBox.Show($"Не выбраны коллизии для отображения номеров");
                 return;
@@ -167,9 +157,9 @@ namespace ViewForm
         }
         private void Add_Select1_MouseRightButtonDown(object sender, RoutedEventArgs e)
         {
+            if (DgClashes.SelectedItem == null) return;
             ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             string Add1 = selectedClash.FirstElement;
-            if (Add1 == null) return;
             var dbElement = DbElement.GetElement(Add1);
 
             if (dbElement.IsNull)
@@ -183,9 +173,9 @@ namespace ViewForm
         }
         private void Add_Select2_MouseRightButtonDown(object sender, RoutedEventArgs e)
         {
+            if (DgClashes.SelectedItem == null) return;
             ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             string Add2 = selectedClash.SecondElement;
-            if (Add2 == null) return;
             var dbElement = DbElement.GetElement(Add2);
 
             if (dbElement.IsNull)
@@ -205,7 +195,6 @@ namespace ViewForm
             Refresh();
             LoadGpset();
         }
-
         private void BtnApprove_Click(object sender, RoutedEventArgs e)
         {
             var Date = DateTime.Now;
@@ -319,15 +308,14 @@ namespace ViewForm
                                                 Requestdate = @Date, 
                                                 ApproveUser = @MyUlogId, 
                                                 ApproveDate = @Date, 
-                                                ApproveReason = @ApproveReason, 
+                                                ApproveReason = @ApproveReason 
                                             WHERE id IN @ids",
                                                new
                                                {
                                                    RequestTo = MyDept,
                                                    RequestUser = MyUlogId,
-                                                   Requestdate = Date,
-                                                   ApproveUser = MyUlogId,
-                                                   ApproveDate = Date,
+                                                   Date = Date,
+                                                   MyUlogId = MyUlogId,
                                                    ApproveReason = Reason,
                                                    ids = idsWithNotRequest
                                                });
@@ -346,12 +334,16 @@ namespace ViewForm
             using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
             {
                 clashConnection.Open();
-                var InconsistentCount = clashConnection.Query<ClashEntity>($@"select count (*) 
+                var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
                                                        FROM {ClashTableName}
-                                                       WHERE (gpset1 = {CurrGpset} or gpset2 = {CurrGpset})
-                                                       AND (dept1 = {MyDept} or dept2 = {MyDept})
-                                                       AND (approveReason is null or approveReason = '')")
-                                                       .ToList();
+                                                       WHERE (gpset1 = @gpset or gpset2 = @gpset)
+                                                       AND (dept1 = @dept or dept2 = @dept)
+                                                       AND (approveReason is null or approveReason = '')",
+                                                       new 
+                                                       { 
+                                                        dept = MyDept,
+                                                        gpset = CurrGpset
+                                                       });
                 PML.CreateCommand($"несогласованных коллизий этого комплекта моего отдела {InconsistentCount}").RunInPdms();
                 if (InconsistentCount.Count == 0)
                 {
@@ -362,7 +354,6 @@ namespace ViewForm
 
 
         }
-
         private void BtnTakeInWork_Click(object sender, RoutedEventArgs e)
         {
             var Date = DateTime.Now;
@@ -438,12 +429,16 @@ namespace ViewForm
             using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
             {
                 clashConnection.Open();
-                var InconsistentCount = clashConnection.Query<ClashEntity>($@"select count (*) 
+                var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
                                                        FROM {ClashTableName}
-                                                       WHERE (gpset1 = {CurrGpset} or gpset2 = {CurrGpset})
-                                                       AND (dept1 = {MyDept} or dept2 = {MyDept})
-                                                       AND (approveReason is null or approveReason = '')")
-                                                       .ToList();
+                                                       WHERE (gpset1 = @gpset or gpset2 = @gpset)
+                                                       AND (dept1 = @dept or dept2 = @dept)
+                                                       AND (approveReason is null or approveReason = '')",
+                                                       new 
+                                                       { 
+                                                        dept = MyDept,
+                                                        gpset = CurrGpset
+                                                       });
                 PML.CreateCommand($"несогласованных коллизий этого комплекта моего отдела {InconsistentCount}").RunInPdms();
                 if (InconsistentCount.Count == 0)
                 {
@@ -454,7 +449,6 @@ namespace ViewForm
 
 
         }
-
         private void BtnRequest_Click(object sender, RoutedEventArgs e)
         {
             var Date = DateTime.Now;
@@ -540,7 +534,6 @@ namespace ViewForm
             Refresh();
 
         }
-
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             var type = "";
@@ -602,22 +595,18 @@ namespace ViewForm
             }
 
         }
-
         private void DgClashes_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
 
         }
-
         private void TbMyDept_TextChanged(object sender, TextChangedEventArgs e)
         {
 
         }
-
         private void TbMyUlogId_TextChanged(object sender, TextChangedEventArgs e)
         {
 
         }
-
         private void Refresh()
         {
             if (_isRefreshing)
@@ -636,7 +625,7 @@ namespace ViewForm
                 }
                 if (ChHideOthersInWork.IsChecked == true)
                 {
-                    clashes = clashes.Where(x => string.IsNullOrEmpty(x.InWorkUser) && x.InWorkUser == MyUlogId).ToList();
+                    clashes = clashes.Where(x => string.IsNullOrEmpty(x.InWorkUser) || x.InWorkUser == MyUlogId).ToList();
                 }
                 if (ChOnlyRequestToMyDept.IsChecked == true)
                 {
@@ -657,7 +646,6 @@ namespace ViewForm
 
 
         }
-
         private void ChHideOthersInWork_Checked(object sender, RoutedEventArgs e)
         {
             Refresh();
@@ -674,7 +662,6 @@ namespace ViewForm
         {
             Refresh();
         }
-
         private bool UpdateStatusKomplect()
         {
 

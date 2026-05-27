@@ -8,7 +8,6 @@ using Microsoft.Data.SqlClient;
 using Aveva.Core.PMLNet;
 using Aveva.Core3D.Clasher;
 using Dapper;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System;
 using CC = global::ClashChecker.ClashChecker;
@@ -33,8 +32,7 @@ namespace ClashViewForm
     [PMLNetCallable]
     public class ClashViewForm
     {
-        public List<string> Checkedsets = [];
-        public List<string> CheckedsetsTIME = [];
+        public Dictionary<string,DateTime> Checkedsets = [];
         public string TableName = "";
         public string CurrGpset = "";
         public string CLASHdir = "";
@@ -78,7 +76,6 @@ namespace ClashViewForm
 
         private DateTime GetLastProjectCheckDate(string Gpset, string clashTableName)
         {
-            var gp = "/" + Gpset;
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
             var lastDate = clashConnection.ExecuteScalar<DateTime?>($@"SELECT MAX([date])
@@ -88,36 +85,7 @@ namespace ClashViewForm
             return lastDate ?? DateTime.MinValue;
 
         }
-        private DateTime GetGpsetLastCheckTime(DbElement gpset)
-        {
-            return DateTime.Now;
-        }
-        // private bool isGreenGpset(string GpsetRef)
-        // {
-        //     bool retval = false;
-        //
-        //     if (GpsetRef == "ALL" || GpsetRef == "CE") return false;
-        //
-        //     var Gpset = DbElement.GetElement(GpsetRef);
-        //     var User = Project.CurrentProject.LoginUser;
-        //     var now = DateTime.Now;
-        //
-        //     if (Gpset.IsNull || !Gpset.IsValid) return false;
-        //
-        //     if (checker.GetDepartment(Gpset, "GPSET") != User && !(checker.GetDepartment(Gpset, "GPSET") == "SOT" && User == "OGS"))
-        //     {
-        //         PML.CreateCommand($"$p {GpsetRef} - это комплект другого отдела").RunInPdms();
-        //         return false;
-        //     }
-        //
-        //     var gpsetlastmod = GetGpsetLastMode(GpsetRef);
-        //     var deltaChange = (now - gpsetlastmod).TotalDays;
-        //     PML.CreateCommand($"$p Комплект {GpsetRef} последний раз изменялся {gpsetlastmod} ({deltaChange} дней назад)").RunInPdms();
-        //     var LastCheckAll = GetLastProjectCheckDate();
-        //
-        //     return retval;
-        //     //ДОПИСАТЬ
-        // }
+        
         [PMLNetCallable]
         public DateTime GetGpsetLastMode(string GpsetRef)
         {
@@ -138,39 +106,8 @@ namespace ClashViewForm
             return LastMode;
 
         }
-        [PMLNetCallable]
-        public string GetGpsetLastModeTest(string GpsetRef)
-        {
-            var Gpset = DbElement.GetElement(GpsetRef);
-            if (Gpset.Name() == "ALL") return DateTime.Now.ToString();
-            //получаем lastmod hier комплекта
-            var LastMode = Gpset.GetDateTime(DbAttribute.GetDbAttribute("lastmod"));
-            var type = new ActualTypeFilter(DbElementType.GetElementType("gpitem"));
-            List<DbElement> collection = [.. new DBElementCollection(Gpset, type).Cast<DbElement>()];
-            foreach (DbElement Gpitem in collection)
-            {
-                var LastModeSitem = Gpitem.GetDateTime(DbAttribute.GetDbAttribute($"lastmod")); //   var lm = Gpitem.EvaluateDateTime(DbExpression.Parse($"lastmod hier of sitem of {Gpitem}"));
-                if (LastModeSitem >= LastMode)
-                {
-                    LastMode = LastModeSitem;
-                }
-            }
-            return LastMode.ToString();
 
-        }
-
-        private bool IsManualChecked(string GpsetRef)
-        {
-            bool retval = false;
-            foreach (var c in Checkedsets)
-            {
-                if (c == GpsetRef) retval = true;
-                break;
-            }
-            return retval;
-            //ДОПИСАТЬ
-
-        }
+        
         public void CheckGpset(string GpsetRef, double initialZoneIndex, bool testMode = true, string logDirectoryPath = DefaultLogDirectoryPath)
         {
             Logger = new ClashLogger(logDirectoryPath);
@@ -184,7 +121,7 @@ namespace ClashViewForm
             }
             catch (Exception ex)
             {
-                Logger.WriteLine("Не удалось распознать начальный индекс зоны! Индексация будет начата с 0");
+                Logger.WriteLine($"Не удалось распознать начальный индекс зоны! {ex.Message}");
             }
             var Gpset = DbElement.GetElement(GpsetRef);
             string ProjectName = Project.CurrentProject.Name;
@@ -208,10 +145,14 @@ namespace ClashViewForm
             MDB.CurrentMDB.GetWork();
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
-            var NoteExist = clashConnection.Query<ClashEntity>($"select  count (*) from {clashTableName} where (existing = 'false') and (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
-            var now = DateTime.Now;
+            var NoteExist = clashConnection.ExecuteScalar<int>(@$"select  count (*) 
+                                                               from {clashTableName} 
+                                                               where (existing = 0) 
+                                                               and (gpset1 = @Gpset or gpset2 = @Gpset)",
+                                                               new {Gpset = GpsetRef});
+
             List<ClashEntity> ClashesByGpset = [];
-            if (NoteExist.Count > 1)
+            if (NoteExist > 1)
             {
                 System.Windows.MessageBox.Show("действие отменено. проверка невозможна. обратитесь в ОАП");
                 return;
@@ -221,69 +162,55 @@ namespace ClashViewForm
 
                 checker.UpdateClashElementInfo(clashConnection, "", clashTableName, GpsetRef);
                 //ClashesByGpset = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
-                ClashesByGpset = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}')").ToList();
+                ClashesByGpset = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
+                                                                   from {clashTableName} 
+                                                                   WHERE gpset1 = @gp",
+                                                                   new { gp = GpsetRef })
+                                                                   .ToList();
+                                                                 
             }
             else
             {
-                var ClashesByEl = checker.QueryClashByEl(clashConnection, clashTableName, GpsetRef, "");
+                ClashesByGpset = checker.QueryClashByEl(clashConnection, clashTableName, GpsetRef, "");
             }
-            checker.СolZone(clashConnection, initialZoneIndexInt, ProjectName, clashTableName, logDirectoryPath = DefaultLogDirectoryPath, GpsetRef);
+            PML.CreateCommand($"$p Коллизий комплекта {GpsetRef} до проверки {ClashesByGpset.Count}").RunInPdms();
 
-            var ClashesByGpsetFalseExist = clashConnection.Query<ClashEntity>($"select  count (*) from {clashTableName} where (existing = 'false') and (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
+            checker.ColZone(clashConnection, initialZoneIndexInt, ProjectName, clashTableName, logDirectoryPath, GpsetRef);
+
+            var ClashesByGpsetFalseExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
+                                                                             from {clashTableName} 
+                                                                             where existing = 0 
+                                                                             and (gpset1 = @Gpset or gpset2 = @Gpset)",
+                                                                             new {Gpset = GpsetRef})
+                                                                             .ToList();
             foreach (var e in ClashesByGpsetFalseExist)
             {
                 checker.DeleteById(clashConnection, clashTableName, e, "AfterCheckGPSET", ".checkGPSET коллизия не относится к комплекту. удалена по завершению проверки");
 
             }
             //var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
-            var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}')").ToList();
+            var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
+                                                                             from {clashTableName} 
+                                                                             WHERE gpset1 = @Gpset",
+                                                                             new {Gpset = GpsetRef})
+                                                                             .ToList();
             PML.CreateCommand($"$p Из комплекта {GpsetRef} удалено {ClashesByGpsetTrueExist.Count - (ClashesByGpsetFalseExist.Count - 1)} несуществующих").RunInPdms();
 
             UpdateGpsetList(ProjectName, clashConnection);
-            //!this.selSet.select('Rtext', !gpsetname) ДОПИСАТЬ ПОСЛЕ WPF
-            //Show(clashTableName, GpsetRef);
 
-            if (Gpset.Name() == "GPSET")
+
+            if (Gpset.ElementType.ToString() == "GPSET")
             {
-                bool finded = false;
-                for (int i = 0; i < Checkedsets.Count; i++)
-                {
-                    if (Checkedsets[i] == Gpset.Name())
-                    {
-                        CheckedsetsTIME[i] = DateTime.Now.ToString();
-                        break;
-                    }
-                }
-                if (!finded)
-                {
-                    Checkedsets.Add(Gpset.Name());
-                    CheckedsetsTIME.Add(DateTime.Now.ToString());
-                }
+                
+                    Checkedsets[Gpset.Name()] = DateTime.Now;
+
             }
-            //this.UpdateCheckedStatus()  ДОПИСАТЬ ПОСЛЕ WPF
+           
 
         }
         public List<GpsetComboItem> UpdateGpsetList(string ProjectName, SqlConnection sqlConnection)
         {
-            List<string> SetName = ["ALL", "CE"];
-            string Dept = Project.CurrentProject.LoginUser;
-
-
-
-            // var type = new ActualTypeFilter(DbElementType.GetElementType("GPSET"));
-            // var uW = DbElement.GetElement("/*");
-            // var collection = new DBElementCollection(uW, type).Cast<DbElement>();
-            // foreach (var c in collection)
-            // {
-            //     var Depth = c.GetString(DbAttributeInstance.DEPTH);                 //
-            //     var GpwlPurp = c.GetGpwl().GetString(DbAttributeInstance.PURP);     //
-            //     var GpsetMem = c.GetDouble(DbAttributeInstance.MCOU);               //
-            //     if (Depth == "4" && GpwlPurp == "KOMP" && GpsetMem != 0)            // в GCC комплектов нет, не знаю для чего это тут, там только ALL и CE
-            //     {                                                                   //
-            //         SetName.Add(c.GetString(DbAttributeInstance.NAME));             //
-            //     }                                                                   //
-            //                                                                         //
-            // }
+          
 
             var GetClashStats = $"EXEC dbo.GetClashStats_{ProjectName}_TEST";
 
@@ -298,7 +225,6 @@ namespace ClashViewForm
                           .Cast<DbElement>()
                           .Where(e =>
                           {
-                              //var func = e.GetAsString(DbAttributeInstance.FUNC);
                               var User = e.GetAsString(DbAttribute.GetDbAttribute(":UES_USER"));
                               return User != "unset";
                           })];
@@ -341,7 +267,7 @@ namespace ClashViewForm
 
 
 
-            /// Не проверял, процудуру создал только для Артема
+            /// Не проверял, процудуру создал только для Артема EXEC dbo.GetClashStats_{ProjectName}_TEST";
             /// 
 
             /// Далее надо дописать после WPF
@@ -372,69 +298,15 @@ namespace ClashViewForm
         }
 
         [PMLNetCallable]
-        #region
         public Hashtable ShowTest(string clashTableName, string Gpset)
         {
-            using SqlConnection sqlConnection = new(ClashConnectionString);
-            sqlConnection.Open();
-            // !this.currGpset = !this.SelSet.Selection()   ДОПИСАТЬ ПОСЛЕ WPF
-            List<ClashEntity> GpsetTable = [];
-
-            if (Gpset == "CE")
-            {
-                Gpset = DbElement.GetElement(Gpset).Name();
-            }
-            TitleUpdate();
-
-            var t = Gpset;
-
-            var Wherestring = "where 1 = 1";
-            if (Gpset != "ALL" && Gpset != "CE")
-            {
-                Wherestring = $"{Wherestring} and (gpset1 = '{Gpset}' or gpset2 = '{Gpset}')";
-            }
-            /*if !this.tMyDeptOnly.val then
-                 !wherestring = !wherestring & | and (dept1 = '$!this.MYDEPT' or dept2 = '$!this.MYDEPT') |
-               endif
-               
-               if !this.tOnlyWithRequestForMyDept.val then
-                 !wherestring = !wherestring & | and (RequestToDept = '$!this.mydept' )|
-               endif
-               
-               if !this.tHideApproved.val then
-                 !wherestring = !wherestring & | and (approveReason is null or approveReason = '' )|
-               endif
-               
-               if !this.tHideInWork.val then
-               !wherestring = !wherestring & | and not (requestToDept <> '$!this.mydept' and (InWorkUser is not null ))|
-               endif
-               
-               if !this.tDateFilter.val then
-                 --получить дату из текста 
-             	!dateA =  !this.tA.val.split('.')[2] & '.' & !this.tA.val.split('.')[1] & '.' & !this.tA.val.split('.')[3]
-             	!dateB =  !this.tB.val.split('.')[2] & '.' & !this.tB.val.split('.')[1] & '.' & !this.tB.val.split('.')[3]
-             	$P $!dateA $!dateB
-                 !wherestring = !wherestring & | and date >= '$!dateA' and date <= '$!dateB' |
-               endif
-            */
-
-            var sw = Stopwatch.StartNew();
-            if (Gpset == "CE")
-            {
-                GpsetTable = checker.QueryClashByEl(sqlConnection, clashTableName, CurrGpset, Wherestring);
-            }
-            else
-            {
-                GpsetTable = sqlConnection.Query<ClashEntity>($"select {SqlMapping.ClashSql}, id, clashtype, El1, type1, usermod1, flnm1, dept1, gpset1, El2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, RequestToDept, RequestUser, RequestDate, ApproveUser, ApproveDate, ApproveReason, InWorkUser, InWorkDate from {clashTableName} {Wherestring}").ToList();
-            }
-            sw.Stop();
-            var ExecuteTime = sw.Elapsed.TotalSeconds;
-            // тут оставил пока что все так, так как в clashviewform.pmlfrm далее GpsetTable засовывается в NetGridControl
-            // ДОПИСАТЬ ПОСЛЕ WPF
-            Hashtable hash = new Hashtable(GpsetTable.ToDictionary(x => x.Id, x => x));
+            var list = Show(clashTableName, Gpset);
+            Dictionary<int,ClashEntity> dict = list.ToDictionary(y => y.id, y=>y);
+            Hashtable hash = new Hashtable(dict);
             return hash;
+
+           // return new HashSet(list.ToHashSet(x=> x.id, x =>x));
         }
-        #endregion
 
         public List<ClashEntity> Show(string clashTableName, string Gpset)
         {
@@ -451,33 +323,10 @@ namespace ClashViewForm
             var Wherestring = "where 1 = 1";
             if (Gpset != "ALL" && Gpset != "CE")
             {
-                Wherestring = $"{Wherestring} and (gpset1 = '{Gpset}')";
-                //Wherestring = $"{Wherestring} and (gpset1 = '{Gpset}' or gpset2 = '{Gpset}')";
+                Wherestring = $"{Wherestring} and gpset1 = @Gpset";
+                
             }
-            /*if !this.tMyDeptOnly.val then
-                 !wherestring = !wherestring & | and (dept1 = '$!this.MYDEPT' or dept2 = '$!this.MYDEPT') |
-               endif
-               
-               if !this.tOnlyWithRequestForMyDept.val then
-                 !wherestring = !wherestring & | and (RequestToDept = '$!this.mydept' )|
-               endif
-               
-               if !this.tHideApproved.val then
-                 !wherestring = !wherestring & | and (approveReason is null or approveReason = '' )|
-               endif
-               
-               if !this.tHideInWork.val then
-               !wherestring = !wherestring & | and not (requestToDept <> '$!this.mydept' and (InWorkUser is not null ))|
-               endif
-               
-               if !this.tDateFilter.val then
-                 --получить дату из текста 
-             	!dateA =  !this.tA.val.split('.')[2] & '.' & !this.tA.val.split('.')[1] & '.' & !this.tA.val.split('.')[3]
-             	!dateB =  !this.tB.val.split('.')[2] & '.' & !this.tB.val.split('.')[1] & '.' & !this.tB.val.split('.')[3]
-             	$P $!dateA $!dateB
-                 !wherestring = !wherestring & | and date >= '$!dateA' and date <= '$!dateB' |
-               endif
-            */
+            
             var sw = Stopwatch.StartNew();
             if (Gpset == "CE")
             {
@@ -485,12 +334,13 @@ namespace ClashViewForm
             }
             else
             {
-                GpsetTable = sqlConnection.Query<ClashEntity>($"select {SqlMapping.ClashSql}, id, clashtype, El1, type1, usermod1, flnm1, dept1, gpset1, El2, type2, usermod2, flnm2, dept2, gpset2, date, x, y, z, existing, RequestToDept, RequestUser, RequestDate, ApproveUser, ApproveDate, ApproveReason, InWorkUser, InWorkDate from {clashTableName} {Wherestring}").ToList();
+                GpsetTable = sqlConnection.Query<ClashEntity>(@$"select {SqlMapping.ClashSql} 
+                                                              from {clashTableName} {Wherestring}",
+                                                              new {Gpset = Gpset})
+                                                              .ToList();
             }
             sw.Stop();
-            var ExecuteTime = sw.Elapsed.TotalSeconds;
-            // тут оставил пока что все так, так как в clashviewform.pmlfrm далее GpsetTable засовывается в NetGridControl
-            // ДОПИСАТЬ ПОСЛЕ WPF
+
 
             return GpsetTable;
         }
@@ -514,36 +364,38 @@ namespace ClashViewForm
         }
         public bool IsGreenGpset(string Gpset, string clashTableName)
         {
-            if (Gpset == "ALL" || Gpset == "CE") return false;
-            if (DbElement.GetElement(Gpset).IsNull || !DbElement.GetElement(Gpset).IsValid) return false;
-
-
             var Gp = DbElement.GetElement(Gpset);
 
-            bool isForeignDept = checker.GetDepartment(Gp, "GPSET") != MyDept && checker.GetDepartment(Gp, "GPSET") != "SOT" && MyDept == "OGS";
+            if (Gpset == "ALL" || Gpset == "CE") return false;
+            if (Gp.IsNull || !Gp.IsValid) return false;
+
+
+            
+            string gpsetDept = checker.GetDepartment(Gp,"GPSET");
+
+            bool isForeignDept = gpsetDept != MyDept && !(gpsetDept == "SOT" && MyDept == "OGS");
+            //не понятно зачем ОГС видеть коллизии СОТ
             if (isForeignDept)
             {
                 System.Windows.MessageBox.Show($"{Gpset} - это комплект другого отдела");
                 return false;
             }
 
-
-            DateTime gpsetLastMode = GetGpsetLastMode(Gpset);
             DateTime lastCheck = GetLastProjectCheckDate(Gpset, clashTableName);
+            DateTime gpsetLastMode = GetGpsetLastMode(Gpset);
 
-            if (IsManualChecked(Gpset))
+            if (Checkedsets.TryGetValue(Gpset, out DateTime sessionCheckTime))
             {
-                var manualCheckTime = GetGpsetLastCheckTime(Gp);
-                if (lastCheck < manualCheckTime)
-                    lastCheck = manualCheckTime;
-
+                if (sessionCheckTime > lastCheck)
+                lastCheck = sessionCheckTime;
+                
             }
-            if (lastCheck < gpsetLastMode) return false;
-
-            var delta = (DateTime.Now - lastCheck).TotalDays;
-            return delta <= 2;
-
+            if(lastCheck<gpsetLastMode) return false;
+            var deltaTime = (DateTime.Now - lastCheck).TotalDays;
+            return deltaTime <= 2;
         }
+
+
 
         public void LockKomplect(DbElement GpsetRef)
         {
@@ -637,7 +489,7 @@ namespace ClashViewForm
             tdmsConnection.Open();
 
             var result = tdmsConnection.Query<string>(@$"EXEC[dbo].[PDMSGetContractByStageInnerCode] @StageInnerCode", new { StageInnerCode = incode }).ToList();
-            if (result.Count() < 1)
+            if (result.Count < 1)
             {
                 System.Windows.MessageBox.Show($"Не найден договор для стадии {incode}");
                 contract = dogovor;

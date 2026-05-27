@@ -35,7 +35,19 @@ public partial class ClashChecker
     public ClashChecker()
     {
     }
+   
+   public static readonly HashSet<string> AdminAveva = LoadAdminAveva();
 
+    private static HashSet<string> LoadAdminAveva()
+    {
+        const string path = "D:\\AVEVA\\USERDATA\\admin_users.txt";
+        if (File.Exists(path))
+        return File.ReadAllLines(path)
+                   .Where(x => !string.IsNullOrWhiteSpace(x))
+                   .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    
+     return["pdmsadmin"]; //вдруг если файла нет. что бы хоть что-то вернул
+    }
     private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
     public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300;TrustServerCertificate=true";
 
@@ -138,7 +150,7 @@ public partial class ClashChecker
             string initialClashesLogString = $"Коллизий до проверки: {clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}")}";
 
             Logger.WriteLine(initialClashesLogString);
-            СolZone(clashConnection, initialZoneIndexInt, projectCode, clashTableName, logDirectoryPath = DefaultLogDirectoryPath,"");
+            ColZone(clashConnection, initialZoneIndexInt, projectCode, clashTableName, logDirectoryPath ,"");
         }
         catch (Exception ex)
         {
@@ -149,7 +161,7 @@ public partial class ClashChecker
         }
 
     }
-    public void СolZone(SqlConnection clashConnection, int initialZoneIndexInt, string projectCode, string clashTableName, string logDirectoryPath,string GpsetRef)
+    public void ColZone(SqlConnection clashConnection, int initialZoneIndexInt, string projectCode, string clashTableName, string logDirectoryPath,string GpsetRef)
     {
         try
         {
@@ -268,16 +280,6 @@ public partial class ClashChecker
         }
 
     }
-
-    /// <summary>
-    /// Класс для хранения информации о пересечении зон
-    /// </summary>
-    public class ZoneIntersection
-    {
-        public int ZoneIndex { get; set; }
-        public List<int> IntersectIndicies { get; set; }
-    }
-
 
     private void CheckZone(DbElement zone, ObstructionList obstructionList, ClashOptions clashOptions, SqlConnection clashConnection, string clashTableName, int index, int zoneCount)
     {
@@ -634,7 +636,7 @@ public partial class ClashChecker
                                                 usermod1 = @usermod1, 
                                                 dept2 = @dept2, 
                                                 gpset2 = @gpset2, 
-                                                usermod2 = @usermod2, 
+                                                usermod2 = @usermod2 
                                             WHERE id = @id",
                         new
                         {
@@ -673,28 +675,14 @@ public partial class ClashChecker
         for (int i = 0; i < HistAr.Length; i++)
         {
             user = dbElement.EvaluateAsString(DbExpression.Parse($"SessU {HistAr[i]}")).ToLower();
-            //date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
+
             date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
 
 
-            // var FilterAllUser = new TypeFilter(DbElementTypeInstance.ULOGID);
-            // var uW = DbElement.GetElement("/*U");
-            // var AllUser = new DBElementCollection(uW,FilterAllUser).Cast<DbElement>().ToList();
-            // foreach (var u in AllUser)
-            // {
-            //     var e = u.GetString(DbAttributeInstance.USRLI);
-            //     if (e.Contains("BIM") || e.Contains("BIM")) {
-            // }
-            //
-            // 
-            if (user != "balashovan" && user != "goncharenkoea" && user != "pdmsadmin")
-            {
-                break;
-            }
-            else
-            {
-                user = "admin";
-            }
+            if (!AdminAveva.Contains(user))
+              break;
+            user = "admin";
+           
         }
 
         return param switch
@@ -995,15 +983,14 @@ public partial class ClashChecker
         var projectUserLogin = Project.CurrentProject.LoginUser;
         for (int i = 0; i < collection.Count; i++)
         {
-            var tmp = "";
             var CurrentEl = collection[i];
-            if (CurrentEl.ElementType.Description.ToString() == "Tubing")
-            {
-                tmp = $"ileav tube of {CurrentEl}";
-                tmp = tmp.Replace("ileav rod of", "ileav tube of");
-                els.Add(tmp);
-            }
+            string tmp = CurrentEl.GetAsString(DbAttributeInstance.REF);
 
+            if (CurrentEl.ElementType.Description.ToString() == "Tubing")
+                tmp = $"ileav tube of {tmp}";
+
+            tmp = tmp.Replace("ileav rod of", "ileav tube of");
+            els.Add(tmp);
         }
 
         string hostName = Environment.MachineName;
@@ -1052,10 +1039,11 @@ public partial class ClashChecker
         // $"from {clashTableName} where ((el1 in (select el from {tableName}) or el2 in (select el from {tableName})) {wherestring} )";
         //var clashList = clashConnection.Query<ClashEntity>(GetRowTableName).ToList();
 
-        var clashList = clashConnection.Query<ClashEntity>(@$"select {ClashSql} 
+        var clashList = clashConnection.Query<ClashEntity>(@$"select {ClashSql}
                                                        FROM {clashTableName}
-                                                       WHERE el1 IN (SELECT el from {tableName})
-                                                       OR    el2 IN (SELECT el from {tableName})")
+                                                       WHERE (el1 IN (SELECT el from {tableName})
+                                                       OR    el2 IN (SELECT el from {tableName}))
+                                                       {wherestring}")
                                                            .ToList();
 
 
@@ -1195,7 +1183,7 @@ public partial class ClashChecker
                 //else SelectClash(sqlConnection, clashTableName, clash);
 
             }
-            InsertBullshitSQL(sqlConnection, dt, clashTableName);
+            BulkInsertClashes(sqlConnection, dt, clashTableName);
 
             GC.Collect();
             PML.CreateCommand($"$p {notIgnoredClashes.Count()} коллизий подтвердилось после проверки").RunInPdms();
@@ -1304,7 +1292,7 @@ public partial class ClashChecker
         return value.Length > maxLength ? value.Substring(0, maxLength) : value;
     }
 
-    private void InsertBullshitSQL(SqlConnection sqlConnection, DataTable dt, string clashTableName)
+    private void BulkInsertClashes(SqlConnection sqlConnection, DataTable dt, string clashTableName)
     {
         if (dt.Rows.Count != 0)
             using (var bulk = new SqlBulkCopy(sqlConnection))
@@ -1352,10 +1340,6 @@ public partial class ClashChecker
 
 
 
-
-    public void ResurRectClash(string id)
-    {
-    }
 
     /// <summary>
     /// Возвращает true, если коллизию следует игнорировать
