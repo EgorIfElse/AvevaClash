@@ -137,7 +137,6 @@ namespace ViewForm
         }
         private void NumbersOfSelectedClash(object sender, RoutedEventArgs e)
         {
-            ClashEntity selectedClash = (ClashEntity)DgClashes.SelectedItem;
             int count = DgClashes.SelectedItems.Count;
             if (count == 0)
             {
@@ -193,7 +192,6 @@ namespace ViewForm
             logic.CheckGpset(CurrGpset, 0, true, DefaultLogDirectoryPath);
 
             Refresh();
-            LoadGpset();
         }
         private void BtnApprove_Click(object sender, RoutedEventArgs e)
         {
@@ -599,14 +597,6 @@ namespace ViewForm
         {
 
         }
-        private void TbMyDept_TextChanged(object sender, TextChangedEventArgs e)
-        {
-
-        }
-        private void TbMyUlogId_TextChanged(object sender, TextChangedEventArgs e)
-        {
-
-        }
         private void Refresh()
         {
             if (_isRefreshing)
@@ -637,9 +627,12 @@ namespace ViewForm
                 }
                 DgClashes.ItemsSource = clashes;
                 TbStatus.Text = $"Всего коллизий {clashes.Count}";
+                UpdateStatusKomplect();
             }
             finally
             { _isRefreshing = false; }
+
+            
 
 
 

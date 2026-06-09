@@ -25,6 +25,9 @@ using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
 using System.Windows;
 using System.Collections;
 using TDMS;
+using System.Security.Claims;
+using System.Runtime.CompilerServices;
+using System.ComponentModel;
 
 
 namespace ClashViewForm
@@ -32,7 +35,7 @@ namespace ClashViewForm
     [PMLNetCallable]
     public class ClashViewForm
     {
-        public Dictionary<string,DateTime> Checkedsets = [];
+        public Dictionary<string, DateTime> Checkedsets = [];
         public string TableName = "";
         public string CurrGpset = "";
         public string CLASHdir = "";
@@ -85,7 +88,7 @@ namespace ClashViewForm
             return lastDate ?? DateTime.MinValue;
 
         }
-        
+
         [PMLNetCallable]
         public DateTime GetGpsetLastMode(string GpsetRef)
         {
@@ -107,7 +110,7 @@ namespace ClashViewForm
 
         }
 
-        
+
         public void CheckGpset(string GpsetRef, double initialZoneIndex, bool testMode = true, string logDirectoryPath = DefaultLogDirectoryPath)
         {
             Logger = new ClashLogger(logDirectoryPath);
@@ -149,7 +152,7 @@ namespace ClashViewForm
                                                                from {clashTableName} 
                                                                where (existing = 0) 
                                                                and (gpset1 = @Gpset or gpset2 = @Gpset)",
-                                                               new {Gpset = GpsetRef});
+                                                               new { Gpset = GpsetRef });
 
             List<ClashEntity> ClashesByGpset = [];
             if (NoteExist > 1)
@@ -167,7 +170,7 @@ namespace ClashViewForm
                                                                    WHERE gpset1 = @gp",
                                                                    new { gp = GpsetRef })
                                                                    .ToList();
-                                                                 
+
             }
             else
             {
@@ -181,7 +184,7 @@ namespace ClashViewForm
                                                                              from {clashTableName} 
                                                                              where existing = 0 
                                                                              and (gpset1 = @Gpset or gpset2 = @Gpset)",
-                                                                             new {Gpset = GpsetRef})
+                                                                             new { Gpset = GpsetRef })
                                                                              .ToList();
             foreach (var e in ClashesByGpsetFalseExist)
             {
@@ -192,7 +195,7 @@ namespace ClashViewForm
             var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
                                                                              from {clashTableName} 
                                                                              WHERE gpset1 = @Gpset",
-                                                                             new {Gpset = GpsetRef})
+                                                                             new { Gpset = GpsetRef })
                                                                              .ToList();
             PML.CreateCommand($"$p Из комплекта {GpsetRef} удалено {ClashesByGpsetTrueExist.Count - (ClashesByGpsetFalseExist.Count - 1)} несуществующих").RunInPdms();
 
@@ -201,16 +204,16 @@ namespace ClashViewForm
 
             if (Gpset.ElementType.ToString() == "GPSET")
             {
-                
-                    Checkedsets[Gpset.Name()] = DateTime.Now;
+
+                Checkedsets[Gpset.Name()] = DateTime.Now;
 
             }
-           
+
 
         }
         public List<GpsetComboItem> UpdateGpsetList(string ProjectName, SqlConnection sqlConnection)
         {
-          
+
 
             var GetClashStats = $"EXEC dbo.GetClashStats_{ProjectName}_TEST";
 
@@ -278,10 +281,7 @@ namespace ClashViewForm
 
 
         }
-        private void GoToEl1() //
-        {
 
-        }
         [PMLNetCallable]
         public void SetChange(SqlConnection sqlConnection, string clashTableName, string Gpset)
         {
@@ -301,11 +301,11 @@ namespace ClashViewForm
         public Hashtable ShowTest(string clashTableName, string Gpset)
         {
             var list = Show(clashTableName, Gpset);
-            Dictionary<int,ClashEntity> dict = list.ToDictionary(y => y.id, y=>y);
+            Dictionary<int, ClashEntity> dict = list.ToDictionary(y => y.id, y => y);
             Hashtable hash = new Hashtable(dict);
             return hash;
 
-           // return new HashSet(list.ToHashSet(x=> x.id, x =>x));
+            // return new HashSet(list.ToHashSet(x=> x.id, x =>x));
         }
 
         public List<ClashEntity> Show(string clashTableName, string Gpset)
@@ -324,9 +324,9 @@ namespace ClashViewForm
             if (Gpset != "ALL" && Gpset != "CE")
             {
                 Wherestring = $"{Wherestring} and gpset1 = @Gpset";
-                
+
             }
-            
+
             var sw = Stopwatch.StartNew();
             if (Gpset == "CE")
             {
@@ -336,7 +336,7 @@ namespace ClashViewForm
             {
                 GpsetTable = sqlConnection.Query<ClashEntity>(@$"select {SqlMapping.ClashSql} 
                                                               from {clashTableName} {Wherestring}",
-                                                              new {Gpset = Gpset})
+                                                              new { Gpset = Gpset })
                                                               .ToList();
             }
             sw.Stop();
@@ -370,8 +370,8 @@ namespace ClashViewForm
             if (Gp.IsNull || !Gp.IsValid) return false;
 
 
-            
-            string gpsetDept = checker.GetDepartment(Gp,"GPSET");
+
+            string gpsetDept = checker.GetDepartment(Gp, "GPSET");
 
             bool isForeignDept = gpsetDept != MyDept && !(gpsetDept == "SOT" && MyDept == "OGS");
             //не понятно зачем ОГС видеть коллизии СОТ
@@ -387,10 +387,10 @@ namespace ClashViewForm
             if (Checkedsets.TryGetValue(Gpset, out DateTime sessionCheckTime))
             {
                 if (sessionCheckTime > lastCheck)
-                lastCheck = sessionCheckTime;
-                
+                    lastCheck = sessionCheckTime;
+
             }
-            if(lastCheck<gpsetLastMode) return false;
+            if (lastCheck < gpsetLastMode) return false;
             var deltaTime = (DateTime.Now - lastCheck).TotalDays;
             return deltaTime <= 2;
         }
@@ -552,6 +552,93 @@ namespace ClashViewForm
                 return "";
             }
         }
-    }
 
+        private void SendMailByRequest(List<ClashEntity> rows)
+        {
+            string project = Project.CurrentProject.Name;
+            var mailDict = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var r in rows)
+            {
+                if (r.FirstDept != MyDept && r.SecondDept != MyDept) continue;
+                if (string.IsNullOrEmpty(r.RequestToDept)) continue;
+                if (string.IsNullOrEmpty(r.RequestUser)) continue;
+                if (!string.IsNullOrEmpty(r.ApproveUser)) continue;
+                if (!string.IsNullOrEmpty(r.InWorkUser)) continue;
+                if (r.RequestToDept == MyDept) continue;
+
+                string mailuser = r.RequestUser;
+
+                if (!mailDict.ContainsKey(mailuser))
+                    mailDict[mailuser] = new List<int>();
+                mailDict[mailuser].Add(r.Id);
+            }
+
+            // отправка
+            foreach (var kvp in mailDict)
+            {
+                string user = kvp.Key;
+                List<int> ids = kvp.Value;
+                string subject = $"Запрос на согласование коллизий по проекту {project} комплекту {CurrGpset}";
+                string body = $"Прошу устранить или согласовать коллизии по комплекту {CurrGpset} в количестве {ids.Count} шт <BR>"
+                               + "Номера коллизий: <BR>"
+                               + string.Join("<BR>", ids);
+
+                SendMail($"{user}@tep-m.ru", subject, body);
+
+                var clashRow = rows.FirstOrDefault(r => r.RequestUser == user);
+                if (clashRow != null)
+                    SendCcByDept(clashRow.RequestToDept ?? "", subject, body, project);
+            }
+
+            string msg = mailDict.Count == 0
+                ? "Нет запросов для отправки"
+                : "Уведомления отправлены: " + string.Join(", ", mailDict.Keys);
+
+            MessageBox.Show(msg);
+        }
+
+
+        private void SendCcByDept(string dept, string subject, string body, string project)
+        {
+            List<string> cc = [];
+
+            if (dept.Contains("SOT")) cc = ["vinogradov", "presnov"];
+            else if (dept.Contains("ARX") && project == "TUY") cc = ["kotova"];
+            else if (dept.Contains("ARX") && project == "UYK") cc = ["drachevai"];
+            else if (dept.Contains("ARX")) cc = ["izmaylovaim", "vnukovaya"];
+            else if (dept.Contains("OIV") && project == "TUY") cc = ["SukhorukovAY"];
+            else if (dept.Contains("OIV")) cc = ["zolotov"];
+            else if (dept.Contains("OMK")) cc = ["lyanas"];
+            else if (dept.Contains("VIK")) cc = ["Korolkova"];
+
+            foreach (var c in cc)
+                SendMail($"{c}@tep-m.ru", subject, body);
+        }
+
+        private void SendMail(string to, string subject, string body)
+        {
+            try
+            {
+                string login = Project.CurrentProject.LoginUser.ToLower();
+                var message = new MailMessage($"{login}@tep-m.ru", to, subject, body)
+                {
+                    IsBodyHtml = true,
+                    SubjectEncoding = Encoding.UTF8,
+                    BodyEncoding = Encoding.UTF8
+                };
+                var smtp = new SmtpClient("mail", 25)
+                {
+                    EnableSsl = false,
+                    UseDefaultCredentials = false
+                };
+                smtp.Send(message);
+            }
+            catch (Exception ex)
+            {
+                Logger.WriteLine($"Ошибка отправки на {to}: {ex.Message}");
+            }
+        }
+
+    }
 }

@@ -36,22 +36,55 @@ public partial class ClashChecker
     {
     }
    
-   public static readonly HashSet<string> AdminAveva = LoadAdminAveva();
-
-    private static HashSet<string> LoadAdminAveva()
-    {
-        const string path = "D:\\AVEVA\\USERDATA\\admin_users.txt";
-        if (File.Exists(path))
-        return File.ReadAllLines(path)
-                   .Where(x => !string.IsNullOrWhiteSpace(x))
-                   .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    
-     return["pdmsadmin"]; //вдруг если файла нет. что бы хоть что-то вернул
-    }
+  
     private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
     public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300;TrustServerCertificate=true";
-
+    public static readonly string TDMSConnectionString = "Data Source=sqltep;Initial Catalog=TDMS_TEP;Persist Security Info=True;User ID=Pdmstotdms;Password=PdMsToTdMs;Connection Timeout = 300;TrustServerCertificate=true";
     private static readonly DbElement NullElement = DbElement.GetElement("*");
+     public static readonly HashSet<string> SaprUsers = LoadSaprUsers();
+
+    private static HashSet<string> LoadSaprUsers()
+    {
+
+        using SqlConnection conn = new(TDMSConnectionString);
+            conn.Open();
+            var Logins = conn.Query<string>(@$"EXEC	[dbo].[PDMSGetUserLoginsByGroup]		
+                                                    @GROUP1, @GROUP2",
+                                                    new { GROUP1="GROUP_BIM", GROUP2="GROUP_SAPR" })
+                                                    .ToList();
+            var SaprUsers = new HashSet<string>(Logins, StringComparer.OrdinalIgnoreCase);
+       //const string path = "D:\\AVEVA\\USERDATA\\admin_users.txt";
+       //if (File.Exists(path))
+       //return File.ReadAllLines(path)
+       //           .Where(x => !string.IsNullOrWhiteSpace(x))
+       //           .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    
+       //return["pdmsadmin"]; //вдруг если файла нет. что бы хоть что-то вернул
+
+       return SaprUsers;
+    }
+
+    private static readonly List<ResponsibleUser> ResponsibleUser = LoadResponsibleUser();
+    private static List<ResponsibleUser> LoadResponsibleUser()
+    {
+        const string path = "D:\\AVEVA\\USERDATA\\responsible_users.csv";
+        if (!File.Exists(path)) return [];
+        var result = new List<ResponsibleUser>();
+        foreach (var line in File.ReadAllLines(path).Skip(1))
+        {
+            var parts = line.Split(',');
+            result.Add(new ResponsibleUser
+            {
+               Trigger = parts[0],
+               DbFile  = parts[1],
+               Dept    = parts[2],
+               Project = parts[3],
+               Usermod = parts[4]
+            });
+        }
+        return result;
+       
+    }
 
     private static readonly string ClashSql =
     $"Id '{nameof(ClashEntity.Id)}', " +
@@ -281,7 +314,13 @@ public partial class ClashChecker
 
     }
 
-    private void CheckZone(DbElement zone, ObstructionList obstructionList, ClashOptions clashOptions, SqlConnection clashConnection, string clashTableName, int index, int zoneCount)
+    private void CheckZone(DbElement zone,
+                           ObstructionList obstructionList,
+                           ClashOptions clashOptions,
+                           SqlConnection clashConnection,
+                           string clashTableName,
+                           int index,
+                           int zoneCount)
     {
         var clashSet = ClashSet.Create();
         Logger.WriteLine($"Начата проверка зоны {zone.Name()} [{index + 1}/{zoneCount}] ...");
@@ -679,9 +718,8 @@ public partial class ClashChecker
             date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
 
 
-            if (!AdminAveva.Contains(user))
+            if (!SaprUsers.Contains(user))
               break;
-            user = "admin";
            
         }
 
@@ -1291,7 +1329,6 @@ public partial class ClashChecker
         if (string.IsNullOrEmpty(value)) return null;
         return value.Length > maxLength ? value.Substring(0, maxLength) : value;
     }
-
     private void BulkInsertClashes(SqlConnection sqlConnection, DataTable dt, string clashTableName)
     {
         if (dt.Rows.Count != 0)
@@ -1326,21 +1363,6 @@ public partial class ClashChecker
                 Logger.WriteLine($"after = {after}");
             }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /// <summary>
     /// Возвращает true, если коллизию следует игнорировать
     /// </summary>
@@ -1574,9 +1596,23 @@ public partial class ClashChecker
     public static string MakeKey(string clashType, string el1, string el2, int X, int Y, int Z)
               => $"{clashType}|{el1}|{el2}|{X}|{Y}|{Z}";
 
+public string GetResponsible(string Trigger, string Dept, string Dbfile, string Project)
+    {
+        var User = "";
+        foreach (var r in ResponsibleUser)
+        {
+            if (r.Trigger != Trigger) continue;
+            if (r.DbFile != "*" && !Dbfile.Contains(r.DbFile)) continue;
+            if (!Dept.Contains(r.Dept)) continue;
+            if (r.Project == Project) return r.Usermod;
+            if (r.Project == "*") User = r.Usermod;
+
+        }
 
 
-
+        
+        return User;
+    }
 }
 
 public class ExistingRow
