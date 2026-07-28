@@ -14,6 +14,9 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Aveva.Core.Utilities">
+      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.Utilities.dll</HintPath>
+    </Reference>
     <Reference Include="PMLNet">
       <HintPath>..\References\PMLNet.dll</HintPath>
     </Reference>

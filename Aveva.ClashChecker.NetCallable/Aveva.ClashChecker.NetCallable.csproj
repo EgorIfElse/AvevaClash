@@ -31,9 +31,6 @@
 		<Reference Include="Microsoft.Data.SqlClient">
 		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\Microsoft.Data.SqlClient.dll</HintPath>
 		</Reference>
-		<Reference Include="PMLNet">
-			<HintPath>..\References\PMLNet.dll</HintPath>
-		</Reference>
 		<Reference Include="Aveva.Core.Database">
 			<HintPath>..\References\Aveva.Core.Database.dll</HintPath>
 		</Reference>
@@ -46,6 +43,10 @@
 		<Reference Include="Aveva.Core3D.Clasher">
 			<HintPath>..\References\Aveva.Core3D.Clasher.dll</HintPath>
 		</Reference>
+		<Reference Include="Microsoft.VisualBasic" />
+		<Reference Include="PMLNet">
+		  <HintPath>D:\AVEVA\Everything3D2.10\PMLNet.dll</HintPath>
+		</Reference>
 		<Reference Include="PresentationCore">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationCore.dll</HintPath>
 		</Reference>
@@ -53,23 +54,20 @@
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationFramework.dll</HintPath>
 		</Reference>
 		<Reference Include="SetPDMSStatus">
-		  <HintPath>bin\Debug\net481\SetPDMSStatus.dll</HintPath>
+		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\SetPDMSStatus.dll</HintPath>
 		</Reference>
 		<Reference Include="System.Data" />
 		<Reference Include="TDMSApp">
-		  <HintPath>bin\Debug\net481\TDMS.dll</HintPath>
+		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS.dll</HintPath>
 		</Reference>
 		<Reference Include="TDMSSYS">
-		  <HintPath>bin\Debug\net481\TDMSSYS.dll</HintPath>
+		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMSSYS.dll</HintPath>
 		</Reference>
 		<Reference Include="TepCommonFiles">
-		  <HintPath>bin\Debug\net481\TepCommonFiles.dll</HintPath>
+		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepCommonFiles.dll</HintPath>
 		</Reference>
 		<Reference Include="TepTDMSClasses">
-		  <HintPath>bin\Debug\net481\TepTDMSClasses.dll</HintPath>
-		</Reference>
-		<Reference Include="ViewForm">
-		  <HintPath>bin\Debug\net481\ViewForm.exe</HintPath>
+		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepTDMSClasses.dll</HintPath>
 		</Reference>
 		<Reference Include="WindowsBase">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\WindowsBase.dll</HintPath>

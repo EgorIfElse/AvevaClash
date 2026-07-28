@@ -1,30 +1,36 @@
 ﻿using Aveva.ClashChecker.NetCallable;
 using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.Core.Database;
+using ClashViewForm;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.VisualBasic;
+using Microsoft.VisualBasic;
 using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Net.Mail;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using CC = global::ClashChecker.ClashChecker;
-using CVF = global::ClashViewForm.ClashViewForm;
-using PML = Aveva.Core.Utilities.CommandLine.Command;
+using System.Windows.Data;
+using VIewModel;
+using static System.Windows.Forms.AxHost;
 using Brushes = System.Windows.Media.Brushes;
-using System.Collections.Generic;
-using Aveva.Core.PMLNet;
+using CC = global::ClashChecker.ClashChecker;
+using PML = Aveva.Core.Utilities.CommandLine.Command;
+
 
 namespace ViewForm;
 
 /// <summary>
 /// Логика взаимодействия для MainWindow.xaml
 /// </summary>
-[PMLNetCallable]
 public partial class MainWindow : Window
 {
     private bool _isRefreshing;
-    public CVF logic = new CVF();
+    public ClashViewForm.ClashViewForm logic = new ClashViewForm.ClashViewForm();
     public CC clash = new CC();
     public string CurrGpset = "";
     public string ClashTableName = "";
@@ -34,20 +40,13 @@ public partial class MainWindow : Window
     public string ClashConnectionString = "";
     private const string DefaultLogDirectoryPath = "D:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
-
-  
-    [PMLNetCallable]
-    public void Assign(MainWindow that)
-    {
-    }
-    [PMLNetCallable]
     public MainWindow()
     {
         InitializeComponent();
+       
+       
         LoadGpset();
-
-        TbMyDept.Text = logic.MyDept;
-        TbMyUlogId.Text = logic.MyUlogId;
+      
         MyDept = logic.MyDept;
         MyUlogId = logic.MyUlogId;
         ProjectName = Project.CurrentProject.Name;
@@ -60,35 +59,132 @@ public partial class MainWindow : Window
 
 
 
+    private void Notify_Onclick(object sender, RoutedEventArgs e)
+    {
+        
+        
+    }
+    public void SendMailByRequest2(List<ClashEntity> rows)
+    {
+        
+            string project = Project.CurrentProject.Name;
+            var mailDict = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var r in rows)
+        {
+            if (MyDept != "SYSTEM")
+            {
+                if (r.FirstDept != MyDept && r.SecondDept != MyDept) continue;
+                if (string.IsNullOrEmpty(r.RequestToDept)) continue;
+                if (string.IsNullOrEmpty(r.RequestUser)) continue;
+                if (!string.IsNullOrEmpty(r.ApproveUser)) continue;
+                if (!string.IsNullOrEmpty(r.InWorkUser)) continue;
+                if (r.RequestToDept == MyDept) continue;
+            }
+
+                string mailuser = r.RequestUser;
+
+                if (!mailDict.ContainsKey(mailuser))
+                    mailDict[mailuser] = new List<int>();
+                mailDict[mailuser].Add(r.Id);
+            }
+
+            // отправка
+            foreach (var kvp in mailDict)
+            {
+                string user = kvp.Key;
+                List<int> ids = kvp.Value;
+                string subject = $"Запрос на согласование коллизий по проекту {project} комплекту {CurrGpset}";
+                string body = $"Прошу устранить или согласовать коллизии по комплекту {CurrGpset} в количестве {ids.Count} шт <BR>"
+                               + "Номера коллизий: <BR>"
+                               + string.Join("<BR>", ids);
+
+                SendMail($"{user}@tep-m.ru", subject, body);
+
+                var clashRow = rows.FirstOrDefault(r => r.RequestUser == user);
+                if (clashRow != null)
+                    SendCcByDept(clashRow.RequestToDept ?? "", subject, body, project);
+            }
+
+            string msg = mailDict.Count == 0
+                ? "Нет запросов для отправки"
+                : "Уведомления отправлены: " + string.Join(", ", mailDict.Keys);
+
+
+
+            MessageBox.Show(msg);
+        
+
+    }
+
+    private void SendCcByDept(string dept, string subject, string body, string project)
+    {
+        List<string> cc = [];
+
+        if (dept.Contains("SOT")) cc = ["vinogradov", "presnov"];
+        else if (dept.Contains("ARX") && project == "TUY") cc = ["kotova"];
+        else if (dept.Contains("ARX") && project == "UYK") cc = ["drachevai"];
+        else if (dept.Contains("ARX")) cc = ["izmaylovaim", "vnukovaya"];
+        else if (dept.Contains("OIV") && project == "TUY") cc = ["SukhorukovAY"];
+        else if (dept.Contains("OIV")) cc = ["zolotov"];
+        else if (dept.Contains("OMK")) cc = ["lyanas"];
+        else if (dept.Contains("VIK")) cc = ["Korolkova"];
+
+        foreach (var c in cc)
+            SendMail($"{c}@tep-m.ru", subject, body);
+    }
+
+    private void SendMail(string to, string subject, string body)
+    {
+        try
+        {
+            string login = Project.CurrentProject.LoginUser.ToLower();
+            var message = new MailMessage($"{login}@tep-m.ru", to, subject, body)
+            {
+                IsBodyHtml = true,
+                SubjectEncoding = Encoding.UTF8,
+                BodyEncoding = Encoding.UTF8
+            };
+            var smtp = new SmtpClient("mail", 25)
+            {
+                EnableSsl = false,
+                UseDefaultCredentials = false
+            };
+            smtp.Send(message);
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteLine($"Ошибка отправки на {to}: {ex.Message}");
+        }
+    }
 
     private void LoadGpset()
     {
         string CurrentSelected = CurrGpset;
-        var Proj = Project.CurrentProject.Name;
-        ProjectName = Proj;
-        var ClashConnectionString = logic.ClashConnectionString;
-        using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
-        {
-            clashConnection.Open();
+       
 
-
-            var GpsetItems = logic.UpdateGpsetList(ProjectName, clashConnection);
+            var GpsetItems = logic.UpdateGpsetList();
 
             CbGpset.DisplayMemberPath = "DisplayText";
             CbGpset.SelectedValuePath = "GpsetElement";
             CbGpset.ItemsSource = GpsetItems;
-
+  
             if (!string.IsNullOrWhiteSpace(CurrentSelected))
             {
                 CbGpset.SelectedValue = CurrentSelected;
             }
-        }
-
     }
+    //private bool ClashUsermod1Filter(object item)
+    //{
+    //    if (item is not ClashEntity clash)
+    //        return false;
+    //    if (string.IsNullOrWhiteSpace(TbUsermodFilter.Text))
+    //        return true;
+    //    return clash.FirstUserMode != null && clash.FirstUserMode.IndexOf(TbUsermodFilter.Text, StringComparison.OrdinalIgnoreCase) >= 0;
+    //}
     private void CbGpset_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
 
-        //System.Windows.MessageBox.Show($"gpset");
         if (CbGpset.SelectedValue == null)
             return;
         else
@@ -96,9 +192,10 @@ public partial class MainWindow : Window
             string SelectedGpset = CbGpset.SelectedValue.ToString();
             CurrGpset = SelectedGpset;
         }
+       
 
-        Refresh();
-        // LoadClashEntity(SelectedGpset);
+            Refresh();
+       
     }
 
     //  private void LoadClashEntity(string gpset)
@@ -204,6 +301,41 @@ public partial class MainWindow : Window
     }
     private void BtnApprove_Click(object sender, RoutedEventArgs e)
     {
+        if (DgClashes.SelectedItems.Count == 0)
+        {
+            MessageBox.Show("Выберите хотя бы одну коллизию", "Согласование", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        CbApproveReason.SelectedIndex= 0;
+        ApproveOverlay.Visibility = Visibility.Visible;
+        
+    }
+    private void BtnApproveCancel_Click(object sender, RoutedEventArgs e)
+    {
+        ApproveOverlay.Visibility = Visibility.Collapsed;
+    }
+    private void BtnApproveOk_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedReasonItem = CbApproveReason.SelectedItem as ComboBoxItem;
+        if (selectedReasonItem == null)
+
+        {
+            MessageBox.Show("Выберите причину согласования");
+            return;
+        }
+        //получаю текст причины
+        string reason = selectedReasonItem.Content?.ToString();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            MessageBox.Show("Причина согласования не определена");
+            return;
+        }
+        //скрываем панель
+        ApproveOverlay.Visibility = Visibility.Collapsed;
+        ApproveSelectedClashes(reason);
+    }
+    private void ApproveSelectedClashes(string reason)
+    {
         var Date = DateTime.Now;
         var Selected = DgClashes.SelectedItems.Cast<ClashEntity>().ToList();
         if (Selected.Count == 0)
@@ -222,8 +354,8 @@ public partial class MainWindow : Window
             var ApproveReason = item.ApproveReason;
             var InWorkUser = item.InWorkUser;
             var InWorkDate = item.InWorkDate;
-
-            bool isMyDept = RequestToDept == MyDept || Dept1 == MyDept || Dept2 == MyDept;
+            
+            bool isMyDept = RequestToDept == MyDept || Dept1 == MyDept || Dept2 == MyDept || MyDept == "SYSTEM";
             bool hasApprove = !string.IsNullOrWhiteSpace(ApproveUser) || ApproveDate != null || !string.IsNullOrWhiteSpace(ApproveReason);
             bool hasInWork = !string.IsNullOrWhiteSpace(InWorkUser) || InWorkDate != null;
 
@@ -244,13 +376,13 @@ public partial class MainWindow : Window
                 return;
             }
         }
-        //var Reason = Microsoft.VisualBasic.Interaction.InputBox("Введите причину согласования", "Согласование", "Допустимая коллизия");
-        //if (Reason.Length < 5)
-        //{
-        //    System.Windows.MessageBox.Show("Согласование отменено. Причина согласования не может быть менее 5 символов");
-        //    return;
-        //}
-        string Reason = "";
+
+       // var Reason = Microsoft.VisualBasic.Interaction.InputBox("Введите причину согласования", "Согласование", "Допустимая коллизия");
+       // if (Reason.Length < 5)
+       // {
+       //     System.Windows.MessageBox.Show("Согласование отменено. Причина согласования не может быть менее 5 символов");
+       //     return;
+       // }
 
         var Ids = new List<int>();
         var idsWithRequest = new List<int>();
@@ -295,7 +427,7 @@ public partial class MainWindow : Window
                    {
                        ApproveUser = MyUlogId,
                        ApproveDate = Date,
-                       ApproveReason = Reason,
+                       ApproveReason = reason,
                        ids = idsWithRequest
                    });
                 }
@@ -324,7 +456,7 @@ public partial class MainWindow : Window
                                                RequestUser = MyUlogId,
                                                Date = Date,
                                                MyUlogId = MyUlogId,
-                                               ApproveReason = Reason,
+                                               ApproveReason = reason,
                                                ids = idsWithNotRequest
                                            });
                 }
@@ -505,9 +637,16 @@ public partial class MainWindow : Window
                     return;
                 }
             }
+            
 
+            SendMailByRequest2(Selected);
         }
-        var groups = Selected.GroupBy(x => x.FirstDept == MyDept ? x.SecondDept : x.FirstDept);
+        var groups = Selected.GroupBy(x =>
+           {
+            if (x.FirstDept == MyDept || MyDept == "SYSTEM")
+                return x.SecondDept;
+             return x.FirstDept;
+            });
         try
         {
             using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
@@ -622,55 +761,30 @@ public partial class MainWindow : Window
             if (CbGpset.SelectedItem == null) return;
             var clashes = logic.Show(ClashTableName, CurrGpset);
 
-            if (ChHideApproved.IsChecked == true)
-            {
-                clashes = clashes.Where(x => string.IsNullOrEmpty(x.ApproveReason)).ToList();
-            }
-            if (ChHideOthersInWork.IsChecked == true)
-            {
-                clashes = clashes.Where(x => string.IsNullOrEmpty(x.InWorkUser) || x.InWorkUser == MyUlogId).ToList();
-            }
-            if (ChOnlyRequestToMyDept.IsChecked == true)
-            {
-                clashes = clashes.Where(x => x.RequestToDept == MyDept).ToList();
-            }
-            if (ChOnlyMyDept.IsChecked == true)
-            {
-                clashes = clashes.Where(x => x.FirstDept == MyDept).ToList();
-            }
+            
             DgClashes.ItemsSource = clashes;
-            TbStatus.Text = $"Всего коллизий {clashes.Count}";
+            
             UpdateStatusKomplect();
+            clashes = DgClashes.ItemsSource as List<ClashEntity>;
+            if (clashes == null) return;
+            var stat = CalculateStatistic(clashes);
+            UpdateCard(TxtAllClash, PbAll, TxtPercentAll, stat.Total, stat.Total);
+            UpdateCard(TxtNewClash, PbNew, TxtPercentNew, stat.New, stat.Total);
+            UpdateCard(TxtSendClash, PbSend, TxtPercentSend, stat.Request, stat.Total);
+            UpdateCard(TxtApproveClash, PbApprove, TxtPercentApprove, stat.Approve, stat.Total);
+            UpdateCard(TxtInWorkClash, PbInWork, TxtPercentInWork, stat.InWork, stat.Total);
+            UpdateCard(TxtAllertClash, PbAllert, TxtPercentAllert, stat.RequestOut, stat.Request);
+
+            // var view = CollectionViewSource.GetDefaultView(DgClashes.ItemsSource);
+            // view.Filter = ClashUsermod1Filter;
         }
         finally
         { _isRefreshing = false; }
 
-
-
-
-
-
-
     }
-    private void ChHideOthersInWork_Checked(object sender, RoutedEventArgs e)
-    {
-        Refresh();
-    }
-    private void ChOnlyRequestToMyDept_Checked(object sender, RoutedEventArgs e)
-    {
-        Refresh();
-    }
-    private void ChHideApproved_Checked(object sender, RoutedEventArgs e)
-    {
-        Refresh();
-    }
-    private void ChOnlyMyDept_Checked(object sender, RoutedEventArgs e)
-    {
-        Refresh();
-    }
+    
     private bool UpdateStatusKomplect()
     {
-
         if (logic.IsGreenGpset(CurrGpset, ClashTableName))
         {
             Indicator.Background = Brushes.LightGreen;
@@ -686,19 +800,87 @@ public partial class MainWindow : Window
             Indicator.ToolTip = "Есть несогласованные коллизии";
             return false;
         }
+
     }
-    private void TbMyDept_TextChanged(object sender, RoutedEventArgs e)
+   
+    public ClashStatistics CalculateStatistic (List<ClashEntity> clashes)
+    {
+        var stat = new ClashStatistics();
+        if (clashes == null)
+            return stat;
+        stat.Total = clashes.Count;
+        foreach (var c in clashes)
+        {
+           c.Status = GetClasStatus(c);
+            switch (c.Status)
+            {
+                case "Новая":
+                    stat.New++;
+                    break;
+                case "Просрочен запрос":
+                    stat.RequestOut++;
+                    break;
+                case "Отправлено":
+                    stat.Request++;
+                    break;
+                case "В работе":
+                    stat.InWork++;
+                    break;
+                case "Согласовано":
+                    stat.Approve++;
+                    break;
+                case "Просрочена работа":
+                    stat.RequestOut++;
+                    break;
+            }
+
+            
+        }
+        return stat;
+    }
+
+    private void UpdateCard(TextBlock textBlock, ProgressBar progressBar,TextBlock PersentProgres ,int value, int total)
+    {
+        textBlock.Text = value.ToString();
+     
+        double percent = 0;
+        if (total >0)
+            percent = value * 100.0 / total;
+
+        progressBar.Value = percent;
+        PersentProgres.Text = $"{percent:0}%";
+       
+    }
+
+    private void BtnRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        Refresh();
+    }
+
+    private string GetClasStatus(ClashEntity c)
     {
 
+        bool dontDate = c.RequestDate == null && c.ApproveDate == null && c.InWorkDate == null;
+        bool newDate = (DateTime.Now - c.Date.Value).TotalDays <= 3;
 
+        if (dontDate && newDate)
+        {
+            return "Новая";
+        }
+        if(c.RequestDate != null && c.ApproveDate == null && c.InWorkDate == null)
+        {
+            if ((DateTime.Now - c.RequestDate.Value).TotalDays > 7 && c.ApproveDate == null && c.InWorkDate == null)
+                return "Просрочен запрос";
+            return "Отправлено";
+        }
+        if (c.InWorkDate != null && c.ApproveDate == null)
+        {
+            if ((DateTime.Now - c.InWorkDate.Value).TotalDays > 30)
+                return "Просрочена работа";
+            return "В работе";
+        }
+        if (c.ApproveDate != null)
+            return "Согласовано";
+        return "Бeз статуса";
     }
-    private void TbMyUlogId_TextChanged(object sender, RoutedEventArgs e)
-    {
-
-
-    }
-
-
-
-
 }

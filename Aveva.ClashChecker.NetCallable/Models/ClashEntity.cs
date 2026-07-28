@@ -23,7 +23,7 @@ public record ClashEntity
     public int Y { get; set; }
     public int Z { get; set; }
     public bool Existing { get; set; }
-  //  public string Building { get; set; } = "";
+    public string Building { get; set; } = "";
   //  public string Sequence { get; set; } = "";
     public string RequestToDept { get; set; } = "";
     public string RequestUser { get; set; } = "";
@@ -33,6 +33,7 @@ public record ClashEntity
     public string ApproveReason { get; set; } = "";
     public string InWorkUser { get; set; } = "";
     public DateTime? InWorkDate { get; set; }
+    public string Status { get; set; }
 
 }
 

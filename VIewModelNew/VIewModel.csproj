@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+	<LangVersion>12</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DataGridExtensions" Version="2.9.1">
+      <GeneratePathProperty>False</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="MaterialDesignThemes" Version="5.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aveva.ClashChecker.NetCallable\Aveva.ClashChecker.NetCallable.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Aveva.Core">
+      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Aveva.Core.Database">
+      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.Database.dll</HintPath>
+    </Reference>
+    <Reference Include="Aveva.Core.Utilities">
+      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.Utilities.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="PMLNet">
+      <HintPath>D:\AVEVA\Everything3D2.10\PMLNet.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="WindowsFormsIntegration" />
+  </ItemGroup>
+
+
+</Project>

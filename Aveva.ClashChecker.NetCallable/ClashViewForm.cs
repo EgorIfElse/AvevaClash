@@ -4,31 +4,21 @@ using Aveva.ClashChecker.NetCallable.Models;
 using Aveva.ClashChecker.NetCallable.Sql;
 using Aveva.Core.Database;
 using Aveva.Core.Database.Filters;
-using Microsoft.Data.SqlClient;
 using Aveva.Core.PMLNet;
-using Aveva.Core3D.Clasher;
 using Dapper;
-using Microsoft.Extensions.Logging;
+using Microsoft.Data.SqlClient;
 using System;
-using CC = global::ClashChecker.ClashChecker;
-using System.Diagnostics;
-using ClashChecker;
+using System.Collections;
 using System.Collections.Generic;
-using System.IO;
+using System.Diagnostics;
 using System.Linq;
+using System.Net.Mail;
 using System.Text;
-using System.Threading.Tasks;
+using System.Windows;
+using CC = global::ClashChecker.ClashChecker;
 //using System.Windows.Forms;
-using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
 using TypeFilter = Aveva.Core.Database.Filters.TypeFilter;
-using System.Windows;
-using System.Collections;
-using TDMS;
-using System.Security.Claims;
-using System.Runtime.CompilerServices;
-using System.ComponentModel;
-
 
 namespace ClashViewForm
 {
@@ -68,14 +58,7 @@ namespace ClashViewForm
         {
         }
         [PMLNetCallable]
-        public void ShowWpf()
-        {
 
-            var window = new ViewForm.MainWindow();
-            window.Show();
-
-
-        }
 
         private DateTime GetLastProjectCheckDate(string Gpset, string clashTableName)
         {
@@ -174,7 +157,7 @@ namespace ClashViewForm
             }
             else
             {
-                ClashesByGpset = checker.QueryClashByEl(clashConnection, clashTableName, GpsetRef, "");
+                ClashesByGpset = checker.QueryClashByEl(clashConnection, clashTableName, GpsetRef);
             }
             PML.CreateCommand($"$p Коллизий комплекта {GpsetRef} до проверки {ClashesByGpset.Count}").RunInPdms();
 
@@ -199,7 +182,7 @@ namespace ClashViewForm
                                                                              .ToList();
             PML.CreateCommand($"$p Из комплекта {GpsetRef} удалено {ClashesByGpsetTrueExist.Count - (ClashesByGpsetFalseExist.Count - 1)} несуществующих").RunInPdms();
 
-            UpdateGpsetList(ProjectName, clashConnection);
+            UpdateGpsetList();
 
 
             if (Gpset.ElementType.ToString() == "GPSET")
@@ -211,17 +194,8 @@ namespace ClashViewForm
 
 
         }
-        public List<GpsetComboItem> UpdateGpsetList(string ProjectName, SqlConnection sqlConnection)
+        public List<GpsetComboItem> UpdateGpsetList()
         {
-
-
-            var GetClashStats = $"EXEC dbo.GetClashStats_{ProjectName}_TEST";
-
-
-
-            var SqlGpset = sqlConnection.Query<ClashStats>($"{GetClashStats}").ToList();
-
-
 
             List<DbElement> AvevaGpset;
             AvevaGpset = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.GPSET))
@@ -238,49 +212,45 @@ namespace ClashViewForm
             gpsetItems.Add(new GpsetComboItem
             {
                 GpsetElement = "ALL",
-                DisplayText = "ALL общее(согл:0/несог:0) | для моего отдела(согл:0/несог:0)'"
+                DisplayText = "ALL"
             });
             gpsetItems.Add(new GpsetComboItem
             {
                 GpsetElement = "CE",
-                DisplayText = "CE общее(согл:0/несог:0) | для моего отдела(согл:0/несог:0)'"
+                DisplayText = "CE"
             });
 
-            foreach (var s in SqlGpset)
-            {
-                gpsetItems.Add(new GpsetComboItem
-                {
-                    GpsetElement = s.Gpset,
-                    DisplayText = $"{s.Gpset} общее(согл:{s.sog1}/несог:{s.nesog1}) | для моего отдела(согл:{s.SOG_myotd}/несог:{s.NESOG_myotd})"
-                });
-            }
+
 
             foreach (var g in AvevaGpset)
             {
                 var gpsetName = g.Name().ToString();
-                if (SqlGpset.Any(s => s.Gpset == gpsetName))
+                if (gpsetItems.Any(s => s.GpsetElement.ToString() == gpsetName))
                     continue;
                 gpsetItems.Add(new GpsetComboItem
                 {
                     GpsetElement = gpsetName,
-                    DisplayText = $"{gpsetName} общее(согл:0/несог:0) | для моего отдела(согл:0/несог:0)'"
+                    DisplayText = gpsetName
 
                 });
             }
 
-
-
-            /// Не проверял, процудуру создал только для Артема EXEC dbo.GetClashStats_{ProjectName}_TEST";
-            /// 
-
-            /// Далее надо дописать после WPF
-
-
-
-            return gpsetItems;
+            return gpsetItems
+                   .OrderBy(X =>
+                   {
+                       if (X.GpsetElement.ToString() == "ALL") return 2;
+                       if (X.GpsetElement.ToString() == "CE") return 2;
+                       return 1;
+                   })
+                   .ThenBy(X => X.DisplayText)
+                   .ToList();
 
 
         }
+
+
+
+
 
         [PMLNetCallable]
         public void SetChange(SqlConnection sqlConnection, string clashTableName, string Gpset)
@@ -298,44 +268,34 @@ namespace ClashViewForm
         }
 
         [PMLNetCallable]
-        public Hashtable ShowTest(string clashTableName, string Gpset)
-        {
-            var list = Show(clashTableName, Gpset);
-            Dictionary<int, ClashEntity> dict = list.ToDictionary(y => y.id, y => y);
-            Hashtable hash = new Hashtable(dict);
-            return hash;
-
-            // return new HashSet(list.ToHashSet(x=> x.id, x =>x));
-        }
 
         public List<ClashEntity> Show(string clashTableName, string Gpset)
         {
             using SqlConnection sqlConnection = new(ClashConnectionString);
             sqlConnection.Open();
-            // !this.currGpset = !this.SelSet.Selection()   ДОПИСАТЬ ПОСЛЕ WPF
             List<ClashEntity> GpsetTable = [];
-
-            if (Gpset == "CE")
-            {
-                Gpset = DbElement.GetElement(Gpset).Name();
-            }
-            TitleUpdate();
-            var Wherestring = "where 1 = 1";
-            if (Gpset != "ALL" && Gpset != "CE")
-            {
-                Wherestring = $"{Wherestring} and gpset1 = @Gpset";
-
-            }
-
             var sw = Stopwatch.StartNew();
             if (Gpset == "CE")
             {
-                GpsetTable = checker.QueryClashByEl(sqlConnection, clashTableName, CurrGpset, Wherestring);
+                DbElement currentEl = CurrentElement.Element;
+                string currentElRef = currentEl.GetAsString(DbAttributeInstance.REF);
+                GpsetTable = checker.QueryClashByEl(sqlConnection, clashTableName, currentElRef);
+            }
+
+            else if (Gpset == "ALL")
+
+            {
+                GpsetTable = sqlConnection.Query<ClashEntity>(@$"select {SqlMapping.ClashSql} 
+                                                              from {clashTableName}")
+                                                              .ToList();
+
             }
             else
             {
                 GpsetTable = sqlConnection.Query<ClashEntity>(@$"select {SqlMapping.ClashSql} 
-                                                              from {clashTableName} {Wherestring}",
+                                                              from {clashTableName}
+                                                              where gpset1 = @Gpset
+                                                                or gpset2 = @Gpset",
                                                               new { Gpset = Gpset })
                                                               .ToList();
             }
@@ -344,16 +304,9 @@ namespace ClashViewForm
 
             return GpsetTable;
         }
-        public void TitleUpdate() // ДОПИСАТЬ ПОСЛЕ WPF
-        {
-            // !this.formTitle        = 'коллизии по ' & !this.currgpset & ' для...  ОТДЕЛ: ' & !this.MyDept & ' | пользователь: ' & !this.MyUlogId
-            // !this.formTitle        = 'коллизии для...  ОТДЕЛ: ' & !this.MyDept & ' | пользователь: ' & !this.MyUlogId
-        }
 
-        public void SendMailByRequest(string opt)
-        {
 
-        }
+
 
         public void Report(string Gpset)
         {
@@ -373,7 +326,7 @@ namespace ClashViewForm
 
             string gpsetDept = checker.GetDepartment(Gp, "GPSET");
 
-            bool isForeignDept = gpsetDept != MyDept && !(gpsetDept == "SOT" && MyDept == "OGS");
+            bool isForeignDept = (gpsetDept != MyDept && !(gpsetDept == "SOT" && MyDept == "OGS")) && MyDept != "SYSTEM";
             //не понятно зачем ОГС видеть коллизии СОТ
             if (isForeignDept)
             {
@@ -414,35 +367,35 @@ namespace ClashViewForm
                 return;
             }
 
-            var param = GetSqlParams(GpsetRef);
-
-            using SqlConnection tdmsConnection = new(TDMSConnectionString);
-            {
-
-
-                tdmsConnection.Open();
-
-                GetKomplect = tdmsConnection.Query<string>(@$"EXEC	[dbo].[PDMSGetStatus]		
-                                                              @KOMPLECT, @VNCODE, @KKS",
-                                                                  new { KOMPLECT = param[2], VNCODE = param[1], KKS = param[3] })
-                                                                  .ToList();
-            }
-            if (GetKomplect.Count < 1)
-            {
-                System.Windows.MessageBox.Show($"Комплект не найден в TDMS");
-                return;
-            }
-            else if (GetKomplect.Count > 1)
-            {
-                System.Windows.MessageBox.Show($"В TDMS найдено больше одного комплекта");
-                return;
-            }
-
-            if (GetKomplect[0] != "2253448")
-            {
-                System.Windows.MessageBox.Show($"Нельзя заблокировать сданный в TDMS комплект {param[3]}");
-                return;
-            }
+            // var param = GetSqlParams(GpsetRef);
+            //
+            // using SqlConnection tdmsConnection = new(TDMSConnectionString);
+            // {
+            //
+            //
+            //     tdmsConnection.Open();
+            //
+            //     GetKomplect = tdmsConnection.Query<string>(@$"EXEC	[dbo].[PDMSGetStatus]		
+            //                                                   @KOMPLECT, @VNCODE, @KKS",
+            //                                                       new { KOMPLECT = param[2], VNCODE = param[1], KKS = param[3] })
+            //                                                       .ToList();
+            // }
+            // if (GetKomplect.Count < 1)
+            // {
+            //     System.Windows.MessageBox.Show($"Комплект не найден в TDMS");
+            //     return;
+            // }
+            // else if (GetKomplect.Count > 1)
+            // {
+            //     System.Windows.MessageBox.Show($"В TDMS найдено больше одного комплекта");
+            //     return;
+            // }
+            //
+            // if (GetKomplect[0] != "2253448")
+            // {
+            //     System.Windows.MessageBox.Show($"Нельзя заблокировать сданный в TDMS комплект {param[3]}");
+            //     return;
+            // }
 
             var Answer = System.Windows.MessageBox.Show("Выполнить Save Work", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (Answer == MessageBoxResult.Yes)
@@ -452,24 +405,24 @@ namespace ClashViewForm
 
 
 
-                ExecuteScript("sqltep", "TDMS_TEP", "", "", "CMD_PDMS", "Set_Collision_Status", param[1], param[2], param[3], param[4], "1", "", "", "", "", "");
-                GetKomplect = tdmsConnection.Query<string>(@$"EXEC	[dbo].[PDMSGetStatus]		
-                                                              @KOMPLECT, @VNCODE, @KKS",
-                                                                     new { KOMPLECT = param[2], VNCODE = param[1], KKS = param[3] })
-                                                                     .ToList();
-                if (GetKomplect[0] != "1")
-                {
-                    GpsetRef.SetAttribute(DbAttribute.GetDbAttribute(":UES_KSTATUS"), old);
-                    System.Windows.MessageBox.Show($"Не удалось заблокировать комплект {param[3]}");
-                    return;
-                }
+                //    SetPackagePdmsRightAttrByStageAndContract(param[1], param[2], param[4], param[3], true);
+                //    GetKomplect = tdmsConnection.Query<string>(@$"EXEC	[dbo].[PDMSGetStatus]		
+                //                                                  @KOMPLECT, @VNCODE, @KKS",
+                //                                                         new { KOMPLECT = param[2], VNCODE = param[1], KKS = param[3] })
+                //                                                         .ToList();
+                //    if (GetKomplect[0] != "1")
+                //    {
+                //        GpsetRef.SetAttribute(DbAttribute.GetDbAttribute(":UES_KSTATUS"), old);
+                //        System.Windows.MessageBox.Show($"Не удалось заблокировать комплект {param[3]}");
+                //        return;
+                //    }
                 MDB.CurrentMDB.SaveWork("");
             }
         }
 
 
 
-
+#if false
         public List<string> GetSqlParams(DbElement GpsetRef)
         {
             List<string> sqlParams = new List<string>();
@@ -511,134 +464,70 @@ namespace ClashViewForm
 
             return sqlParams;
         }
-
-
-        private string ExecuteScript(string server, string db, string login, string pass, string cmd, string script, string p1, string p2, string p3, string p4, string p5, string p6, string p7, string p8, string p9, string p10)
+#endif
+#if false
+        private static void SetPackagePdmsRightAttrByStageAndContract(string stageInnerCode, string contractCode, string buildingKKS, string setName, bool pdmsRight)
         {
-            try
+            using var tdmsConnection = new SqlConnection("Server=SQLTEP;Database=TDMS_TEP;TrustServerCertificate=True;User ID=pdmstotdms;Password=PdMsToTdMs");
+            tdmsConnection.Open();
+            using var getSetIdWithStatusName = new SqlCommand(@"
+      select top 1 setObj.F_objid as SetId, tstat.F_NAME as StatusName from TObject setObj 
+       inner join TAttr stageLinkAttr on setObj.F_OBJID = stageLinkAttr.F_OBJID 
+       inner join tattr contractLinkAttr on setObj.F_OBJID = contractLinkAttr.F_OBJID 
+       inner join tattr pdmsAttr on setObj.F_OBJID = pdmsAttr.F_OBJID
+      inner join TLinkAttr buildingLink on setObj.F_OBJID = buildingLink.F_LINKOBJID
+      inner join tattr buildingKKS on buildingLink.F_OBJID = buildingKKS.F_OBJID
+      inner join tattr setName on setObj.F_OBJID = setName.F_OBJID
+      inner join TStatus tstat on setObj.F_STATUSID = tstat.F_STATUSID
+      where 
+      stageLinkAttr.F_ATTRDEFID = 214692471 and  stageLinkAttr.F_INT64VAL =
+      (select top 1 stageObj.F_OBJID from TObject stageObj 
+      inner join tattr stageInnerCode on stageObj.F_OBJID = stageInnerCode.F_OBJID 
+      where stageInnerCode.F_ATTRDEFID = 6312 and stageInnerCode.F_STRVAL = @stageInnerCode) --Поиск стадии по коду
+      and contractLinkAttr.F_ATTRDEFID = 5463 and contractLinkAttr.F_INT64VAL =
+      (select top 1 contractObj.F_OBJID from TObject contractObj 
+      inner join tattr contractCode on contractObj.F_OBJID = contractCode.F_OBJID 
+      where contractCode.F_ATTRDEFID = 6373 and contractCode.F_STRVAL = @contractCode) --Поиск договора по коду
+      and pdmsAttr.F_ATTRDEFID = 2004389 and pdmsAttr.F_INT64VAL = 1
+      and setObj.F_VERSION = 0 and setObj.F_OBJTYPEID = 2492
+      and buildingKKS.F_ATTRDEFID = 3975 and buildingKKS.F_STRVAL = @buildingKKS --Поиск сооружения по ККС
+      and setName.F_ATTRDEFID  = 5066 and setName.F_STRVAL = @setName --Поиск комплекта по наименованию
+      ", tdmsConnection);
+            getSetIdWithStatusName.Parameters.AddWithValue("@stageInnerCode", stageInnerCode);
+            getSetIdWithStatusName.Parameters.AddWithValue("@contractCode", contractCode);
+            getSetIdWithStatusName.Parameters.AddWithValue("@buildingKKS", buildingKKS);
+            getSetIdWithStatusName.Parameters.AddWithValue("@setName", setName);
+            long setId = -1;
+            string statusName = "";
+
+            using (var tdmsReader = getSetIdWithStatusName.ExecuteReader())
             {
-                TDMSApplication tDMSApplication;
-                try
+                if (tdmsReader.Read())
                 {
-                    tDMSApplication = (TDMSApplication)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("70CF901C-B492-4E86-AAD4-58E6330CBDE9")));
-                    if (tDMSApplication.DatabaseName != db)
-                    {
-                        Console.WriteLine("tdmsApp.DatabaseName != db");
-                        Console.WriteLine("найден сеанс с подключением " + tDMSApplication.DatabaseName + " Требуется подключение к бд " + db + ". Необходимо перезайти в TDMS");
-                        return "";
-                    }
+                    //Если комплект найден
+                    setId = tdmsReader.GetInt64(0);
+                    statusName = tdmsReader.GetString(1);
                 }
-                catch
+                else
                 {
-                    tDMSApplication = (TDMSApplication)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("70CF901C-B492-4E86-AAD4-58E6330CBDE9")));
-                    if (string.IsNullOrEmpty(login) && string.IsNullOrEmpty(pass))
-                    {
-                        tDMSApplication.Login("", Type.Missing, db, server, TDMSDatabaseType.tdmDatabaseMSSQL2000, TDMSAuthType.tdmAuthWindows);
-                    }
-                    else
-                    {
-                        tDMSApplication.Login(login, pass, db, server, TDMSDatabaseType.tdmDatabaseMSSQL2000, TDMSAuthType.tdmAuthSQL);
-                    }
+                    //Обработчик если комплект не найден в ТДМС
+                    return;
                 }
-                tDMSApplication.Visible = true;
-                TDMSCommand source = tDMSApplication.Commands[cmd];
-                string text = (string)(dynamic)tDMSApplication.ExecuteScript(source, script, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
-                Console.WriteLine(text);
-                return text ?? "";
             }
-            catch (Exception ex)
+            if (statusName != "STATUS_SET_WORK")
             {
-                Console.WriteLine(ex.Message);
-                return "";
+                //Обработчик если статус комплекта не "В работе"
+                return;
             }
+            using var setPmsRightCommand = new SqlCommand(@"update tattr set F_INT64VAL = @pdmsRight where F_OBJID = @setId and F_ATTRDEFID = 15655994", tdmsConnection);
+            setPmsRightCommand.Parameters.AddWithValue("@setId", setId);
+            setPmsRightCommand.Parameters.AddWithValue("@pdmsRight", pdmsRight ? 1 : 0);
+            setPmsRightCommand.ExecuteNonQuery();
+            tdmsConnection.Close();
         }
 
-        private void SendMailByRequest(List<ClashEntity> rows)
-        {
-            string project = Project.CurrentProject.Name;
-            var mailDict = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+#endif
 
-            foreach (var r in rows)
-            {
-                if (r.FirstDept != MyDept && r.SecondDept != MyDept) continue;
-                if (string.IsNullOrEmpty(r.RequestToDept)) continue;
-                if (string.IsNullOrEmpty(r.RequestUser)) continue;
-                if (!string.IsNullOrEmpty(r.ApproveUser)) continue;
-                if (!string.IsNullOrEmpty(r.InWorkUser)) continue;
-                if (r.RequestToDept == MyDept) continue;
-
-                string mailuser = r.RequestUser;
-
-                if (!mailDict.ContainsKey(mailuser))
-                    mailDict[mailuser] = new List<int>();
-                mailDict[mailuser].Add(r.Id);
-            }
-
-            // отправка
-            foreach (var kvp in mailDict)
-            {
-                string user = kvp.Key;
-                List<int> ids = kvp.Value;
-                string subject = $"Запрос на согласование коллизий по проекту {project} комплекту {CurrGpset}";
-                string body = $"Прошу устранить или согласовать коллизии по комплекту {CurrGpset} в количестве {ids.Count} шт <BR>"
-                               + "Номера коллизий: <BR>"
-                               + string.Join("<BR>", ids);
-
-                SendMail($"{user}@tep-m.ru", subject, body);
-
-                var clashRow = rows.FirstOrDefault(r => r.RequestUser == user);
-                if (clashRow != null)
-                    SendCcByDept(clashRow.RequestToDept ?? "", subject, body, project);
-            }
-
-            string msg = mailDict.Count == 0
-                ? "Нет запросов для отправки"
-                : "Уведомления отправлены: " + string.Join(", ", mailDict.Keys);
-
-            MessageBox.Show(msg);
-        }
-
-
-        private void SendCcByDept(string dept, string subject, string body, string project)
-        {
-            List<string> cc = [];
-
-            if (dept.Contains("SOT")) cc = ["vinogradov", "presnov"];
-            else if (dept.Contains("ARX") && project == "TUY") cc = ["kotova"];
-            else if (dept.Contains("ARX") && project == "UYK") cc = ["drachevai"];
-            else if (dept.Contains("ARX")) cc = ["izmaylovaim", "vnukovaya"];
-            else if (dept.Contains("OIV") && project == "TUY") cc = ["SukhorukovAY"];
-            else if (dept.Contains("OIV")) cc = ["zolotov"];
-            else if (dept.Contains("OMK")) cc = ["lyanas"];
-            else if (dept.Contains("VIK")) cc = ["Korolkova"];
-
-            foreach (var c in cc)
-                SendMail($"{c}@tep-m.ru", subject, body);
-        }
-
-        private void SendMail(string to, string subject, string body)
-        {
-            try
-            {
-                string login = Project.CurrentProject.LoginUser.ToLower();
-                var message = new MailMessage($"{login}@tep-m.ru", to, subject, body)
-                {
-                    IsBodyHtml = true,
-                    SubjectEncoding = Encoding.UTF8,
-                    BodyEncoding = Encoding.UTF8
-                };
-                var smtp = new SmtpClient("mail", 25)
-                {
-                    EnableSsl = false,
-                    UseDefaultCredentials = false
-                };
-                smtp.Send(message);
-            }
-            catch (Exception ex)
-            {
-                Logger.WriteLine($"Ошибка отправки на {to}: {ex.Message}");
-            }
-        }
 
     }
 }

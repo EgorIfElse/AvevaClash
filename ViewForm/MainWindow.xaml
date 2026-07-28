@@ -190,7 +190,7 @@
                         <TextBox x:Name="TbMyDept" 
                              Grid.Column="4" 
                              Height="32" 
-                             TextChanged="TbMyDept_TextChanged" 
+                             TextChanged="TbMyDept_TextChanged"
                              Padding="10,6,10,6" 
                              VerticalAlignment="Center"
                              FontWeight="SemiBold"
@@ -308,7 +308,6 @@
 
 
         <DataGrid x:Name="DgClashes"
-                  dgx:DataGridFilter.IsAutoFilterEnabled="true"
                   Grid.Row="1"
                   ColumnHeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                   AutoGenerateColumns="False"

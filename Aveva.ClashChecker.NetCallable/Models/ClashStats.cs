@@ -11,8 +11,7 @@ namespace Aveva.ClashChecker.NetCallable.Models
         public string Gpset { get; set; }
         public string sog1 { get; set; }
         public string nesog1 { get; set; }
-        public string SOG_myotd { get; set; }
-        public string NESOG_myotd { get; set; }
+       
     }
 }
 
