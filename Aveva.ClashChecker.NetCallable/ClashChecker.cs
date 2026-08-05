@@ -181,7 +181,7 @@ public partial class ClashChecker
 
             UpdateClashElementInfo(clashConnection, "FULL", clashTableName, string.Empty);
             Logger.WriteLine("Выполнен UpdateClashElementInfo");
-            clashConnection.Execute($"UPDATE {clashTableName} set Existing = 'false'");
+            clashConnection.Execute($"UPDATE [{clashTableName}] SET [XT] = 0");
 
             string initialClashesLogString = $"Коллизий до проверки: {clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}")}";
 
@@ -334,9 +334,9 @@ public partial class ClashChecker
         ["G2"] = "NVARCHAR(16)",
         ["XT"] = "BIT NOT NULL",
         ["DT"] = "DATETIME NOT NULL",
-        ["XO"] = "INT NOT NULL",
-        ["YO"] = "INT NOT NULL",
-        ["ZO"] = "INT NOT NULL",
+        ["X0"] = "INT NOT NULL",
+        ["Y0"] = "INT NOT NULL",
+        ["Z0"] = "INT NOT NULL",
         ["RT"] = "NVARCHAR(16)",
         ["RU"] = "NVARCHAR(32)",
         ["RD"] = "DATETIME",
@@ -356,7 +356,7 @@ public partial class ClashChecker
         ["LogDate"] = "DATETIME NOT NULL DEFAULT GETDATE()",
         ["LoginName"] = "NVARCHAR(50)",
         ["ActionType"] = "NVARCHAR(20)",
-        ["Comment"] = "NVARCHAR(100))"
+        ["Comment"] = "NVARCHAR(100)"
     };
 
 
@@ -381,9 +381,9 @@ public partial class ClashChecker
                 [G2] NVARCHAR(16),  
                 [XT] BIT NOT NULL,
                 [DT] DATETIME NOT NULL,
-                [XO] INT NOT NULL,
-                [YO] INT NOT NULL,
-                [ZO] INT NOT NULL,
+                [X0] INT NOT NULL,
+                [Y0] INT NOT NULL,
+                [Z0] INT NOT NULL,
                 [RT] NVARCHAR(16),
                 [RU] NVARCHAR(32),
                 [RD] DATETIME,
@@ -534,7 +534,7 @@ public partial class ClashChecker
 
             if (gpsetName != string.Empty)
             {
-                var clashesByGpset = clashConnection.Query<ClashEntity>($"SELECT {ClashSql} from {clashTablename} WHERE (gpset1 = '{gpsetName}' or gpset2 = '{gpsetName}')").ToList();
+                var clashesByGpset = clashConnection.Query<ClashEntity>($"SELECT {ClashSql} FROM [{clashTablename}] WHERE ([G1] = @gpsetName OR [G2] = @gpsetName)", new { gpsetName }).ToList();
                 var clashesByGpsetElement = QueryClashByEl(clashConnection, clashTablename, gpsetName);
                 HashSet<int> ids = [.. clashesByGpset.Select(e => e.Id)];
                 clashes = [.. clashesByGpset.Union(clashesByGpsetElement.Where(e => !ids.Contains(e.Id)))];
@@ -647,13 +647,13 @@ public partial class ClashChecker
                                  string.Join("; ", changed.Select(x => x.message));
 
                     clashConnection.Execute($@"UPDATE {tableName}
-                                            SET dept1 = @dept1, 
-                                                gpset1 = @gpset1, 
-                                                usermod1 = @usermod1, 
-                                                dept2 = @dept2, 
-                                                gpset2 = @gpset2, 
-                                                usermod2 = @usermod2 
-                                            WHERE id = @id",
+                                            SET [D1] = @dept1, 
+                                                [G1] = @gpset1, 
+                                                [U1] = @usermod1, 
+                                                [D2] = @dept2, 
+                                                [G2] = @gpset2, 
+                                                [U2] = @usermod2 
+                                            WHERE [ID] = @id",
                         new
                         {
                             id = clash.Id,
@@ -980,11 +980,11 @@ public partial class ClashChecker
         string invt = $"{firstType}{secondType} CLASH";
         string query;
         if (clashType == "*" || firstType == secondType)
-            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' or el1 = '{secondElement}' and el2 = '{firstElement}')";
+            query = $"SELECT {ClashSql} FROM [{clashTableName}] WHERE ([R1] = @firstElement AND [R2] = @secondElement OR [R1] = @secondElement AND [R2] = @firstElement)";
         else
-            query = $"select {ClashSql} from {clashTableName} where (el1 = '{firstElement}' and el2 = '{secondElement}' and ClashType = '{clashType}'  or el1 = '{secondElement}' and el2 = '{firstElement}' and ClashType = '{invt}')";
+            query = $"SELECT {ClashSql} FROM [{clashTableName}] WHERE ([R1] = @firstElement AND [R2] = @secondElement AND [CT] = @clashType OR [R1] = @secondElement AND [R2] = @firstElement AND [CT] = @invt)";
 
-        return [.. clashConnection.Query<ClashEntity>(query)];
+        return [.. clashConnection.Query<ClashEntity>(query, new { firstElement, secondElement, clashType, invt })];
 
 
     }
@@ -1130,27 +1130,27 @@ public partial class ClashChecker
             }
             var existingRows = sqlConnection.Query<ExistingRow>($@"
                     SELECT c.id AS Id,
-                           c.ClashType,
-                           c.El1,
-                           c.El2,
-                           c.X, c.Y, c.Z,
-                           c.Existing
-                    FROM {clashTableName} c
+                           c.[CT] AS ClashType,
+                           c.[R1] AS El1,
+                           c.[R2] AS El2,
+                           c.[X0] AS X, c.[Y0] AS Y, c.[Z0] AS Z,
+                           c.[XT] AS Existing
+                    FROM [{clashTableName}] c
                     JOIN #pairs p
-                    ON p.ClashType = c.ClashType
-                    AND ((p.El1 = c.El1 and p.El2 = c.El2)
-                    OR  (p.El1 = c.El2 and p.El2 = c.El1))
-                    AND (p.X = c.X and p.Y = c.Y and p.Z = c.Z)
+                    ON p.ClashType = c.[CT]
+                    AND ((p.El1 = c.[R1] and p.El2 = c.[R2])
+                    OR  (p.El1 = c.[R2] and p.El2 = c.[R1]))
+                    AND (p.X = c.[X0] and p.Y = c.[Y0] and p.Z = c.[Z0])
                                                                 ").ToList();
             var existingUpdate = sqlConnection.Execute($@"
                     UPDATE C
-                    SET c.Existing = 1
-                    FROM {clashTableName} c
+                    SET c.[XT] = 1
+                    FROM [{clashTableName}] c
                     JOIN #pairs p
-                    ON p.ClashType = c.ClashType
-                    AND ((p.El1 = c.El1 and p.El2 = c.El2)
-                    OR  (p.El1 = c.El2 and p.El2 = c.El1))
-                    AND (p.X = c.X and p.Y = c.Y and p.Z = c.Z)
+                    ON p.ClashType = c.[CT]
+                    AND ((p.El1 = c.[R1] and p.El2 = c.[R2])
+                    OR  (p.El1 = c.[R2] and p.El2 = c.[R1]))
+                    AND (p.X = c.[X0] and p.Y = c.[Y0] and p.Z = c.[Z0])
                                                        ");
 
 
@@ -1205,6 +1205,7 @@ public partial class ClashChecker
     private static DataTable CreateTableForInsert()
     {
         var dt = new DataTable();
+        dt.Columns.Add("Building", typeof(string));
         dt.Columns.Add("ClashType", typeof(string));
         dt.Columns.Add("El1", typeof(string));
         dt.Columns.Add("Type1", typeof(string));
@@ -1263,20 +1264,21 @@ public partial class ClashChecker
             building = buildingFirst.Split('/')[1].Split('_')[0];
 
         var row = dt.NewRow();
-        row["ClashType"] = Cut(clashType, 20);
-        row["El1"] = Cut(firstElement, 40);
-        row["Type1"] = Cut(firstType,10);
-        row["Usermod1"] = Cut(firstUserMode,20);
+        row["Building"] = Cut(building, 12) ?? string.Empty;
+        row["ClashType"] = Cut(clashType, 12);
+        row["El1"] = Cut(firstElement, 24);
+        row["Type1"] = Cut(firstType, 12);
+        row["Usermod1"] = Cut(firstUserMode, 32);
         row["Flnm1"] = Cut(flnm1,50);
-        row["Dept1"] = Cut(firstDept,20) != null ? Cut(firstDept, 20) : DBNull.Value;
-        row["Gpset1"] = Cut(firstGroups,130) != null ? Cut(firstGroups, 130) : DBNull.Value;
+        row["Dept1"] = Cut(firstDept, 16) != null ? Cut(firstDept, 16) : DBNull.Value;
+        row["Gpset1"] = Cut(firstGroups, 16) != null ? Cut(firstGroups, 16) : DBNull.Value;
 
-        row["El2"] = Cut(secondElement, 40);
-        row["Type2"] = Cut(secondType,10);
-        row["Usermod2"] = Cut(secondUserMode,20);
+        row["El2"] = Cut(secondElement, 24);
+        row["Type2"] = Cut(secondType, 12);
+        row["Usermod2"] = Cut(secondUserMode, 32);
         row["Flnm2"] = Cut(flnm2,50);
-        row["Dept2"] = Cut(secondDept,20) != null ? Cut(secondDept, 20) : DBNull.Value;
-        row["Gpset2"] = Cut(secondGroups, 130) != null ? Cut(secondGroups, 130) : DBNull.Value;
+        row["Dept2"] = Cut(secondDept, 16) != null ? Cut(secondDept, 16) : DBNull.Value;
+        row["Gpset2"] = Cut(secondGroups, 16) != null ? Cut(secondGroups, 16) : DBNull.Value;
 
         row["Date"] = DateTime.Now;
         row["X"] = x;
@@ -1298,26 +1300,25 @@ public partial class ClashChecker
             using (var bulk = new SqlBulkCopy(sqlConnection))
             {
                 bulk.DestinationTableName = clashTableName;
-                bulk.ColumnMappings.Add("ClashType", "ClashType");
-                bulk.ColumnMappings.Add("El1", "El1");
-                bulk.ColumnMappings.Add("Type1", "type1");
-                bulk.ColumnMappings.Add("Usermod1", "usermod1");
-                bulk.ColumnMappings.Add("Flnm1", "flnm1");
-                bulk.ColumnMappings.Add("Dept1", "Dept1");
-                bulk.ColumnMappings.Add("Gpset1", "Gpset1");
+                bulk.ColumnMappings.Add("Building", "GL");
+                bulk.ColumnMappings.Add("ClashType", "CT");
+                bulk.ColumnMappings.Add("El1", "R1");
+                bulk.ColumnMappings.Add("Type1", "E1");
+                bulk.ColumnMappings.Add("Usermod1", "U1");
+                bulk.ColumnMappings.Add("Dept1", "D1");
+                bulk.ColumnMappings.Add("Gpset1", "G1");
 
-                bulk.ColumnMappings.Add("El2", "El2");
-                bulk.ColumnMappings.Add("Type2", "type2");
-                bulk.ColumnMappings.Add("Usermod2", "usermod2");
-                bulk.ColumnMappings.Add("Flnm2", "flnm2");
-                bulk.ColumnMappings.Add("Dept2", "Dept2");
-                bulk.ColumnMappings.Add("Gpset2", "Gpset2");
+                bulk.ColumnMappings.Add("El2", "R2");
+                bulk.ColumnMappings.Add("Type2", "E2");
+                bulk.ColumnMappings.Add("Usermod2", "U2");
+                bulk.ColumnMappings.Add("Dept2", "D2");
+                bulk.ColumnMappings.Add("Gpset2", "G2");
 
-                bulk.ColumnMappings.Add("Date", "date");
-                bulk.ColumnMappings.Add("X", "x");
-                bulk.ColumnMappings.Add("Y", "y");
-                bulk.ColumnMappings.Add("Z", "z");
-                bulk.ColumnMappings.Add("Existing", "existing");
+                bulk.ColumnMappings.Add("Date", "DT");
+                bulk.ColumnMappings.Add("X", "X0");
+                bulk.ColumnMappings.Add("Y", "Y0");
+                bulk.ColumnMappings.Add("Z", "Z0");
+                bulk.ColumnMappings.Add("Existing", "XT");
                 //bulk.ColumnMappings.Add("Building", "Building");
                 var before = sqlConnection.ExecuteScalar<int>($"select count(*) from {clashTableName}");
                 Logger.WriteLine($"before = {before}");

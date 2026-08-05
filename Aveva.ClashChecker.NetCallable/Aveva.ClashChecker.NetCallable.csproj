@@ -45,7 +45,8 @@
 		</Reference>
 		<Reference Include="Microsoft.VisualBasic" />
 		<Reference Include="PMLNet">
-		  <HintPath>D:\AVEVA\Everything3D2.10\PMLNet.dll</HintPath>
+		  <HintPath>..\References\PMLNet.dll</HintPath>
+		  <Private>False</Private>
 		</Reference>
 		<Reference Include="PresentationCore">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationCore.dll</HintPath>
@@ -53,22 +54,7 @@
 		<Reference Include="PresentationFramework">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationFramework.dll</HintPath>
 		</Reference>
-		<Reference Include="SetPDMSStatus">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\SetPDMSStatus.dll</HintPath>
-		</Reference>
 		<Reference Include="System.Data" />
-		<Reference Include="TDMSApp">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS.dll</HintPath>
-		</Reference>
-		<Reference Include="TDMSSYS">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMSSYS.dll</HintPath>
-		</Reference>
-		<Reference Include="TepCommonFiles">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepCommonFiles.dll</HintPath>
-		</Reference>
-		<Reference Include="TepTDMSClasses">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\TDMS\TepTDMSClasses.dll</HintPath>
-		</Reference>
 		<Reference Include="WindowsBase">
 		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\WindowsBase.dll</HintPath>
 		</Reference>

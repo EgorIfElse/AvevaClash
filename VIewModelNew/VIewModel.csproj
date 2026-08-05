@@ -30,17 +30,17 @@
 
   <ItemGroup>
     <Reference Include="Aveva.Core">
-      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.dll</HintPath>
+      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Database">
-      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.Database.dll</HintPath>
+      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.Database.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Utilities">
-      <HintPath>D:\AVEVA\Everything3D2.10\Aveva.Core.Utilities.dll</HintPath>
+      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.Utilities.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PMLNet">
-      <HintPath>D:\AVEVA\Everything3D2.10\PMLNet.dll</HintPath>
+      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\PMLNet.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="WindowsFormsIntegration" />

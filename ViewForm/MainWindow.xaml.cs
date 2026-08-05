@@ -287,9 +287,9 @@ public partial class MainWindow : Window
                 if (idsWithRequest.Count > 0)
                 {
                     clashConnection.Execute($@"UPDATE {ClashTableName}
-                                            SET ApproveUser = @ApproveUser, 
-                                                ApproveDate = @ApproveDate, 
-                                                ApproveReason = @ApproveReason 
+                                            SET [AU] = @ApproveUser, 
+                                                [AD] = @ApproveDate, 
+                                                [AR] = @ApproveReason 
                                             WHERE id IN @ids",
                    new
                    {
@@ -311,12 +311,12 @@ public partial class MainWindow : Window
                 if (idsWithNotRequest.Count > 0)
                 {
                     clashConnection.Execute($@"UPDATE {ClashTableName}
-                                            SET Requesttodept = @RequestTo, 
-                                                Requestuser = @RequestUser, 
-                                                Requestdate = @Date, 
-                                                ApproveUser = @MyUlogId, 
-                                                ApproveDate = @Date, 
-                                                ApproveReason = @ApproveReason 
+                                            SET [RT] = @RequestTo, 
+                                                [RU] = @RequestUser, 
+                                                [RD] = @Date, 
+                                                [AU] = @MyUlogId, 
+                                                [AD] = @Date, 
+                                                [AR] = @ApproveReason 
                                             WHERE id IN @ids",
                                            new
                                            {
@@ -344,9 +344,9 @@ public partial class MainWindow : Window
             clashConnection.Open();
             var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
                                                        FROM {ClashTableName}
-                                                       WHERE (gpset1 = @gpset or gpset2 = @gpset)
-                                                       AND (dept1 = @dept or dept2 = @dept)
-                                                       AND (approveReason is null or approveReason = '')",
+                                                       WHERE ([G1] = @gpset OR [G2] = @gpset)
+                                                       AND ([D1] = @dept OR [D2] = @dept)
+                                                       AND ([AR] IS NULL OR [AR] = '')",
                                                    new
                                                    {
                                                        dept = MyDept,
@@ -414,8 +414,8 @@ public partial class MainWindow : Window
             clashConnection.Open();
 
             clashConnection.Execute($@"UPDATE {ClashTableName}
-                                            SET InWorkUser = @InWorkUser, 
-                                                InWorkDate = @InWorkDate 
+                                            SET [WU] = @InWorkUser, 
+                                                [WD] = @InWorkDate 
                                             WHERE id in @ids",
                                        new
                                        {
@@ -439,9 +439,9 @@ public partial class MainWindow : Window
             clashConnection.Open();
             var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
                                                        FROM {ClashTableName}
-                                                       WHERE (gpset1 = @gpset or gpset2 = @gpset)
-                                                       AND (dept1 = @dept or dept2 = @dept)
-                                                       AND (approveReason is null or approveReason = '')",
+                                                       WHERE ([G1] = @gpset OR [G2] = @gpset)
+                                                       AND ([D1] = @dept OR [D2] = @dept)
+                                                       AND ([AR] IS NULL OR [AR] = '')",
                                                    new
                                                    {
                                                        dept = MyDept,
@@ -519,9 +519,9 @@ public partial class MainWindow : Window
                     var RequestTo = group.Key;
                     if (ids.Count == 0) continue;
                     clashConnection.Execute($@"UPDATE {ClashTableName}
-                                            SET requesttodept = @RequestTo, 
-                                                requestuser = @RequestUser, 
-                                                requestdate = @Date
+                                            SET [RT] = @RequestTo, 
+                                                [RU] = @RequestUser, 
+                                                [RD] = @Date
                                             WHERE id IN @Ids",
                        new
                        {
@@ -579,10 +579,10 @@ public partial class MainWindow : Window
             clashConnection.Open();
             InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
                                                        FROM {ClashTableName}
-                                                       WHERE (gpset1 = @gpset or gpset2 = @gpset)
-                                                       AND (InWorkUser is null)
-                                                       AND (approveReason is null or approveReason = '')
-                                                       AND date < @today",
+                                                       WHERE ([G1] = @gpset OR [G2] = @gpset)
+                                                       AND [WU] IS NULL
+                                                       AND ([AR] IS NULL OR [AR] = '')
+                                                       AND [DT] < @today",
                                                    new { gpset = CurrGpset, today = todayMidNight });
         }
 

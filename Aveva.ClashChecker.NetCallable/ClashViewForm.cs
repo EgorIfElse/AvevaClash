@@ -64,9 +64,9 @@ namespace ClashViewForm
         {
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
-            var lastDate = clashConnection.ExecuteScalar<DateTime?>($@"SELECT MAX([date])
+            var lastDate = clashConnection.ExecuteScalar<DateTime?>($@"SELECT MAX([DT])
                                                                        FROM {clashTableName}
-                                                                       WHERE gpset1 = @gpset OR gpset2 = @gpset",
+                                                                       WHERE [G1] = @gpset OR [G2] = @gpset",
                                                                        new { gpset = Gpset });
             return lastDate ?? DateTime.MinValue;
 
@@ -133,8 +133,8 @@ namespace ClashViewForm
             clashConnection.Open();
             var NoteExist = clashConnection.ExecuteScalar<int>(@$"select  count (*) 
                                                                from {clashTableName} 
-                                                               where (existing = 0) 
-                                                               and (gpset1 = @Gpset or gpset2 = @Gpset)",
+                                                               WHERE [XT] = 0
+                                                               AND ([G1] = @Gpset OR [G2] = @Gpset)",
                                                                new { Gpset = GpsetRef });
 
             List<ClashEntity> ClashesByGpset = [];
@@ -150,7 +150,7 @@ namespace ClashViewForm
                 //ClashesByGpset = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
                 ClashesByGpset = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
                                                                    from {clashTableName} 
-                                                                   WHERE gpset1 = @gp",
+                                                                   WHERE [G1] = @gp",
                                                                    new { gp = GpsetRef })
                                                                    .ToList();
 
@@ -165,8 +165,8 @@ namespace ClashViewForm
 
             var ClashesByGpsetFalseExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
                                                                              from {clashTableName} 
-                                                                             where existing = 0 
-                                                                             and (gpset1 = @Gpset or gpset2 = @Gpset)",
+                                                                             WHERE [XT] = 0
+                                                                             AND ([G1] = @Gpset OR [G2] = @Gpset)",
                                                                              new { Gpset = GpsetRef })
                                                                              .ToList();
             foreach (var e in ClashesByGpsetFalseExist)
@@ -177,7 +177,7 @@ namespace ClashViewForm
             //var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>($"SELECT {SqlMapping.ClashSql} from {clashTableName} WHERE (gpset1 = '{GpsetRef}' or gpset2 = '{GpsetRef}')").ToList();
             var ClashesByGpsetTrueExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
                                                                              from {clashTableName} 
-                                                                             WHERE gpset1 = @Gpset",
+                                                                             WHERE [G1] = @Gpset",
                                                                              new { Gpset = GpsetRef })
                                                                              .ToList();
             PML.CreateCommand($"$p Из комплекта {GpsetRef} удалено {ClashesByGpsetTrueExist.Count - (ClashesByGpsetFalseExist.Count - 1)} несуществующих").RunInPdms();
@@ -294,8 +294,8 @@ namespace ClashViewForm
             {
                 GpsetTable = sqlConnection.Query<ClashEntity>(@$"select {SqlMapping.ClashSql} 
                                                               from {clashTableName}
-                                                              where gpset1 = @Gpset
-                                                                or gpset2 = @Gpset",
+                                                              WHERE [G1] = @Gpset
+                                                                 OR [G2] = @Gpset",
                                                               new { Gpset = Gpset })
                                                               .ToList();
             }
