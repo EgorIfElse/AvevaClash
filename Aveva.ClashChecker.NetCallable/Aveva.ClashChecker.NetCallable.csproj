@@ -7,6 +7,7 @@
 		<UseWPF>true</UseWPF>
 		<Nullable>Enable</Nullable>
 		<Platforms>AnyCPU;x86</Platforms>
+		<CompanyReferencesPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS</CompanyReferencesPath>
 	</PropertyGroup>
 	<PropertyGroup>
 		<LangVersion>12.0</LangVersion>
@@ -23,41 +24,32 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Reference Include="Aveva.Core.Database.Filters">
-		  <HintPath>..\References\Aveva.Core.Database.Filters.dll</HintPath>
+		  <HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.Filters.dll</HintPath>
 		</Reference>
 		<Reference Include="Aveva.Core.Geometry">
-		  <HintPath>..\References\Aveva.Core.Geometry.dll</HintPath>
-		</Reference>
-		<Reference Include="Microsoft.Data.SqlClient">
-		  <HintPath>X:\App\PDMS\PDMS_TEP\TUNINGE3D\DLL-1\Microsoft.Data.SqlClient.dll</HintPath>
+		  <HintPath>$(CompanyReferencesPath)\Aveva.Core.Geometry.dll</HintPath>
 		</Reference>
 		<Reference Include="Aveva.Core.Database">
-			<HintPath>..\References\Aveva.Core.Database.dll</HintPath>
+			<HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.dll</HintPath>
 		</Reference>
 		<Reference Include="Aveva.Core.Utilities">
-			<HintPath>..\References\Aveva.Core.Utilities.dll</HintPath>
+			<HintPath>$(CompanyReferencesPath)\Aveva.Core.Utilities.dll</HintPath>
 		</Reference>
 		<Reference Include="Aveva.Core">
-			<HintPath>..\References\Aveva.Core.dll</HintPath>
+			<HintPath>$(CompanyReferencesPath)\Aveva.Core.dll</HintPath>
 		</Reference>
 		<Reference Include="Aveva.Core3D.Clasher">
-			<HintPath>..\References\Aveva.Core3D.Clasher.dll</HintPath>
+			<HintPath>$(CompanyReferencesPath)\Aveva.Core3D.Clasher.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.VisualBasic" />
 		<Reference Include="PMLNet">
-		  <HintPath>..\References\PMLNet.dll</HintPath>
+		  <HintPath>$(CompanyReferencesPath)\PMLNet.dll</HintPath>
 		  <Private>False</Private>
 		</Reference>
-		<Reference Include="PresentationCore">
-		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationCore.dll</HintPath>
-		</Reference>
-		<Reference Include="PresentationFramework">
-		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\PresentationFramework.dll</HintPath>
-		</Reference>
+		<Reference Include="PresentationCore" />
+		<Reference Include="PresentationFramework" />
 		<Reference Include="System.Data" />
-		<Reference Include="WindowsBase">
-		  <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\WindowsBase.dll</HintPath>
-		</Reference>
+		<Reference Include="WindowsBase" />
 	</ItemGroup>
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
 	</Target>

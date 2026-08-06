@@ -1054,9 +1054,6 @@ public partial class ClashChecker
 
         return clashList;
     }
-
-
-
     private void CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
         if (sqlConnection.State != ConnectionState.Open)

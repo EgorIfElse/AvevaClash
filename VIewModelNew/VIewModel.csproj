@@ -7,6 +7,7 @@
 	<LangVersion>12</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <PlatformTarget>x86</PlatformTarget>
+    <CompanyReferencesPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL</CompanyReferencesPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -18,9 +19,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DataGridExtensions" Version="2.9.1">
-      <GeneratePathProperty>False</GeneratePathProperty>
-    </PackageReference>
     <PackageReference Include="MaterialDesignThemes" Version="5.3.2" />
   </ItemGroup>
 
@@ -30,17 +28,21 @@
 
   <ItemGroup>
     <Reference Include="Aveva.Core">
-      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Database">
-      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.Database.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Utilities">
-      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\Aveva.Core.Utilities.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Utilities.dll</HintPath>
+    </Reference>
+    <Reference Include="DataGridExtensions">
+      <HintPath>$(CompanyReferencesPath)\DataGridExtensions.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PMLNet">
-      <HintPath>..\..\Aveva.Tep5\Aveva.ClashChecker.NetCallable\bin\Debug\net481\PMLNet.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\PMLNet.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="WindowsFormsIntegration" />
