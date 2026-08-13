@@ -36,56 +36,35 @@ public partial class ClashChecker
     public ClashChecker()
     {
     }
-   
-  
+
+
     private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
-    public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300;TrustServerCertificate=true";
+    public string ClashConnectionString { get; set; } = "Data Source=10.177.6.99,1433;Initial Catalog=avevaclash;Persist Security Info=True;User ID=ClashAdmin;Password=AXBqMLz3mVER;Connection Timeout = 300;TrustServerCertificate=true";
     public static readonly string TDMSConnectionString = "Data Source=sqltep;Initial Catalog=TDMS_TEP;Persist Security Info=True;User ID=Pdmstotdms;Password=PdMsToTdMs;Connection Timeout = 300;TrustServerCertificate=true";
     private static readonly DbElement NullElement = DbElement.GetElement("*");
-     public static readonly HashSet<string> SaprUsers = LoadSaprUsers();
 
-    private static HashSet<string> LoadSaprUsers()
-    {
 
-        using SqlConnection conn = new(TDMSConnectionString);
-            conn.Open();
-            var Logins = conn.Query<string>(@$"EXEC	[dbo].[PDMSGetUserLoginsByGroup]		
-                                                    @GROUP1, @GROUP2",
-                                                    new { GROUP1="GROUP_BIM", GROUP2="GROUP_SAPR" })
-                                                    .ToList();
-            var SaprUsers = new HashSet<string>(Logins, StringComparer.OrdinalIgnoreCase);
-       //const string path = "D:\\AVEVA\\USERDATA\\admin_users.txt";
-       //if (File.Exists(path))
-       //return File.ReadAllLines(path)
-       //           .Where(x => !string.IsNullOrWhiteSpace(x))
-       //           .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    
-       //return["pdmsadmin"]; //вдруг если файла нет. что бы хоть что-то вернул
-
-       return SaprUsers;
-    }
-
-    private static readonly List<ResponsibleUser> ResponsibleUser = LoadResponsibleUser();
-    private static List<ResponsibleUser> LoadResponsibleUser()
-    {
-        const string path = "D:\\AVEVA\\USERDATA\\responsible_users.csv";
-        if (!File.Exists(path)) return [];
-        var result = new List<ResponsibleUser>();
-        foreach (var line in File.ReadAllLines(path).Skip(1))
-        {
-            var parts = line.Split(',');
-            result.Add(new ResponsibleUser
-            {
-               Trigger = parts[0],
-               DbFile  = parts[1],
-               Dept    = parts[2],
-               Project = parts[3],
-               Usermod = parts[4]
-            });
-        }
-        return result;
-       
-    }
+    //private static readonly List<ResponsibleUser> ResponsibleUser = LoadResponsibleUser();
+    //private static List<ResponsibleUser> LoadResponsibleUser()
+    //{
+    //    const string path = "D:\\AVEVA\\USERDATA\\responsible_users.csv";
+    //    if (!File.Exists(path)) return [];
+    //    var result = new List<ResponsibleUser>();
+    //    foreach (var line in File.ReadAllLines(path).Skip(1))
+    //    {
+    //        var parts = line.Split(',');
+    //        result.Add(new ResponsibleUser
+    //        {
+    //           Trigger = parts[0],
+    //           DbFile  = parts[1],
+    //           Dept    = parts[2],
+    //           Project = parts[3],
+    //           Usermod = parts[4]
+    //        });
+    //    }
+    //    return result;
+    //   
+    //}
 
     private static readonly string ClashSql =
     $"ID '{nameof(ClashEntity.Id)}', " +
@@ -108,7 +87,7 @@ public partial class ClashChecker
     $"X0 '{nameof(ClashEntity.X)}', " +
     $"Y0 '{nameof(ClashEntity.Y)}', " +
     $"Z0 '{nameof(ClashEntity.Z)}', " +
-    
+
     //$"Sequence '{nameof(ClashEntity.Sequence)}', " +
     //$"Building '{nameof(ClashEntity.Building)}', " +
     $"RT '{nameof(ClashEntity.RequestToDept)}', " +
@@ -177,7 +156,7 @@ public partial class ClashChecker
 
             CreateClashDbIfNotExist(clashTableName, clashConnection);
 
-           // ReplaceRefIFC(clashConnection, clashTableName, ifcTableName, clashRefUpdateLog, projectCode);
+            // ReplaceRefIFC(clashConnection, clashTableName, ifcTableName, clashRefUpdateLog, projectCode);
 
             UpdateClashElementInfo(clashConnection, "FULL", clashTableName, string.Empty);
             Logger.WriteLine("Выполнен UpdateClashElementInfo");
@@ -186,7 +165,7 @@ public partial class ClashChecker
             string initialClashesLogString = $"Коллизий до проверки: {clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}")}";
 
             Logger.WriteLine(initialClashesLogString);
-            ColZone(clashConnection, initialZoneIndexInt, projectCode, clashTableName, logDirectoryPath ,"");
+            ColZone(clashConnection, initialZoneIndexInt, projectCode, clashTableName, "");
         }
         catch (Exception ex)
         {
@@ -197,7 +176,7 @@ public partial class ClashChecker
         }
 
     }
-    public void ColZone(SqlConnection clashConnection, int initialZoneIndexInt, string projectCode, string clashTableName, string logDirectoryPath,string GpsetRef)
+    public void ColZone(SqlConnection clashConnection, int initialZoneIndexInt, string projectCode, string clashTableName, string GpsetRef)
     {
         try
         {
@@ -205,16 +184,16 @@ public partial class ClashChecker
 
             List<DbElement> colZone;
 
-                colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e =>
+            colZone = [.. new DBElementCollection(new TypeFilter(DbElementTypeInstance.ZONE)).Cast<DbElement>().Where(e =>
                 {
                    DbElement site = e.Owner;
                    string siteName = site.Name();
-                   if(siteName.Contains(".L") || siteName.Contains("ZEMI") || siteName.Contains("/po") || site.GetString(DbAttributeInstance.PURP) == "NOCL" || e.GetAsString(DbAttributeInstance.MCOU) == "0" || e.Name().Contains(".L"))
+                   if(siteName.Contains(".G")  || e.GetBool(DbAttribute.GetDbAttribute(":ClashIgnore")) || e.Name().Contains("1300-30UHJ-E003-TD"))
                        return false;
                    return true;
 
                 })];
-            
+
 
             Logger.WriteLine($"Всего зон {colZone.Count} шт");
 
@@ -242,14 +221,18 @@ public partial class ClashChecker
             {
                 for (int i = initialZoneIndexInt; i < colZone.Count; i++)
                 {
-
+                    if (isBoilerZone(colZone[i]))
+                        continue;
                     if (wvolArray[i].Length < 6)
                         continue;
                     var obstructionList = ObstructionList.Create();
+                 
                     for (int j = i; j < colZone.Count; j++)
                     {
-                        if (wvolArray[j].Length < 6) 
+                        if (wvolArray[j].Length < 6)
                             continue;
+                       //if (IsSomeGESite(colZone[i], colZone[j]))
+                       //    continue;
                         if (WvolClash(wvolArray[i], wvolArray[j]))
                             obstructionList.AddObstructions([colZone[j]]);
 
@@ -257,24 +240,24 @@ public partial class ClashChecker
                     CheckZone(colZone[i], obstructionList, clashOptions, clashConnection, clashTableName, i, zoneCount);
                 }
             }
-          else
+            else
             {
 
                 var Gpset = DbElement.GetElement(GpsetRef);
                 var wvolarrayGpset = Gpset.GetDoubleArray(DbAttributeInstance.WVOL);
                 var obstructionList = ObstructionList.Create();
                 var index = 0;
-                    for (int j = 0; j < colZone.Count; j++)
-                    {
-                        index++;
-                        if (wvolArray[j].Length < 6) 
-                            continue;
-                        if (WvolClash(wvolarrayGpset, wvolArray[j]))
-                            obstructionList.AddObstructions([colZone[j]]);
+                for (int j = 0; j < colZone.Count; j++)
+                {
+                    index++;
+                    if (wvolArray[j].Length < 6)
+                        continue;
+                    if (WvolClash(wvolarrayGpset, wvolArray[j]))
+                        obstructionList.AddObstructions([colZone[j]]);
 
-                    }
-                    
-                
+                }
+
+
                 CheckZone(Gpset, obstructionList, clashOptions, clashConnection, clashTableName, index, zoneCount);
             }
 
@@ -294,7 +277,10 @@ public partial class ClashChecker
         }
 
     }
-
+    private bool isBoilerZone(DbElement zone)
+    {
+        return zone.GetAsString(DbAttributeInstance.DBNA).Contains("KPIGE");
+    }
     private void CheckZone(DbElement zone,
                            ObstructionList obstructionList,
                            ClashOptions clashOptions,
@@ -615,6 +601,9 @@ public partial class ClashChecker
                 string RealDept2 = GetDepartment(dbElem2, "");
                 string RealGpset1 = GetGroups(dbElem1);
                 string RealGpset2 = GetGroups(dbElem2);
+                string build = GetBuild(dbElem1);
+                if (build == "") build = GetBuild(dbElem2);
+
 
                 if (checkMode == "FULL")
                 {
@@ -626,7 +615,7 @@ public partial class ClashChecker
                     lastModifiedUserMod1 = clash.FirstUserMode;
                     lastModifiedUserMod2 = clash.SecondUserMode;
                 }
-                if (clash.FirstUserMode != lastModifiedUserMod1 || clash.SecondUserMode != lastModifiedUserMod2 || clash.FirstGpset != RealGpset1 || clash.SecondGpset != RealGpset2 || clash.FirstDept != RealDept1 || clash.SecondDept != RealDept2)
+                if (clash.FirstUserMode != lastModifiedUserMod1 || clash.SecondUserMode != lastModifiedUserMod2 || clash.FirstGpset != RealGpset1 || clash.SecondGpset != RealGpset2 || clash.FirstDept != RealDept1 || clash.SecondDept != RealDept2 || clash.Building != build)
                 {
 
                     var changes = new List<(bool rules, string message)>
@@ -636,7 +625,8 @@ public partial class ClashChecker
                         (clash.FirstGpset != RealGpset1,      $"FirstGpset:{clash.FirstGpset}->{RealGpset1}"),
                         (clash.SecondUserMode != lastModifiedUserMod2,$"SecondUserMode:{clash.SecondUserMode}->{lastModifiedUserMod2}"),
                         (clash.SecondDept != RealDept2,       $"SecondDept:{clash.SecondDept}->{RealDept2}"),
-                        (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}")
+                        (clash.SecondGpset != RealGpset2,     $"SecondGpset:{clash.SecondGpset}->{RealGpset2}"),
+                        (clash.Building != build,     $"Building:{clash.Building}->{build}")
                     };
 
                     var changed = changes.Where(c => c.rules).ToList();
@@ -647,7 +637,8 @@ public partial class ClashChecker
                                  string.Join("; ", changed.Select(x => x.message));
 
                     clashConnection.Execute($@"UPDATE {tableName}
-                                            SET [D1] = @dept1, 
+                                            SET [D1] = @dept1,
+                                                [GL] = @build,             
                                                 [G1] = @gpset1, 
                                                 [U1] = @usermod1, 
                                                 [D2] = @dept2, 
@@ -657,6 +648,7 @@ public partial class ClashChecker
                         new
                         {
                             id = clash.Id,
+                            build = build,
                             dept1 = RealDept1,
                             dept2 = RealDept2,
                             usermod1 = lastModifiedUserMod1,
@@ -678,6 +670,23 @@ public partial class ClashChecker
         }
 
     }
+    public string GetBuild(DbElement dbElement)
+    {
+        string kks = "";
+        try
+        {
+            kks = dbElement.GetAsString(DbAttributeInstance.DBNA).Split('/')[1].Substring(0, 5);
+        }
+        catch
+        {
+            kks = "xxx";
+            return "";
+        }
+
+
+
+        return kks;
+    }
 
     /// <summary>
     /// функция возвращает автора последнего изменения но не pdmsadmin
@@ -695,9 +704,8 @@ public partial class ClashChecker
             date = dbElement.EvaluateAsString(DbExpression.Parse($"SessD {HistAr[i]}"));
 
 
-            if (!SaprUsers.Contains(user))
-              break;
-           
+
+
         }
 
         return param switch
@@ -720,19 +728,6 @@ public partial class ClashChecker
         for (int i = 0; i < ElementDepth; i++)
         {
             var DbElType = dbElement.GetString(DbAttributeInstance.TYPE);
-            if (DbElType == "GENPRI" || DbElType == "GENCUR")
-            {
-                try
-                {
-                    var Gpref = Zone.GetAsString(DbAttribute.GetDbAttribute(":UES_GPREF"));
-                    return Gpref;
-                }
-                catch (Exception ex)
-                {
-                    return ex.Message;
-                }
-
-            }
             var DbElGroups = dbElement.GetAsString(DbAttributeInstance.GROUPS);
 
             if (DbElType == "GPSET") return dbElement.Name();
@@ -751,88 +746,43 @@ public partial class ClashChecker
     /// </summary>
     public string GetDepartment(DbElement dbElement, string hier)
     {
-        string ProjectName = Project.CurrentProject.Name;
-        string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
-        string DbRef = dbElement.GetAsString(DbAttributeInstance.REF);
-        string result = DbFileName.Split('%')[1].Substring(0, 3);
-        string SiteIFC = dbElement.GetSite().ToString();
-
-        if (SiteIFC.Contains("IFC"))
+        //  string ProjectName = Project.CurrentProject.Name;
+        //  string DbFileName = dbElement.GetString(DbAttributeInstance.DBFI);
+        //  string DbRef = dbElement.GetAsString(DbAttributeInstance.REF);
+        //  string result = DbFileName.Split('%')[1].Substring(0, 3);
+        //  
+        //
+        //
+        //  string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
+        //  //:UES_DEPART надо ли? vсмотрел, его со времен царя гороха никто не заполняет
+        //  //isnullorEmpty
+        //  if (site.Length > 0)
+        //  {
+        //      int i = site.LastIndexOf('-');
+        //      string index = i > 0 ? site.Substring(site.IndexOf('-'), 3) : "XXX";
+        //      var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
+        //      
+        //      foreach (var d in dept)
+        //      {
+        //         
+        //          return d.Dept;
+        //
+        //      }
+        //  }
+        var dept = "";
+        try
         {
-            int i = SiteIFC.LastIndexOf('_');
-            string index = i >= 0 ? SiteIFC.Substring(i) : "";
-            if (DepartmentLookup.MarkToDept.TryGetValue(index, out string dept))
-            {
-                return dept;
-            }
-            else
-            {
-                return "";
-            }
-
+            dept = dbElement.GetAsString(DbAttributeInstance.DBNA).Split('/')[0];
         }
-
-        switch (result)
+        catch (Exception ex)
         {
-            case "TUE":
-            case "YKE":
-                string DbName = dbElement.Db.DbItem.ToString();
-                return DbName.Substring(0, 3);
-                break;
-
-            case "GCC":
-
-                string usermod = History(dbElement, "user").ToLower();
-                var type = new ActualTypeFilter(DbElementType.GetElementType("ULOGID"));
-                var uW = DbElement.GetElement("/*U");
-                var collection = new DBElementCollection(uW, type).Cast<DbElement>();
-                //var logid = collection.FirstOrDefault(i => i.GetString(DbAttributeInstance.NAME) == usermod);
-                Dictionary<string, string> LognameByDept;
-                LognameByDept = [];
-                foreach (var el in collection)
-                {
-                    string name = el.GetString(DbAttributeInstance.NAME);
-                    LognameByDept[name] = name;
-                    string dept = el.GetString(DbAttributeInstance.USEF);
-                    LognameByDept[dept] = dept;
-                }
-
-                //var logid = collection.Tr
-                if (LognameByDept.TryGetValue(usermod, out string deptGCC))
-                {
-                    return deptGCC;
-                }
-                else
-                {
-                    return "";
-                }
-
-
-
-                break;
-
-            default:
-
-                string site = hier == "GPSET" ? dbElement.Ref.ToString() : dbElement.EvaluateAsString(DbExpression.Parse($"SITE of {dbElement}"));
-                //:UES_DEPART надо ли? vсмотрел, его со времен царя гороха никто не заполняет
-                //isnullorEmpty
-                if (site.Length > 0)
-                {
-                    int i = site.LastIndexOf('_');
-                    string index = i > 0 ? site.Substring(site.IndexOf('_'), 3) : "XXX";
-                    var dept = DepartmentInfo.Departments.Where(d => d.Mark.Contains(index)).ToList();
-                    bool IsBool = SpecProj.Contains(ProjectName);
-                    foreach (var d in dept)
-                    {
-                        if (IsBool) return d.Tdept;
-                        else return d.Dept;
-
-                    }
-                }
-                break;
+            Logger.WriteLine($"Не удалось распознать отдел! {ex.Message}");
+            dept = "XXX";
         }
-        return null;
+        return dept;
     }
+        
+    
     /// <summary>
     /// ТЕСТ
     /// </summary>
@@ -1000,12 +950,12 @@ public partial class ClashChecker
         ElTable.Columns.Add("ElRef", typeof(string));
         var uniqueElements = new HashSet<string>();
 
-        foreach(DbElement CurEl in collection)
+        foreach (DbElement CurEl in collection)
         {
             string elementRef;
             try
             {
-                elementRef=CurEl.GetAsString(DbAttributeInstance.REF);
+                elementRef = CurEl.GetAsString(DbAttributeInstance.REF);
             }
             catch
             {
@@ -1023,27 +973,27 @@ public partial class ClashChecker
 
         //Если таблица для BulkCopy пустая, то возвращаю пустой List<ClashEntity> и не буду открывать соединения и т.д
         if (ElTable.Rows.Count == 0)
-        return new List<ClashEntity>();
+            return new List<ClashEntity>();
 
         bool connWasClosed = clashConnection.State != ConnectionState.Open;
 
         if (connWasClosed)
             clashConnection.Open();
 
-        
-            clashConnection.Execute(@"Create table #Elements (ElRef NVARCHAR(40) NOT NULL);");
 
-            using (var bulkCopy = new SqlBulkCopy(clashConnection))
-            {
-                bulkCopy.DestinationTableName = "#Elements";
-                bulkCopy.ColumnMappings.Add("ElRef", "ElRef");
-                bulkCopy.BatchSize = 5000;
-                bulkCopy.BulkCopyTimeout = 0;
+        clashConnection.Execute(@"Create table #Elements (ElRef NVARCHAR(40) NOT NULL);");
 
-                bulkCopy.WriteToServer(ElTable);
+        using (var bulkCopy = new SqlBulkCopy(clashConnection))
+        {
+            bulkCopy.DestinationTableName = "#Elements";
+            bulkCopy.ColumnMappings.Add("ElRef", "ElRef");
+            bulkCopy.BatchSize = 5000;
+            bulkCopy.BulkCopyTimeout = 0;
+
+            bulkCopy.WriteToServer(ElTable);
 
 
-            }
+        }
 
         var clashList = clashConnection.Query<ClashEntity>($@"Select {ClashSql}
                                                               From {clashTableName}
@@ -1245,7 +1195,7 @@ public partial class ClashChecker
         var date = DateTime.Now;
         var flnm1 = clash.First.GetSite().ToString();
         var flnm2 = clash.Second.GetSite().ToString();
-
+        var build = GetBuild(clash.First);
         var firstDept = GetDepartment(clash.First, " ");
         var secondDept = GetDepartment(clash.Second, " ");
 
@@ -1255,25 +1205,22 @@ public partial class ClashChecker
         var firstUserMode = History(clash.First, "user");
         var secondUserMode = History(clash.Second, "user");
 
-        var building = "";
-        var buildingFirst = clash.First.GetAsString(DbAttributeInstance.DBNA);
-        if (buildingFirst == clash.Second.GetAsString(DbAttributeInstance.DBNA))
-            building = buildingFirst.Split('/')[1].Split('_')[0];
+        
 
         var row = dt.NewRow();
-        row["Building"] = Cut(building, 12) ?? string.Empty;
+        row["Building"] = Cut(build, 12) ?? string.Empty;
         row["ClashType"] = Cut(clashType, 12);
         row["El1"] = Cut(firstElement, 24);
         row["Type1"] = Cut(firstType, 12);
         row["Usermod1"] = Cut(firstUserMode, 32);
-        row["Flnm1"] = Cut(flnm1,50);
+        row["Flnm1"] = Cut(flnm1, 50);
         row["Dept1"] = Cut(firstDept, 16) != null ? Cut(firstDept, 16) : DBNull.Value;
         row["Gpset1"] = Cut(firstGroups, 16) != null ? Cut(firstGroups, 16) : DBNull.Value;
 
         row["El2"] = Cut(secondElement, 24);
         row["Type2"] = Cut(secondType, 12);
         row["Usermod2"] = Cut(secondUserMode, 32);
-        row["Flnm2"] = Cut(flnm2,50);
+        row["Flnm2"] = Cut(flnm2, 50);
         row["Dept2"] = Cut(secondDept, 16) != null ? Cut(secondDept, 16) : DBNull.Value;
         row["Gpset2"] = Cut(secondGroups, 16) != null ? Cut(secondGroups, 16) : DBNull.Value;
 
@@ -1286,7 +1233,7 @@ public partial class ClashChecker
 
         dt.Rows.Add(row);
     }
-    private string Cut (string value , int maxLength)
+    private string Cut(string value, int maxLength)
     {
         if (string.IsNullOrEmpty(value)) return null;
         return value.Length > maxLength ? value.Substring(0, maxLength) : value;
@@ -1343,6 +1290,8 @@ public partial class ClashChecker
                 return true;
             if (CheckBranWithFrameWork(clash))
                 return true;
+            if (CheckGESite(clash))
+                return true;
 
             return false;
         }
@@ -1383,8 +1332,8 @@ public partial class ClashChecker
                     {
                         secondBran = frmw.GetElement(DbAttributeInstance.SUPR).Members().First().GetElement(DbAttributeInstance.HREF).Owner;
                     }
-                    
-                
+
+
                 }
                 catch (Exception)
                 {
@@ -1551,6 +1500,56 @@ public partial class ClashChecker
     }
     #endregion Проверки для IsClashIgnore
 
+    private bool CheckGESite(Clash clash)
+    {
+        
+        try
+        {
+            if (!clash.First.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement site1))
+                return false;
+            if (!clash.Second.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement site2))
+                return false;
+
+            if(site1 != site2)
+                return false;
+
+            var siteName = site1.Name();
+            return siteName.Contains("-GE.");
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+
+
+        return true;
+    }
+    private bool IsSomeGESite(DbElement el1, DbElement el2)
+    {
+
+        try
+        {
+            if (!el1.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement site1))
+                return false;
+            if (!el2.TryGetOwnerByType(DbElementTypeInstance.SITE, out DbElement site2))
+                return false;
+
+            if (site1 != site2)
+                return false;
+
+            var siteName = site1.Name();
+            return siteName.Contains("-GE.");
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+
+
+    }
+
     private void CreateTableRefUpdateLog(string projectCode, SqlConnection sqlConnection)
     {
         string ClashRefUpdateLog = $"Clash{projectCode}_RefUpdateLog";
@@ -1563,23 +1562,23 @@ public partial class ClashChecker
     public static string MakeKey(string clashType, string el1, string el2, int X, int Y, int Z)
               => $"{clashType}|{el1}|{el2}|{X}|{Y}|{Z}";
 
-public string GetResponsible(string Trigger, string Dept, string Dbfile, string Project)
-    {
-        var User = "";
-        foreach (var r in ResponsibleUser)
-        {
-            if (r.Trigger != Trigger) continue;
-            if (r.DbFile != "*" && !Dbfile.Contains(r.DbFile)) continue;
-            if (!Dept.Contains(r.Dept)) continue;
-            if (r.Project == Project) return r.Usermod;
-            if (r.Project == "*") User = r.Usermod;
-
-        }
-
-
-        
-        return User;
-    }
+    //public string GetResponsible(string Trigger, string Dept, string Dbfile, string Project)
+    //    {
+    //        var User = "";
+    //        foreach (var r in ResponsibleUser)
+    //        {
+    //            if (r.Trigger != Trigger) continue;
+    //            if (r.DbFile != "*" && !Dbfile.Contains(r.DbFile)) continue;
+    //            if (!Dept.Contains(r.Dept)) continue;
+    //            if (r.Project == Project) return r.Usermod;
+    //            if (r.Project == "*") User = r.Usermod;
+    //
+    //        }
+    //
+    //
+    //        
+    //        return User;
+    //    }
 }
 
 public class ExistingRow

@@ -295,7 +295,7 @@ public partial class MainWindow : Window
     private void BtnCheck_Click(object sender, RoutedEventArgs e)
     {
 
-        logic.CheckGpset(CurrGpset, 0, true, DefaultLogDirectoryPath);
+        logic.CheckGpset(CurrGpset, 0, true);
 
         Refresh();
     }

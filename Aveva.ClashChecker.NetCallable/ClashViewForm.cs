@@ -44,14 +44,14 @@ namespace ClashViewForm
         {
 
         }
-        public string ClashConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=pdms;Persist Security Info=True;User ID=clashuser;Password=Qgh%fS45Nm;Connection Timeout = 300;TrustServerCertificate=true";
+        public string ClashConnectionString { get; set; } = "Data Source=10.177.6.99,1433;Initial Catalog=avevaclash;Persist Security Info=True;User ID=ClashAdmin;Password=AXBqMLz3mVER;Connection Timeout = 300;TrustServerCertificate=true";
         public string TDMSConnectionString { get; set; } = "Data Source=sqltep;Initial Catalog=TDMS_TEP;Persist Security Info=True;User ID=Pdmstotdms;Password=PdMsToTdMs;Connection Timeout = 300;TrustServerCertificate=true";
         /// <summary>
         /// Стандартная конструкция для детекта класса авевой
         /// </summary>
         /// <param name="that"></param>
 
-        private const string DefaultLogDirectoryPath = "D:\\AVEVA\\ClasherLogs\\ClashLog.log";
+        private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
         private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
         [PMLNetCallable]
         public void Assign(ClashViewForm that)
@@ -93,10 +93,10 @@ namespace ClashViewForm
 
         }
 
-
-        public void CheckGpset(string GpsetRef, double initialZoneIndex, bool testMode = true, string logDirectoryPath = DefaultLogDirectoryPath)
+        [PMLNetCallable]
+        public void CheckGpset(string GpsetRef, double initialZoneIndex, bool testMode = true)
         {
-            Logger = new ClashLogger(logDirectoryPath);
+           // Logger = new ClashLogger(logDirectoryPath);
             Logger.LogInPdmsConsole = testMode;
             int initialZoneIndexInt = 0;
 
@@ -107,7 +107,7 @@ namespace ClashViewForm
             }
             catch (Exception ex)
             {
-                Logger.WriteLine($"Не удалось распознать начальный индекс зоны! {ex.Message}");
+               // Logger.WriteLine($"Не удалось распознать начальный индекс зоны! {ex.Message}");
             }
             var Gpset = DbElement.GetElement(GpsetRef);
             string ProjectName = Project.CurrentProject.Name;
@@ -161,7 +161,7 @@ namespace ClashViewForm
             }
             PML.CreateCommand($"$p Коллизий комплекта {GpsetRef} до проверки {ClashesByGpset.Count}").RunInPdms();
 
-            checker.ColZone(clashConnection, initialZoneIndexInt, ProjectName, clashTableName, logDirectoryPath, GpsetRef);
+            checker.ColZone(clashConnection, initialZoneIndexInt, ProjectName, clashTableName, GpsetRef);
 
             var ClashesByGpsetFalseExist = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql} 
                                                                              from {clashTableName} 
@@ -202,8 +202,8 @@ namespace ClashViewForm
                           .Cast<DbElement>()
                           .Where(e =>
                           {
-                              var User = e.GetAsString(DbAttribute.GetDbAttribute(":UES_USER"));
-                              return User != "unset";
+                              var User = e.GetAsString(DbAttribute.GetDbAttribute(":Stage"));
+                              return User != "-";
                           })];
 
 
@@ -324,7 +324,7 @@ namespace ClashViewForm
 
 
 
-            string gpsetDept = checker.GetDepartment(Gp, "GPSET");
+            string gpsetDept = checker.GetDepartment(Gp, "GPSET"); //здесь надо менять hier убрал bp GetDepartment
 
             bool isForeignDept = (gpsetDept != MyDept && !(gpsetDept == "SOT" && MyDept == "OGS")) && MyDept != "SYSTEM";
             //не понятно зачем ОГС видеть коллизии СОТ
