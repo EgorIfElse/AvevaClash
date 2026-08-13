@@ -213,6 +213,7 @@ public partial class ClashChecker
                 DbElementTypeInstance.STRUCTURE,
                 DbElementTypeInstance.BRANCH,
                 DbElementTypeInstance.RESTRAINT,
+                DbElementTypeInstance.VOLMODEL,
             ]);
 
             int zoneCount = colZone.Count;
