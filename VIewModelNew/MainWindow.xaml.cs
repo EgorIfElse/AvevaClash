@@ -38,7 +38,7 @@ public partial class MainWindow : Window
     public string MyDept = "";
     public string MyUlogId = "";
     public string ClashConnectionString = "";
-    private const string DefaultLogDirectoryPath = "D:\\AVEVA\\ClasherLogs\\ClashLog.log";
+    private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
     public MainWindow()
     {
