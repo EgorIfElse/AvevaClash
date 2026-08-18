@@ -32,7 +32,7 @@ public partial class MainWindow : Window
     private bool _isRefreshing;
     public ClashViewForm.ClashViewForm logic = new ClashViewForm.ClashViewForm();
     public CC clash = new CC();
-    public string CurrGpset = "";
+    public string CurrZone = "";
     public string ClashTableName = "";
     public string ProjectName = "";
     public string MyDept = "";
@@ -45,15 +45,15 @@ public partial class MainWindow : Window
         InitializeComponent();
        
        
-        LoadGpset();
+        LoadZone();
       
         MyDept = logic.MyDept;
         MyUlogId = logic.MyUlogId;
         ProjectName = Project.CurrentProject.Name;
         ClashTableName = $"clashtable{ProjectName}_TEST";
         ClashConnectionString = logic.ClashConnectionString;
-        //string SelectedGpset = CbGpset.SelectedValue.ToString();
-        CurrGpset = "";
+        //string selectedZone = CbZone.SelectedValue.ToString();
+        CurrZone = "";
     }
 
 
@@ -94,16 +94,18 @@ public partial class MainWindow : Window
             {
                 string user = kvp.Key;
                 List<int> ids = kvp.Value;
-                string subject = $"Запрос на согласование коллизий по проекту {project} комплекту {CurrGpset}";
-                string body = $"Прошу устранить или согласовать коллизии по комплекту {CurrGpset} в количестве {ids.Count} шт <BR>"
+                string subject = $"Запрос на согласование коллизий по проекту {project}, зона {CurrZone}";
+                string body = $"Прошу устранить или согласовать коллизии по зоне {CurrZone} в количестве {ids.Count} шт. <BR>"
                                + "Номера коллизий: <BR>"
                                + string.Join("<BR>", ids);
 
-                SendMail($"{user}@tep-m.ru", subject, body);
+                SendMail($"{user}@k-pei.ru", subject, body);
 
+                /*
                 var clashRow = rows.FirstOrDefault(r => r.RequestUser == user);
                 if (clashRow != null)
                     SendCcByDept(clashRow.RequestToDept ?? "", subject, body, project);
+                */
             }
 
             string msg = mailDict.Count == 0
@@ -117,6 +119,7 @@ public partial class MainWindow : Window
 
     }
 
+    /*
     private void SendCcByDept(string dept, string subject, string body, string project)
     {
         List<string> cc = [];
@@ -131,15 +134,16 @@ public partial class MainWindow : Window
         else if (dept.Contains("VIK")) cc = ["Korolkova"];
 
         foreach (var c in cc)
-            SendMail($"{c}@tep-m.ru", subject, body);
+            SendMail($"{c}@k-pei.ru", subject, body);
     }
+    */
 
     private void SendMail(string to, string subject, string body)
     {
         try
         {
             string login = Project.CurrentProject.LoginUser.ToLower();
-            var message = new MailMessage($"{login}@tep-m.ru", to, subject, body)
+            var message = new MailMessage($"{login}@k-pei.ru", to, subject, body)
             {
                 IsBodyHtml = true,
                 SubjectEncoding = Encoding.UTF8,
@@ -158,20 +162,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadGpset()
+    private void LoadZone()
     {
-        string CurrentSelected = CurrGpset;
+        string currentSelected = CurrZone;
        
 
-            var GpsetItems = logic.UpdateGpsetList();
-
-            CbGpset.DisplayMemberPath = "DisplayText";
-            CbGpset.SelectedValuePath = "GpsetElement";
-            CbGpset.ItemsSource = GpsetItems;
+            var zoneItems = logic.UpdateZoneList();
+            CbZone.ItemsSource = zoneItems;
   
-            if (!string.IsNullOrWhiteSpace(CurrentSelected))
+            if (!string.IsNullOrWhiteSpace(currentSelected))
             {
-                CbGpset.SelectedValue = CurrentSelected;
+                CbZone.SelectedValue = currentSelected;
             }
     }
     //private bool ClashUsermod1Filter(object item)
@@ -182,15 +183,15 @@ public partial class MainWindow : Window
     //        return true;
     //    return clash.FirstUserMode != null && clash.FirstUserMode.IndexOf(TbUsermodFilter.Text, StringComparison.OrdinalIgnoreCase) >= 0;
     //}
-    private void CbGpset_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CbZone_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
 
-        if (CbGpset.SelectedValue == null)
+        if (CbZone.SelectedValue == null)
             return;
         else
         {
-            string SelectedGpset = CbGpset.SelectedValue.ToString();
-            CurrGpset = SelectedGpset;
+            string selectedZone = CbZone.SelectedValue.ToString();
+            CurrZone = selectedZone;
         }
        
 
@@ -198,7 +199,7 @@ public partial class MainWindow : Window
        
     }
 
-    //  private void LoadClashEntity(string gpset)
+    //  private void LoadClashEntity(string zoneRef)
     //{
     // Refresh();
 
@@ -294,8 +295,13 @@ public partial class MainWindow : Window
     }
     private void BtnCheck_Click(object sender, RoutedEventArgs e)
     {
+        if (CurrZone == "ALL" || CurrZone == "CE")
+        {
+            MessageBox.Show("Для проверки выберите конкретную зону.");
+            return;
+        }
 
-        logic.CheckGpset(CurrGpset, 0, true);
+        logic.CheckZone(CurrZone, 0, true);
 
         Refresh();
     }
@@ -469,29 +475,7 @@ public partial class MainWindow : Window
 
 
         Refresh();
-
-        if (CurrGpset == "ALL" || CurrGpset == "CE") return;
-        using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
-        {
-            clashConnection.Open();
-            var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
-                                                       FROM {ClashTableName}
-                                                       WHERE ([G1] = @gpset OR [G2] = @gpset)
-                                                       AND ([D1] = @dept OR [D2] = @dept)
-                                                       AND ([AR] IS NULL OR [AR] = '')",
-                                                   new
-                                                   {
-                                                       dept = MyDept,
-                                                       gpset = CurrGpset
-                                                   });
-            PML.CreateCommand($"несогласованных коллизий этого комплекта моего отдела {InconsistentCount}").RunInPdms();
-            if (InconsistentCount == 0)
-            {
-                System.Windows.MessageBox.Show($"{MyUlogId}, Поздравляю! согласованы все коллизии для комплекта {CurrGpset} относящиеся к отделу {MyDept}");
-            }
-        }
-
-
+        ShowZoneApprovalStatus();
 
     }
     private void BtnTakeInWork_Click(object sender, RoutedEventArgs e)
@@ -565,30 +549,39 @@ public partial class MainWindow : Window
 
         Refresh();
 
-        if (CurrGpset == "ALL" || CurrGpset == "CE") return;
-        using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
-        {
-            clashConnection.Open();
-            var InconsistentCount = clashConnection.ExecuteScalar<int>($@"select count (*) 
-                                                       FROM {ClashTableName}
-                                                       WHERE ([G1] = @gpset OR [G2] = @gpset)
-                                                       AND ([D1] = @dept OR [D2] = @dept)
-                                                       AND ([AR] IS NULL OR [AR] = '')",
-                                                   new
-                                                   {
-                                                       dept = MyDept,
-                                                       gpset = CurrGpset
-                                                   });
-            PML.CreateCommand($"несогласованных коллизий этого комплекта моего отдела {InconsistentCount}").RunInPdms();
-            if (InconsistentCount == 0)
-            {
-                System.Windows.MessageBox.Show($"{MyUlogId}, Поздравляю! согласованы все коллизии для комплекта {CurrGpset} относящиеся к отделу {MyDept}");
-            }
-        }
-
-
-
     }
+    private void ShowZoneApprovalStatus()
+    {
+        if (CurrZone == "ALL" || CurrZone == "CE")
+            return;
+
+        using SqlConnection clashConnection = new(ClashConnectionString);
+        clashConnection.Open();
+
+        int inconsistentCount = clashConnection.ExecuteScalar<int>(
+            @$"SELECT COUNT(*)
+               FROM {ClashTableName}
+               WHERE ([G1] = @zoneRef OR [G2] = @zoneRef)
+                 AND ([D1] = @department OR [D2] = @department)
+                 AND ([AR] IS NULL OR [AR] = '')",
+            new
+            {
+                zoneRef = CurrZone,
+                department = MyDept
+            });
+
+        PML.CreateCommand(
+            $"$p Несогласованных коллизий этой зоны для моего отдела: {inconsistentCount}")
+            .RunInPdms();
+
+        if (inconsistentCount == 0)
+        {
+            MessageBox.Show(
+                $"{MyUlogId}, поздравляю! Все коллизии зоны {CurrZone}, " +
+                $"относящиеся к отделу {MyDept}, согласованы.");
+        }
+    }
+
     private void BtnRequest_Click(object sender, RoutedEventArgs e)
     {
         var Date = DateTime.Now;
@@ -688,7 +681,7 @@ public partial class MainWindow : Window
     {
         var type = "";
         var InconsistentCount = 0;
-        var Gpset = DbElement.GetElement(CurrGpset);
+        var Gpset = DbElement.GetElement(CurrZone);
         bool isForeignDept = clash.GetDepartment(Gpset, "GPSET") != MyDept && clash.GetDepartment(Gpset, "GPSET") != "SOT" && MyDept == "OGS";
         try
         {
@@ -701,7 +694,7 @@ public partial class MainWindow : Window
 
         if (type != "GPSET")
         {
-            System.Windows.MessageBox.Show($"{CurrGpset} не является комплектом. сдавать можно только комлект)");
+            System.Windows.MessageBox.Show($"{CurrZone} не является комплектом. сдавать можно только комлект)");
             return;
         }
 
@@ -722,7 +715,7 @@ public partial class MainWindow : Window
                                                        AND [WU] IS NULL
                                                        AND ([AR] IS NULL OR [AR] = '')
                                                        AND [DT] < @today",
-                                                   new { gpset = CurrGpset, today = todayMidNight });
+                                                   new { gpset = CurrZone, today = todayMidNight });
         }
 
         if (InconsistentCount == 0)
@@ -730,7 +723,7 @@ public partial class MainWindow : Window
             try
             {
                 if (UpdateStatusKomplect())
-                { logic.Report(CurrGpset); }
+                { logic.Report(CurrZone); }
                 else { System.Windows.MessageBox.Show($"хотя в базе по данному комплекту несогласованных коллизий не обнаружено. комплект должен быть проверен непосредственно пред сдачей, т.к. могут появятся новые коллизии"); }
             }
             catch (Exception exs)
@@ -757,9 +750,9 @@ public partial class MainWindow : Window
         try
         {
 
-            LoadGpset();
-            if (CbGpset.SelectedItem == null) return;
-            var clashes = logic.Show(ClashTableName, CurrGpset);
+            LoadZone();
+            if (CbZone.SelectedItem == null) return;
+            var clashes = logic.Show(ClashTableName, CurrZone);
 
             
             DgClashes.ItemsSource = clashes;
@@ -785,7 +778,7 @@ public partial class MainWindow : Window
     
     private bool UpdateStatusKomplect()
     {
-        if (logic.IsGreenGpset(CurrGpset, ClashTableName))
+        if (logic.IsGreenZone(CurrZone, ClashTableName))
         {
             Indicator.Background = Brushes.LightGreen;
             Indicator.ToolTip = "Все коллизии согласованны";

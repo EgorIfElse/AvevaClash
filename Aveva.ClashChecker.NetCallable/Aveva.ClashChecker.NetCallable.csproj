@@ -7,7 +7,8 @@
 		<UseWPF>true</UseWPF>
 		<Nullable>Enable</Nullable>
 		<Platforms>AnyCPU;x86</Platforms>
-		<CompanyReferencesPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS</CompanyReferencesPath>
+		<CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == '' and Exists('\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS')">\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS</CompanyReferencesPath>
+		<CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == ''">$(MSBuildThisFileDirectory)..\References</CompanyReferencesPath>
 	</PropertyGroup>
 	<PropertyGroup>
 		<LangVersion>12.0</LangVersion>

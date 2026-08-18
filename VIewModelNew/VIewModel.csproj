@@ -7,7 +7,8 @@
 	<LangVersion>12</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <PlatformTarget>x86</PlatformTarget>
-    <CompanyReferencesPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL</CompanyReferencesPath>
+    <CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == '' and Exists('\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS')">\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS</CompanyReferencesPath>
+    <CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == ''">$(MSBuildThisFileDirectory)..\References</CompanyReferencesPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -28,22 +29,22 @@
 
   <ItemGroup>
     <Reference Include="Aveva.Core">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Database">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core.Database.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Database.Filters">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core.Database.Filters.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.Filters.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Geometry">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core.Geometry.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Geometry.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core.Utilities">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core.Utilities.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Utilities.dll</HintPath>
     </Reference>
     <Reference Include="Aveva.Core3D.Clasher">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\Aveva.Core3D.Clasher.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core3D.Clasher.dll</HintPath>
     </Reference>
     <Reference Include="DataGridExtensions">
       <HintPath>$(CompanyReferencesPath)\DataGridExtensions.dll</HintPath>
@@ -51,10 +52,10 @@
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="PMLNet">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\PMLNet.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\PMLNet.dll</HintPath>
     </Reference>
     <Reference Include="PMLNetUtilities">
-      <HintPath>\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS\PMLNetUtilities.dll</HintPath>
+      <HintPath>$(CompanyReferencesPath)\PMLNetUtilities.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="WindowsFormsIntegration" />

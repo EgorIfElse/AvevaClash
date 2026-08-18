@@ -146,7 +146,7 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
-                           Text="Комплект"
+                           Text="Зона"
                            VerticalAlignment="Center"
                            Margin="0,0,10,0"
                            FontSize="13"
@@ -172,16 +172,18 @@
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"/>
 
-                        <ComboBox x:Name="CbGpset"
+                        <ComboBox x:Name="CbZone"
                                   Grid.Column="1"
                                   Height="34"
+                                  DisplayMemberPath="DisplayText"
+                                  SelectedValuePath="ZoneElement"
                                   IsEditable="True"
                                   IsTextSearchEnabled="True"
                                   StaysOpenOnEdit="True"
                                   Padding="0,4,8,4"
                                   FontWeight="SemiBold"
                                   Foreground="#111827"
-                                  SelectionChanged="CbGpset_SelectionChanged"
+                                  SelectionChanged="CbZone_SelectionChanged"
                                   BorderBrush="Transparent"
                                   BorderThickness="0"
                                   Background="Transparent"
@@ -809,12 +811,12 @@
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn  
-                                    Binding="{Binding FirstGpset}"
+                                    Binding="{Binding FirstZone}"
                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="G1" ToolTip="комплект по КСГ 1-го элемента коллизии"/>
+                        <TextBlock Text="G1" ToolTip="Зона первого элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn
@@ -857,12 +859,12 @@
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn  
-                                    Binding="{Binding SecondGpset}"
+                                    Binding="{Binding SecondZone}"
                                     
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="G2" ToolTip="комплект по КСГ 2-го элемента коллизии"/>
+                        <TextBlock Text="G2" ToolTip="Зона второго элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn  

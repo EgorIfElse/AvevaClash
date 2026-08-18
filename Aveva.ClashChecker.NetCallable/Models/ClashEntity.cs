@@ -12,12 +12,12 @@ public record ClashEntity
     public string FirstType { get; set; } = "";
     public string FirstUserMode { get; set; } = "";
     public string FirstDept { get; set; } = "";
-    public string FirstGpset { get; set; } = "";
+    public string FirstZone { get; set; } = "";
     public string SecondElement { get; set; } = "";
     public string SecondType { get; set; } = "";
     public string SecondUserMode { get; set; } = "";
     public string SecondDept { get; set; } = "";
-    public string SecondGpset { get; set; } = "";
+    public string SecondZone { get; set; } = "";
     public DateTime? Date { get; set; }
     public int X { get; set; }
     public int Y { get; set; }

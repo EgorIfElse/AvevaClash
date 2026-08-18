@@ -18,14 +18,14 @@ public static class SqlMapping
     $"U1 '{nameof(ClashEntity.FirstUserMode)}', " +
     //$"Flnm1 '{nameof(ClashEntity.Flnm1)}', " +
     $"D1 '{nameof(ClashEntity.FirstDept)}', " +
-    $"G1 '{nameof(ClashEntity.FirstGpset)}', " +
+    $"G1 '{nameof(ClashEntity.FirstZone)}', " +
     $"R2 '{nameof(ClashEntity.SecondElement)}', " +
     $"E2 '{nameof(ClashEntity.SecondType)}', " +
     $"U2 '{nameof(ClashEntity.SecondUserMode)}', " +
     //$"Flnm2 '{nameof(ClashEntity.Flnm2)}', " +
     $"XT '{nameof(ClashEntity.Existing)}', " +
     $"D2 '{nameof(ClashEntity.SecondDept)}', " +
-    $"G2 '{nameof(ClashEntity.SecondGpset)}', " +
+    $"G2 '{nameof(ClashEntity.SecondZone)}', " +
     $"DT '{nameof(ClashEntity.Date)}', " +
     $"X0 '{nameof(ClashEntity.X)}', " +
     $"Y0 '{nameof(ClashEntity.Y)}', " +
