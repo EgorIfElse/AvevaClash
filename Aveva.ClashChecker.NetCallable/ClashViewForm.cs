@@ -90,21 +90,10 @@ namespace ClashViewForm
         }
 
         [PMLNetCallable]
-        public void CheckZone(string zoneRef, double initialZoneIndex, bool testMode = true)
+        public void CheckZone(string zoneRef, bool testMode = true)
         {
            // Logger = new ClashLogger(logDirectoryPath);
             Logger.LogInPdmsConsole = testMode;
-            int initialZoneIndexInt = 0;
-
-            try
-            {
-                initialZoneIndexInt = (int)initialZoneIndex;
-
-            }
-            catch (Exception ex)
-            {
-               // Logger.WriteLine($"Не удалось распознать начальный индекс зоны! {ex.Message}");
-            }
             var zone = DbElement.GetElement(zoneRef);
             if (zone.ElementType != DbElementTypeInstance.ZONE)
             {
@@ -153,7 +142,7 @@ namespace ClashViewForm
 
             PML.CreateCommand($"$p Коллизий зоны {zoneRef} до проверки {clashesByZone.Count}").RunInPdms();
 
-            checker.ColZone(clashConnection, initialZoneIndexInt, clashTableName, zoneRef);
+            checker.ColZone(clashConnection, clashTableName, zoneRef);
 
             var notExistingClashes = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql}
                                                                             FROM {clashTableName}

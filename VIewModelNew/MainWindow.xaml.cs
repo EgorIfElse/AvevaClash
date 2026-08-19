@@ -301,7 +301,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        logic.CheckZone(CurrZone, 0, true);
+        logic.CheckZone(CurrZone, true);
 
         Refresh();
     }
