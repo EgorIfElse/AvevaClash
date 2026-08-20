@@ -18,6 +18,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Policy;
 using System.Threading.Tasks;
+using Aveva.Core.Utilities.CommandLine;
 //using System.Windows.Forms;
 using static Aveva.ClashChecker.NetCallable.Exceptions;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
@@ -39,10 +40,18 @@ public partial class ClashChecker
 
 
     // private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
-    public string ClashConnectionString { get; set; } = "Data Source=10.177.6.99,1433;Initial Catalog=avevaclash;Persist Security Info=True;User ID=ClashAdmin;Password=AXBqMLz3mVER;Connection Timeout = 300;TrustServerCertificate=true";
-    public static readonly string TDMSConnectionString = "Data Source=sqltep;Initial Catalog=TDMS_TEP;Persist Security Info=True;User ID=Pdmstotdms;Password=PdMsToTdMs;Connection Timeout = 300;TrustServerCertificate=true";
-    private static readonly DbElement NullElement = DbElement.GetElement("*");
 
+   
+    private static readonly DbElement NullElement = DbElement.GetElement("/*");
+    //public string STR = NullElement.EvaluateAsString(DbExpression.Parse($"Q VAR !!LoginToSQL('Admin')"));
+    //public string STR { get; set; } = PML.CreateCommand("SaveWork").RunInPdms();
+    public string ClashConnectionString = new Func<string>(() =>
+    {
+        Command commsnd = Command.CreateCommand("!!Connect = !!LoginToSQL('Admin')");
+        commsnd.RunInPdms();
+        return Command.GetStringFromPML("!!Connect").Trim('/','"');
+    })();
+    //("!!Connect");
 
     private static readonly string ClashSql =
     $"ID '{nameof(ClashEntity.Id)}', " +
@@ -144,64 +153,7 @@ public partial class ClashChecker
 
     }
 
-    [PMLNetCallable]
-    public string ClashAllTest(bool useBoxCheck = false)
-    {
-        try
-        {
-            var clashOptions = ClashOptions.Create();
-            clashOptions.Override = true;
-            clashOptions.Midpoint = true;
-            clashOptions.TouchGap = 0.0;
-            clashOptions.TouchOverlap = 2.0;
-            clashOptions.Clearance = 0.0;
-            clashOptions.IncludeTouches = false;
-            clashOptions.BranchCheckType = BranchCheck.BCHECK;
-            clashOptions.IncludeConnections = false;
-            clashOptions.NoCheckWithin(
-            [
-                DbElementTypeInstance.EQUIPMENT,
-                DbElementTypeInstance.STRUCTURE,
-                DbElementTypeInstance.BRANCH,
-                DbElementTypeInstance.RESTRAINT,
-                DbElementTypeInstance.VOLMODEL
-            ]);
 
-            var obstructionList = ObstructionList.Create();
-            obstructionList.AllObstructions = true;
-
-            var clashSet = ClashSet.Create();
-            var stopwatch = Stopwatch.StartNew();
-
-            bool success = useBoxCheck
-                ? Clasher.Instance.BoxCheckAll(clashOptions, obstructionList, clashSet)
-                : Clasher.Instance.CheckAll(clashOptions, obstructionList, clashSet);
-
-            stopwatch.Stop();
-
-            var clashes = clashSet.Clashes ?? [];
-            var clashesByType = clashes
-                .GroupBy(clash => clash.Type)
-                .OrderBy(group => group.Key.ToString())
-                .Select(group => $"{group.Key}: {group.Count()}");
-
-            string result =
-                $"Режим: {(useBoxCheck ? "BoxCheckAll" : "CheckAll")}; " +
-                $"Успешно: {success}; " +
-                $"Коллизий: {clashes.Length}; " +
-                $"Время: {stopwatch.Elapsed}; " +
-                $"Типы: {string.Join(", ", clashesByType)}";
-
-            Logger.WriteLine(result);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            string error = $"ClashAllTest: {ex.Message}";
-            Logger.WriteLine(error, LogType.Error);
-            return error;
-        }
-    }
 
     public void ColZone(SqlConnection clashConnection, string clashTableName, string zoneRef)
     {
@@ -226,10 +178,13 @@ public partial class ClashChecker
                 .Cast<DbElement>()
                 .Where(zone =>
                 {
+                    //(DbAttributeInstance.MEMB);
                     purposeReadCount++;
                     string purpose = zone.GetAsString(DbAttributeInstance.PURP);
-                    return string.Equals(purpose, "PD", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(purpose, "RD", StringComparison.OrdinalIgnoreCase);
+                     string name = zone.GetAsString(DbAttributeInstance.MEMB);
+                    return (string.Equals(purpose, "PD", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(purpose, "RD", StringComparison.OrdinalIgnoreCase)) 
+                        && !string.Equals(name, "unset", StringComparison.OrdinalIgnoreCase);
                 })];
             currentCollectionStopwatch.Stop();
             currentCollectionTime = currentCollectionStopwatch.Elapsed;
@@ -245,7 +200,7 @@ public partial class ClashChecker
             initialObstructionZoneCount = initialObstructionZones.Count;
 
             var sortingStopwatch = Stopwatch.StartNew();
-            List<DbElement> sortedObstructionZones = initialObstructionZones
+            List<DbElement> remainingObstructionZones = initialObstructionZones
                 .OrderBy(zone =>
                 {
                     purposeReadCountDuringSorting++;
@@ -258,9 +213,6 @@ public partial class ClashChecker
                 .ToList();
             sortingStopwatch.Stop();
             sortingTime = sortingStopwatch.Elapsed;
-
-            var remainingObstructionRefs = new HashSet<string>(
-                sortedObstructionZones.Select(zone => zone.Ref.ToString()));
 
             Logger.WriteLine($"Зон Current (PURPOSE PD/RD): {currentZoneCount} шт");
             Logger.WriteLine($"Зон в исходной Obstruction-коллекции: {initialObstructionZoneCount} шт");
@@ -297,22 +249,32 @@ public partial class ClashChecker
                         continue;
                     }
 
-                    bool removed = remainingObstructionRefs.Remove(currentZone.Ref.ToString());
+                    string currentZoneRef = currentZone.GetAsString(DbAttributeInstance.REF);
+                    int removedCount = remainingObstructionZones.RemoveAll(zone =>
+                        string.Equals(
+                            zone.GetAsString(DbAttributeInstance.REF),
+                            currentZoneRef,
+                            StringComparison.Ordinal));
                     Logger.WriteLine($"Зона {currentZone.Name()} [{i + 1}/{zoneCount}]: "
-                        + $"удалена из Obstruction = {removed}; "
-                        + $"осталось кандидатов = {remainingObstructionRefs.Count}");
+                        + $"удалено из Obstruction = {removedCount}; "
+                        + $"осталось кандидатов = {remainingObstructionZones.Count}");
 
                     var obstructionListStopwatch = Stopwatch.StartNew();
                     ObstructionList obstructionList = CreateObstructionList(
                         currentZoneWvolume,
-                        sortedObstructionZones,
-                        remainingObstructionRefs,
+                        remainingObstructionZones,
                         out int addedObstructionCount);
                     obstructionListStopwatch.Stop();
                     obstructionListBuildTime += obstructionListStopwatch.Elapsed;
                     Logger.WriteLine($"Зона {currentZone.Name()}: в Obstruction List добавлено "
                         + $"{addedObstructionCount} зон; формирование заняло "
                         + $"{obstructionListStopwatch.Elapsed.TotalSeconds:F3} сек");
+
+                    if (addedObstructionCount == 0)
+                    {
+                        Logger.WriteLine($"Зона {currentZone.Name()} пропущена: Obstruction List пуст");
+                        continue;
+                    }
 
                     TimeSpan currentClashCheckTime = CheckZone(currentZone, obstructionList, clashOptions,
                         clashConnection, clashTableName, i, zoneCount);
@@ -325,15 +287,19 @@ public partial class ClashChecker
             {
                 var selectedZone = DbElement.GetElement(zoneRef);
                 var selectedZoneWvol = selectedZone.GetDoubleArray(DbAttributeInstance.WVOL);
-                bool removed = remainingObstructionRefs.Remove(selectedZone.Ref.ToString());
-                Logger.WriteLine($"Зона {selectedZone.Name()}: удалена из Obstruction = {removed}; "
-                    + $"осталось кандидатов = {remainingObstructionRefs.Count}");
+                string selectedZoneRef = selectedZone.GetAsString(DbAttributeInstance.REF);
+                int removedCount = remainingObstructionZones.RemoveAll(zone =>
+                    string.Equals(
+                        zone.GetAsString(DbAttributeInstance.REF),
+                        selectedZoneRef,
+                        StringComparison.Ordinal));
+                Logger.WriteLine($"Зона {selectedZone.Name()}: удалено из Obstruction = {removedCount}; "
+                    + $"осталось кандидатов = {remainingObstructionZones.Count}");
 
                 var obstructionListStopwatch = Stopwatch.StartNew();
                 ObstructionList obstructionList = CreateObstructionList(
                     selectedZoneWvol,
-                    sortedObstructionZones,
-                    remainingObstructionRefs,
+                    remainingObstructionZones,
                     out int addedObstructionCount);
                 obstructionListStopwatch.Stop();
                 obstructionListBuildTime += obstructionListStopwatch.Elapsed;
@@ -341,12 +307,19 @@ public partial class ClashChecker
                     + $"{addedObstructionCount} зон; формирование заняло "
                     + $"{obstructionListStopwatch.Elapsed.TotalSeconds:F3} сек");
 
-                int selectedZoneIndex = currentZones.FindIndex(zone => zone.Ref == selectedZone.Ref);
-                TimeSpan currentClashCheckTime = CheckZone(selectedZone, obstructionList, clashOptions,
-                    clashConnection, clashTableName, selectedZoneIndex, zoneCount);
-                clashCheckTime += currentClashCheckTime;
-                Logger.WriteLine($"Зона {selectedZone.Name()}: clash-проверка заняла "
-                    + $"{currentClashCheckTime.TotalSeconds:F3} сек");
+                if (addedObstructionCount == 0)
+                {
+                    Logger.WriteLine($"Зона {selectedZone.Name()} пропущена: Obstruction List пуст");
+                }
+                else
+                {
+                    int selectedZoneIndex = currentZones.FindIndex(zone => zone.Ref == selectedZone.Ref);
+                    TimeSpan currentClashCheckTime = CheckZone(selectedZone, obstructionList, clashOptions,
+                        clashConnection, clashTableName, selectedZoneIndex, zoneCount);
+                    clashCheckTime += currentClashCheckTime;
+                    Logger.WriteLine($"Зона {selectedZone.Name()}: clash-проверка заняла "
+                        + $"{currentClashCheckTime.TotalSeconds:F3} сек");
+                }
             }
 
             clashConnection.Close();
@@ -356,7 +329,7 @@ public partial class ClashChecker
             Logger.WriteLine($"ColZone: сбор Current: {currentCollectionTime.TotalMilliseconds:F0} мс");
             Logger.WriteLine($"ColZone: сбор исходной Obstruction-коллекции: {obstructionCollectionTime.TotalMilliseconds:F0} мс");
             Logger.WriteLine($"ColZone: сортировка Obstruction-коллекции: "
-                + $"{sortingTime.TotalMilliseconds:F0} мс; зон: {sortedObstructionZones.Count}; "
+                + $"{sortingTime.TotalMilliseconds:F0} мс; зон: {initialObstructionZoneCount}; "
                 + $"обращений к PURPOSE: {purposeReadCountDuringSorting}");
             Logger.WriteLine($"ColZone: формирование Obstruction List: {obstructionListBuildTime.TotalMilliseconds:F0} мс");
             Logger.WriteLine($"ColZone: clash-проверка: {clashCheckTime.TotalMilliseconds:F0} мс");
@@ -379,19 +352,15 @@ public partial class ClashChecker
 
     }
     private ObstructionList CreateObstructionList(
-        double[] currentZoneWvolume,
-        IEnumerable<DbElement> sortedObstructionZones,
-        HashSet<string> remainingObstructionRefs,
-        out int addedObstructionCount)
+       double[] currentZoneWvolume,
+       IEnumerable<DbElement> obstructionZones,
+       out int addedObstructionCount)
     {
         var obstructionList = ObstructionList.Create();
         addedObstructionCount = 0;
 
-        foreach (DbElement obstructionZone in sortedObstructionZones)
+        foreach (DbElement obstructionZone in obstructionZones)
         {
-            if (!remainingObstructionRefs.Contains(obstructionZone.Ref.ToString()))
-                continue;
-
             double[] obstructionZoneWvolume = obstructionZone.GetDoubleArray(DbAttributeInstance.WVOL);
             if (obstructionZoneWvolume.Length < 6)
                 continue;
@@ -405,6 +374,7 @@ public partial class ClashChecker
 
         return obstructionList;
     }
+    
 
     private TimeSpan CheckZone(DbElement zone,
                            ObstructionList obstructionList,
@@ -1237,8 +1207,7 @@ public partial class ClashChecker
                 return true;
             if (CheckBranWithFrameWork(clash))
                 return true;
-            if (CheckGESite(clash))
-                return true;
+            
 
             return false;
         }

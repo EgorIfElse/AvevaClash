@@ -166,13 +166,19 @@ namespace ClashViewForm
         }
         public List<ZoneComboItem> UpdateZoneList()
         {
-            var avevaZones = new DBElementCollection(
+            List<DbElement> zonesKomplect = [.. new DBElementCollection(
                     new TypeFilter(DbElementTypeInstance.ZONE))
                 .Cast<DbElement>()
                 .Where(zone =>
-                    zone.GetAsString(DbAttribute.GetDbAttribute(":Stage")) != "-")
-                .OrderBy(zone => zone.Name())
-                .ToList();
+                {
+
+                    string purpose = zone.GetAsString(DbAttributeInstance.PURP);
+                     string name = zone.GetAsString(DbAttributeInstance.MEMB);
+                    return (string.Equals(purpose, "PD", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(purpose, "RD", StringComparison.OrdinalIgnoreCase))
+                        && !string.Equals(name, "unset", StringComparison.OrdinalIgnoreCase);
+                })];
+                
 
             var zoneItems = new List<ZoneComboItem>
             {
@@ -188,7 +194,7 @@ namespace ClashViewForm
                 }
             };
 
-            zoneItems.AddRange(avevaZones.Select(zone =>
+            zoneItems.AddRange(zonesKomplect.Select(zone =>
                 new ZoneComboItem
                 {
                     ZoneElement = zone.Name(),
