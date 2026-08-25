@@ -36,6 +36,8 @@ public partial class MainWindow : Window
     public string ClashTableName = "";
     public string ProjectName = "";
     public string MyDept = "";
+    public HashSet<string> MyDepartments { get; private set; } =
+    new(StringComparer.OrdinalIgnoreCase);
     public string MyUlogId = "";
     public string ClashConnectionString = "";
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
@@ -48,12 +50,22 @@ public partial class MainWindow : Window
         LoadZone();
       
         MyDept = logic.MyDept;
+        MyDepartments = logic.MyDepartments;
         MyUlogId = logic.MyUlogId;
         ProjectName = Project.CurrentProject.Name;
         ClashTableName = $"clashtable{ProjectName}_TEST";
         ClashConnectionString = logic.ClashConnectionString;
         //string selectedZone = CbZone.SelectedValue.ToString();
         CurrZone = "";
+    }
+
+    private bool HasDepartmentAccess(string department)
+    {
+        if (MyDept == "AB")
+        {
+            return true;
+        }
+        return !string.IsNullOrWhiteSpace(department) && MyDepartments.Contains(department);
     }
 
 
@@ -70,24 +82,24 @@ public partial class MainWindow : Window
             string project = Project.CurrentProject.Name;
             var mailDict = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var r in rows)
+        foreach (ClashEntity clash in rows)
         {
-            if (MyDept != "SYSTEM")
-            {
-                if (r.FirstDept != MyDept && r.SecondDept != MyDept) continue;
-                if (string.IsNullOrEmpty(r.RequestToDept)) continue;
-                if (string.IsNullOrEmpty(r.RequestUser)) continue;
-                if (!string.IsNullOrEmpty(r.ApproveUser)) continue;
-                if (!string.IsNullOrEmpty(r.InWorkUser)) continue;
-                if (r.RequestToDept == MyDept) continue;
-            }
+        
 
-                string mailuser = r.RequestUser;
+                string mailuser = clash.SecondUserMode;
+                if(string.IsNullOrWhiteSpace(mailuser))
+            {
+                Logger.WriteLine($"У коллизии {clash.Id} не заполнен U2. Письмо не отправлено");
+                continue;
+            }
 
                 if (!mailDict.ContainsKey(mailuser))
                     mailDict[mailuser] = new List<int>();
-                mailDict[mailuser].Add(r.Id);
-            }
+                mailDict[mailuser].Add(clash.Id);
+        }
+
+            var sentUsers = new List<string>();
+            var failedUsers = new List<string>();
 
             // отправка
             foreach (var kvp in mailDict)
@@ -99,7 +111,19 @@ public partial class MainWindow : Window
                                + "Номера коллизий: <BR>"
                                + string.Join("<BR>", ids);
 
-                SendMail($"{user}@k-pei.ru", subject, body);
+                string userMail = GetUserMail(user);
+                if (string.IsNullOrWhiteSpace(userMail))
+                {
+                    Logger.WriteLine(
+                        $"У пользователя {user} не заполнен атрибут :UserMail. Письмо не отправлено.");
+                    failedUsers.Add(user);
+                    continue;
+                }
+
+                if (SendMail(userMail, subject, body))
+                    sentUsers.Add(user);
+                else
+                    failedUsers.Add(user);
 
                 /*
                 var clashRow = rows.FirstOrDefault(r => r.RequestUser == user);
@@ -108,13 +132,21 @@ public partial class MainWindow : Window
                 */
             }
 
-            string msg = mailDict.Count == 0
-                ? "Нет запросов для отправки"
-                : "Уведомления отправлены: " + string.Join(", ", mailDict.Keys);
+            string msg;
+            if (mailDict.Count == 0)
+                msg = "Нет запросов для отправки";
+            else if (failedUsers.Count == 0)
+                msg = "Уведомления отправлены: " + string.Join(", ", sentUsers);
+            else if (sentUsers.Count == 0)
+                msg = "Не удалось отправить уведомления: " + string.Join(", ", failedUsers);
+            else
+                msg = "Уведомления отправлены: " + string.Join(", ", sentUsers)
+                      + "\nНе отправлены: " + string.Join(", ", failedUsers);
 
 
 
             MessageBox.Show(msg);
+            
         
 
     }
@@ -138,27 +170,56 @@ public partial class MainWindow : Window
     }
     */
 
-    private void SendMail(string to, string subject, string body)
+    private string GetUserMail(string userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+            return string.Empty;
+
+        try
+        {
+            DbElement ulog = DbElement.GetElement($"/+{userName}");
+            DbAttribute userMailAttribute = DbAttribute.GetDbAttribute(":UserMail");
+
+            return ulog.GetAsString(userMailAttribute)?.Trim() ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteLine(
+                $"Не удалось получить :UserMail пользователя {userName}: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    private bool SendMail(string to, string subject, string body)
     {
         try
         {
-            string login = Project.CurrentProject.LoginUser.ToLower();
-            var message = new MailMessage($"{login}@k-pei.ru", to, subject, body)
+            string from = GetUserMail(MyUlogId);
+            if (string.IsNullOrWhiteSpace(from))
+            {
+                Logger.WriteLine(
+                    $"У текущего пользователя {MyUlogId} не заполнен атрибут :UserMail. Письмо не отправлено.");
+                return false;
+            }
+
+            using var message = new MailMessage(from, to, subject, body)
             {
                 IsBodyHtml = true,
                 SubjectEncoding = Encoding.UTF8,
                 BodyEncoding = Encoding.UTF8
             };
-            var smtp = new SmtpClient("mail", 25)
+            using var smtp = new SmtpClient("mail", 25)
             {
                 EnableSsl = false,
                 UseDefaultCredentials = false
             };
             smtp.Send(message);
+            return true;
         }
         catch (Exception ex)
         {
             Logger.WriteLine($"Ошибка отправки на {to}: {ex.Message}");
+            return false;
         }
     }
 
@@ -293,6 +354,39 @@ public partial class MainWindow : Window
         PML.CreateCommand($"Add {Add2}").RunInPdms();
         PML.CreateCommand($"enhance {Add2} colour red").RunInPdms();
     }
+
+    private void BtnShowElements_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedClashes = DgClashes.SelectedItems
+            .Cast<ClashEntity>()
+            .ToList();
+
+        if (selectedClashes.Count == 0)
+        {
+            MessageBox.Show("Выберите хотя бы одну коллизию.");
+            return;
+        }
+
+        var elementRefs = selectedClashes
+            .SelectMany(clash => new[] { clash.FirstElement, clash.SecondElement })
+            .Where(elementRef => !string.IsNullOrWhiteSpace(elementRef))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        int addedCount = 0;
+        foreach (string elementRef in elementRefs)
+        {
+            DbElement element = DbElement.GetElement(elementRef);
+            if (element.IsNull || !element.IsValid)
+                continue;
+
+            PML.CreateCommand($"Add {elementRef}").RunInPdms();
+            addedCount++;
+        }
+
+        MessageBox.Show($"В Drawlist добавлено элементов: {addedCount}.");
+    }
+
     private void BtnCheck_Click(object sender, RoutedEventArgs e)
     {
         if (CurrZone == "ALL" || CurrZone == "CE")
@@ -603,19 +697,20 @@ public partial class MainWindow : Window
             var ApproveUser = item.ApproveUser;
             var ApproveDate = item.ApproveDate;
             var ApproveReason = item.ApproveReason;
+            var InWorkUser = item.InWorkUser;
+            var InWorkDate = item.InWorkDate;
 
 
-            bool isMyDept = Dept1 == MyDept || Dept2 == MyDept;
+            bool isMyDept = HasDepartmentAccess(Dept1);
             bool hasRequest = !string.IsNullOrWhiteSpace(RequestUser) || RequestDate != null || !string.IsNullOrWhiteSpace(RequestToDept);
             bool hasApprove = !string.IsNullOrWhiteSpace(ApproveUser) || ApproveDate != null || !string.IsNullOrWhiteSpace(ApproveReason);
+            bool hasInWork =  !string.IsNullOrWhiteSpace(InWorkUser)  || InWorkDate != null;
 
-            if (MyDept != "SYSTEM")
-            {
-
+           
 
                 if (!isMyDept)
                 {
-                    PML.CreateCommand($"{Id} - это коллизия других отделов ({Dept1} и {Dept2})").RunInPdms();
+                    MessageBox.Show($"Нельзя отправить запрос по коллизии {Id}.\n" + $"В атрибуте :DEPTS отсутствует отдел D1: {Dept1}.");
                     return;
                 }
 
@@ -629,17 +724,16 @@ public partial class MainWindow : Window
                     System.Windows.MessageBox.Show($"нельзя отправить запрос по уже согласованной коллизии (Id={Id})");
                     return;
                 }
-            }
-            
+                if (hasInWork)
+                {
+                    System.Windows.MessageBox.Show($"нельзя отправить запрос по коллизии (Id={Id}), так как она уже принята в работу");
+                    return;
+                }
+          
 
-            SendMailByRequest2(Selected);
+           
         }
-        var groups = Selected.GroupBy(x =>
-           {
-            if (x.FirstDept == MyDept || MyDept == "SYSTEM")
-                return x.SecondDept;
-             return x.FirstDept;
-            });
+        var groups = Selected.GroupBy(x => x.SecondDept);
         try
         {
             using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
@@ -669,14 +763,167 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            return;
         }
 
-
-
+         SendMailByRequest2(Selected);
 
         Refresh();
 
     }
+
+    private void BtnReject_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedClashes = DgClashes.SelectedItems
+            .Cast<ClashEntity>()
+            .ToList();
+
+        if (selectedClashes.Count == 0)
+        {
+            MessageBox.Show("Выберите хотя бы одну коллизию для отклонения.");
+            return;
+        }
+
+        var rejectedRequests = new List<(ClashEntity Clash, string ReturnToDept, string PreviousRequestUser)>();
+
+        foreach (ClashEntity clash in selectedClashes)
+        {
+            bool hasRequest = !string.IsNullOrWhiteSpace(clash.RequestToDept)
+                && !string.IsNullOrWhiteSpace(clash.RequestUser)
+                && clash.RequestDate.HasValue;
+            bool hasApprove = !string.IsNullOrWhiteSpace(clash.ApproveUser)
+                || clash.ApproveDate.HasValue
+                || !string.IsNullOrWhiteSpace(clash.ApproveReason);
+            bool hasInWork = !string.IsNullOrWhiteSpace(clash.InWorkUser)
+                || clash.InWorkDate.HasValue;
+
+            if (!hasRequest)
+            {
+                MessageBox.Show($"По коллизии {clash.Id} запрос ещё не отправлен.");
+                return;
+            }
+
+            if (!string.Equals(clash.RequestToDept, MyDept, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    $"Отклонить коллизию {clash.Id} может только отдел-получатель {clash.RequestToDept}.");
+                return;
+            }
+
+            if (hasApprove || hasInWork)
+            {
+                MessageBox.Show(
+                    $"Коллизию {clash.Id} нельзя отклонить: она уже согласована или принята в работу.");
+                return;
+            }
+
+            if (string.Equals(clash.FirstDept, clash.SecondDept, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    $"Коллизию {clash.Id} нельзя вернуть: оба элемента относятся к отделу {clash.FirstDept}.");
+                return;
+            }
+
+            bool requestSentToFirstDept = string.Equals(
+                clash.FirstDept,
+                clash.RequestToDept,
+                StringComparison.OrdinalIgnoreCase);
+            bool requestSentToSecondDept = string.Equals(
+                clash.SecondDept,
+                clash.RequestToDept,
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!requestSentToFirstDept && !requestSentToSecondDept)
+            {
+                MessageBox.Show(
+                    $"У коллизии {clash.Id} RequestTo ({clash.RequestToDept}) " +
+                    $"не совпадает с D1 ({clash.FirstDept}) или D2 ({clash.SecondDept}).");
+                return;
+            }
+
+            string returnToDept = requestSentToFirstDept
+                    ? clash.SecondDept
+                    : clash.FirstDept;
+
+            if (string.IsNullOrWhiteSpace(returnToDept))
+            {
+                MessageBox.Show($"Для коллизии {clash.Id} не удалось определить отдел возврата.");
+                return;
+            }
+
+            rejectedRequests.Add((clash, returnToDept, clash.RequestUser));
+        }
+
+        DateTime requestDate = DateTime.Now;
+
+        using (SqlConnection clashConnection = new SqlConnection(ClashConnectionString))
+        {
+            clashConnection.Open();
+            using SqlTransaction transaction = clashConnection.BeginTransaction();
+
+            try
+            {
+                foreach (var rejectedRequest in rejectedRequests)
+                {
+                    int updatedCount = clashConnection.Execute(
+                        $@"UPDATE [{ClashTableName}]
+                           SET [RT] = @RequestTo,
+                               [RU] = @RequestUser,
+                               [RD] = @RequestDate
+                           WHERE [ID] = @Id;",
+                        new
+                        {
+                            RequestTo = rejectedRequest.ReturnToDept,
+                            RequestUser = MyUlogId,
+                            RequestDate = requestDate,
+                            Id = rejectedRequest.Clash.Id
+                        },
+                        transaction);
+
+                    if (updatedCount != 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"Не удалось отклонить коллизию {rejectedRequest.Clash.Id}.");
+                    }
+                }
+
+                transaction.Commit();
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                MessageBox.Show($"Не удалось отклонить выбранные коллизии.\n{ex.Message}");
+                return;
+            }
+        }
+
+        string project = Project.CurrentProject.Name;
+        foreach (var userGroup in rejectedRequests.GroupBy(request => request.PreviousRequestUser))
+        {
+            List<int> ids = userGroup
+                .Select(request => request.Clash.Id)
+                .ToList();
+            string subject = $"Запрос по коллизиям отклонён, проект {project}, зона {CurrZone}";
+            string body = $"Запрос по зоне {CurrZone} возвращён в ваш отдел. Коллизий: {ids.Count} шт.<BR>"
+                + "Номера коллизий:<BR>"
+                + string.Join("<BR>", ids);
+
+            string userMail = GetUserMail(userGroup.Key);
+            if (string.IsNullOrWhiteSpace(userMail))
+            {
+                Logger.WriteLine(
+                    $"У пользователя {userGroup.Key} не заполнен атрибут :UserMail. "
+                    + "Уведомление об отклонении не отправлено.");
+                continue;
+            }
+
+            SendMail(userMail, subject, body);
+        }
+
+        Refresh();
+        MessageBox.Show($"Отклонено коллизий: {rejectedRequests.Count}.");
+    }
+
     private void BtnClose_Click(object sender, RoutedEventArgs e)
     {
         var type = "";
@@ -740,7 +987,8 @@ public partial class MainWindow : Window
     }
     private void DgClashes_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-
+        TxtSelectedCount.Text =
+            $"Выбрано: {DgClashes.SelectedItems.Count} коллизий";
     }
     private void Refresh()
     {

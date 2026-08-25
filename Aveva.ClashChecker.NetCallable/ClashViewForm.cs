@@ -15,6 +15,7 @@ using System.Linq;
 using System.Net.Mail;
 using System.Text;
 using System.Windows;
+using System.Collections.Generic;
 using CC = global::ClashChecker.ClashChecker;
 //using System.Windows.Forms;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
@@ -25,12 +26,12 @@ namespace ClashViewForm
     [PMLNetCallable]
     public class ClashViewForm
     {
-        public Dictionary<string, DateTime> CheckedZones = [];
         public string TableName = "";
         public string CurrZone = "";
         public string CLASHdir = "";
         public string MyUlogId = Project.CurrentProject.LoginUser;
         public string MyDept = Project.CurrentProject.UserName;
+        public HashSet<string> MyDepartments{get;private set;} = new(StringComparer.OrdinalIgnoreCase);
         public double Format = 0;
         public DbElement DBO;
         public List<string> DataTable = [];
@@ -42,9 +43,16 @@ namespace ClashViewForm
         [PMLNetCallable]
         public ClashViewForm()
         {
+            MyDepartments = GetCurrentUserDepartments();
+            Logger.WriteLine($"Отделы пользователя {MyUlogId}:" + string.Join(",", MyDepartments));
 
         }
-        public string ClashConnectionString { get; set; } = "Data Source=10.177.6.99,1433;Initial Catalog=avevaclash;Persist Security Info=True;User ID=ClashAdmin;Password=AXBqMLz3mVER;Connection Timeout = 300;TrustServerCertificate=true";
+       public string ClashConnectionString = new Func<string>(() =>
+    {
+        Command commsnd = Command.CreateCommand("!!Connect = !!LoginToSQL('User')");
+        commsnd.RunInPdms();
+        return Command.GetStringFromPML("!!Connect").Trim('/','"');
+    })();
        
         /// <summary>
         /// Стандартная конструкция для детекта класса авевой
@@ -61,6 +69,7 @@ namespace ClashViewForm
 
 
         private DateTime GetLastZoneClashDate(string zoneRef, string clashTableName)
+
         {
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
@@ -70,6 +79,16 @@ namespace ClashViewForm
                                                                        new { zoneRef });
             return lastDate ?? DateTime.MinValue;
 
+        }
+       
+        private HashSet<string> GetCurrentUserDepartments()
+        {
+           
+            DbElement ulog = DbElement.GetElement($"/+{MyUlogId}");
+
+            DbAttribute DeptAtt = DbAttribute.GetDbAttribute(":depts");
+            string[] depts = ulog.GetStringArray(DeptAtt);
+            return new HashSet<string>(depts,StringComparer.OrdinalIgnoreCase);
         }
 
         [PMLNetCallable]
@@ -102,23 +121,15 @@ namespace ClashViewForm
             }
             string ProjectName = Project.CurrentProject.Name;
             string mdb = MDB.CurrentMDB.Name;
-            var isAll = string.Equals(mdb, $"{ProjectName}.ALL");
+            var isPD = string.Equals(mdb, $"{ProjectName}.PD");
+            var isRD = string.Equals(mdb, $"{ProjectName}.RD");
             string clashTableName = $"clashtable{ProjectName}_TEST";
-            if (mdb != "/ALL" && mdb != "/16310" && isAll)
+             if (!isPD && !isRD)
             {
-                var Answer = System.Windows.MessageBox.Show("Проверку зоны необходимо запускать в MDB \"ALL\". Сохраниться и перейти в MDB \"ALL\"?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (Answer == MessageBoxResult.Yes)
-                {
-                    MDB.CurrentMDB.SaveWork("");
-
-                }
-                else
-                {
-                    return;
-                }
-
+               System.Windows.MessageBox.Show($"Проверку зоны необходимо запускать в MDB \"{ProjectName}.PD\" или \"{ProjectName}.RD\".");
+               return; 
             }
-            MDB.CurrentMDB.GetWork();
+                   
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
             var notExistingCount = clashConnection.ExecuteScalar<int>(@$"select count(*)
@@ -129,7 +140,7 @@ namespace ClashViewForm
 
             if (notExistingCount > 0)
             {
-                System.Windows.MessageBox.Show("действие отменено. проверка невозможна. обратитесь в ОАП");
+                System.Windows.MessageBox.Show($"Действие отменено. проверка невозможна.\n\n Найдено коллизий с Existing = 0: {notExistingCount} шт.\n Обратитесь к администратору AVEVA");
                 return;
             }
 
@@ -157,10 +168,12 @@ namespace ClashViewForm
 
             PML.CreateCommand($"$p Из зоны {zoneRef} удалено {notExistingClashes.Count} несуществующих коллизий").RunInPdms();
 
+            DateTime checkDate = DateTime.Now;
+            zone.SetAttribute(
+                DbAttribute.GetDbAttribute(":Lastchek"),
+                checkDate);
+
             UpdateZoneList();
-
-
-            CheckedZones[zone.Name()] = DateTime.Now;
 
 
         }
@@ -279,15 +292,18 @@ namespace ClashViewForm
                 return false;
             }
 
-            DateTime lastCheck = GetLastZoneClashDate(zoneRef, clashTableName);
-            DateTime zoneLastModified = GetZoneLastModified(zoneRef);
-
-            if (CheckedZones.TryGetValue(zoneRef, out DateTime sessionCheckTime))
+            DateTime lastCheck;
+            try
             {
-                if (sessionCheckTime > lastCheck)
-                    lastCheck = sessionCheckTime;
-
+                lastCheck = zone.GetDateTime(
+                    DbAttribute.GetDbAttribute(":Lastchek"));
             }
+            catch
+            {
+                return false;
+            }
+
+            DateTime zoneLastModified = GetZoneLastModified(zoneRef);
             if (lastCheck < zoneLastModified) return false;
             var deltaTime = (DateTime.Now - lastCheck).TotalDays;
             return deltaTime <= 2;

@@ -1001,6 +1001,27 @@
                        Grid.Column="0"
                        Foreground="#6B7280"
                        FontSize="12"/>
+                <TextBlock x:Name="TxtSelectedCount"
+                           DockPanel.Dock="Left"
+                           Text="Выбрано: 0 коллизий"
+                           VerticalAlignment="Center"
+                           Foreground="#374151"
+                           FontSize="12"
+                           Margin="16,0,10,0"/>
+                <Button x:Name="BtnShowElements"
+                        DockPanel.Dock="Left"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Click="BtnShowElements_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CubeOutline"
+                                                 Width="18"
+                                                 Height="18"
+                                                 Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"/>
+                        <TextBlock Text="Показать элементы"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Border x:Name="Indicator"
                         Width="18"
                         Height="18"
@@ -1078,6 +1099,22 @@
                             <TextBlock Text="Отправить запрос "
                                         VerticalAlignment="Center"/>
 
+                        </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BtnReject"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="BtnReject_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Close"
+                                                     Width="18"
+                                                     Height="18"
+                                                     Foreground="#DC2626"
+                                                     Margin="0,0,6,0"
+                                                     VerticalAlignment="Center"/>
+                            <TextBlock Text="Отклонить"
+                                       Foreground="#DC2626"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

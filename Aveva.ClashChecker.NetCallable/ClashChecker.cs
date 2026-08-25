@@ -42,7 +42,7 @@ public partial class ClashChecker
     // private static readonly HashSet<string> SpecProj = ["SVB", "DNS", "WXT"];
 
    
-    private static readonly DbElement NullElement = DbElement.GetElement("/*");
+    private static readonly DbElement NullElement = DbElement.GetElement("*");
     //public string STR = NullElement.EvaluateAsString(DbExpression.Parse($"Q VAR !!LoginToSQL('Admin')"));
     //public string STR { get; set; } = PML.CreateCommand("SaveWork").RunInPdms();
     public string ClashConnectionString = new Func<string>(() =>
@@ -352,9 +352,9 @@ public partial class ClashChecker
 
     }
     private ObstructionList CreateObstructionList(
-       double[] currentZoneWvolume,
-       IEnumerable<DbElement> obstructionZones,
-       out int addedObstructionCount)
+        double[] currentZoneWvolume,
+        IEnumerable<DbElement> obstructionZones,
+        out int addedObstructionCount)
     {
         var obstructionList = ObstructionList.Create();
         addedObstructionCount = 0;
@@ -433,14 +433,36 @@ public partial class ClashChecker
     };
 
 
-    private static Dictionary<string, string> RequiredHistoryClashTableColumns = new Dictionary<string, string>
+    private static readonly Dictionary<string, string> RequiredHistoryClashTableColumns = new()
     {
-
-        ["id"] = "INT NOT NULL",
-        ["LogDate"] = "DATETIME NOT NULL DEFAULT GETDATE()",
-        ["LoginName"] = "NVARCHAR(50)",
-        ["ActionType"] = "NVARCHAR(20)",
-        ["Comment"] = "NVARCHAR(100)"
+        ["ID"] = "INT NOT NULL",
+        ["GL"] = "NVARCHAR(12) NOT NULL",
+        ["CT"] = "NVARCHAR(12) NOT NULL",
+        ["R1"] = "NVARCHAR(24) NOT NULL",
+        ["E1"] = "NVARCHAR(12) NOT NULL",
+        ["U1"] = "NVARCHAR(32) NOT NULL",
+        ["D1"] = "NVARCHAR(16)",
+        ["G1"] = "NVARCHAR(16)",
+        ["R2"] = "NVARCHAR(24) NOT NULL",
+        ["E2"] = "NVARCHAR(12) NOT NULL",
+        ["U2"] = "NVARCHAR(32) NOT NULL",
+        ["D2"] = "NVARCHAR(16)",
+        ["G2"] = "NVARCHAR(16)",
+        ["XT"] = "BIT NOT NULL",
+        ["DT"] = "DATETIME NOT NULL",
+        ["X0"] = "INT NOT NULL",
+        ["Y0"] = "INT NOT NULL",
+        ["Z0"] = "INT NOT NULL",
+        ["RT"] = "NVARCHAR(16)",
+        ["RU"] = "NVARCHAR(32)",
+        ["RD"] = "DATETIME",
+        ["AU"] = "NVARCHAR(32)",
+        ["AD"] = "DATETIME",
+        ["AR"] = "NVARCHAR(255)",
+        ["WU"] = "NVARCHAR(32)",
+        ["WD"] = "DATETIME",
+        ["HistoryDate"] = "DATETIME NOT NULL DEFAULT GETDATE()",
+        ["HistoryReason"] = "NVARCHAR(255)"
     };
 
 
@@ -506,33 +528,58 @@ public partial class ClashChecker
         }
 
         string historyTableName = $"{clashTableName}_his";
+        if (clashConnection.TableExists(historyTableName))
+        {
+            var existingColumns = clashConnection.Query<string>(
+                @"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                  WHERE TABLE_NAME = @historyTableName",
+                new { historyTableName })
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!existingColumns.SetEquals(RequiredHistoryClashTableColumns.Keys))
+            {
+                Logger.WriteLine($"Таблица {historyTableName} имеет старую структуру и будет пересоздана.");
+                clashConnection.Execute($"DROP TABLE [{historyTableName}]");
+            }
+        }
+
         if (!clashConnection.TableExists(historyTableName))
         {
             Logger.WriteLine($"Таблица {historyTableName} не найдена! Создание таблицы...");
 
-            clashConnection.Execute(@$"CREATE TABLE[{historyTableName}](
-            [id] INT NOT NULL,
-            [LogDate] DATETIME NOT NULL DEFAULT GETDATE(),
-            [LoginName] NVARCHAR(50), 
-            [ActionType] NVARCHAR(20),
-            [Comment] NVARCHAR(100));");
+            clashConnection.Execute(@$"CREATE TABLE [{historyTableName}](
+                [ID] INT NOT NULL,
+                [GL] NVARCHAR(12) NOT NULL,
+                [CT] NVARCHAR(12) NOT NULL,
+                [R1] NVARCHAR(24) NOT NULL,
+                [E1] NVARCHAR(12) NOT NULL,
+                [U1] NVARCHAR(32) NOT NULL,
+                [D1] NVARCHAR(16),
+                [G1] NVARCHAR(16),
+                [R2] NVARCHAR(24) NOT NULL,
+                [E2] NVARCHAR(12) NOT NULL,
+                [U2] NVARCHAR(32) NOT NULL,
+                [D2] NVARCHAR(16),
+                [G2] NVARCHAR(16),
+                [XT] BIT NOT NULL,
+                [DT] DATETIME NOT NULL,
+                [X0] INT NOT NULL,
+                [Y0] INT NOT NULL,
+                [Z0] INT NOT NULL,
+                [RT] NVARCHAR(16),
+                [RU] NVARCHAR(32),
+                [RD] DATETIME,
+                [AU] NVARCHAR(32),
+                [AD] DATETIME,
+                [AR] NVARCHAR(255),
+                [WU] NVARCHAR(32),
+                [WD] DATETIME,
+                [HistoryDate] DATETIME NOT NULL DEFAULT GETDATE(),
+                [HistoryReason] NVARCHAR(255));");
 
-
+            clashConnection.Execute(
+                $"CREATE INDEX [IX_{historyTableName}_ID] ON [{historyTableName}] ([ID])");
             Logger.WriteLine($"Таблица {historyTableName} создана!");
-            Logger.WriteLine($"Генерация индексов...");
-            clashConnection.Execute($"CREATE INDEX id_ind ON {historyTableName}(id)");
-            Logger.WriteLine($"Индексы для {historyTableName} сформированы!");
-        }
-        else
-        {
-            var existingColumns = clashConnection.Query<string>(
-                @$"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-                  WHERE TABLE_NAME = '{historyTableName}'").ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var missingColumns = RequiredHistoryClashTableColumns.Where(c => !existingColumns.Contains(c.Key)).ToList();
-            if (missingColumns.Any())
-                foreach (var column in missingColumns)
-                    AddColumn(clashConnection, historyTableName, column.Key, column.Value);
         }
     }
 
@@ -639,9 +686,8 @@ public partial class ClashChecker
             if (IsNeedToDeleteClashSimple(clash))
             {
 
-                string comment = "UpdateClashElementInfo один из элементов уже не существует";
-                string type = "badref";
-                DeleteById(clashConnection, tableName, clash, type, comment);
+                string reason = "Один из элементов коллизии больше не существует в AVEVA";
+                DeleteById(clashConnection, tableName, clash, reason);
                 retval = -1;
 
             }
@@ -815,25 +861,80 @@ public partial class ClashChecker
 /// <summary>
 /// ТЕСТ
 /// </summary>
-    public void DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string type, string comment)
+    public void DeleteById(SqlConnection clashConnection, string tableName, ClashEntity clash, string reason)
     {
-        var HistTableName = $"{tableName}_his";
-        var login = Project.CurrentProject.LoginUser;
+        if (HasApproveOrInWork(clash))
+        {
+            MoveClashToHistory(clashConnection, tableName, clash.Id, reason);
+            Logger.WriteLine($"Коллизия {clash.Id} перенесена в {tableName}_his. Причина: {reason}");
+            return;
+        }
 
-        //string CreateTableHist = $"insert into {HistTableName} select *, getdate(), '{login}', '{type}', '{comment}' from {tableName} where id = '{clash.Id}'";
-        clashConnection.Execute($@"INSERT INTO {HistTableName}
-                                   (id, LogDate, LoginName, ActionType, Comment)
-                                   VALUES (@id, GETDATE(), @login, @type, @comment);",
-                                new { id = clash.Id, login, type, comment });
+        clashConnection.Execute(
+            $"DELETE FROM [{tableName}] WHERE [ID] = @id;",
+            new { id = clash.Id });
 
-
-
-
-        clashConnection.Execute($@"DELETE FROM {tableName} where id = @id;",
-                                   new { id = clash.Id });
-
-
+        Logger.WriteLine($"Коллизия {clash.Id} удалена без переноса в history: Approve/InWork отсутствуют. Причина: {reason}");
     }
+
+    private static bool HasApproveOrInWork(ClashEntity clash)
+    {
+        return !string.IsNullOrWhiteSpace(clash.InWorkUser)
+            || clash.InWorkDate.HasValue
+            || !string.IsNullOrWhiteSpace(clash.ApproveUser)
+            || clash.ApproveDate.HasValue
+            || !string.IsNullOrWhiteSpace(clash.ApproveReason);
+    }
+
+    private static void MoveClashToHistory(
+        SqlConnection clashConnection,
+        string tableName,
+        int clashId,
+        string historyReason)
+    {
+        string historyTableName = $"{tableName}_his";
+        using SqlTransaction transaction = clashConnection.BeginTransaction();
+
+        try
+        {
+            int insertedCount = clashConnection.Execute(
+                $@"INSERT INTO [{historyTableName}]
+                    (ID, GL, CT, R1, E1, U1, D1, G1,
+                     R2, E2, U2, D2, G2, XT, DT, X0, Y0, Z0,
+                     RT, RU, RD, AU, AD, AR, WU, WD,
+                     HistoryDate, HistoryReason)
+                    SELECT
+                     ID, GL, CT, R1, E1, U1, D1, G1,
+                     R2, E2, U2, D2, G2, XT, DT, X0, Y0, Z0,
+                     RT, RU, RD, AU, AD, AR, WU, WD,
+                     GETDATE(), @historyReason
+                    FROM [{tableName}]
+                    WHERE [ID] = @id;",
+                new { id = clashId, historyReason },
+                transaction);
+
+            if (insertedCount != 1)
+                throw new InvalidOperationException(
+                    $"Коллизия {clashId} не была перенесена в {historyTableName}.");
+
+            int deletedCount = clashConnection.Execute(
+                $"DELETE FROM [{tableName}] WHERE [ID] = @id;",
+                new { id = clashId },
+                transaction);
+
+            if (deletedCount != 1)
+                throw new InvalidOperationException(
+                    $"Коллизия {clashId} не была удалена из {tableName}.");
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
     public bool IsNeedToDeleteClashSimple(ClashEntity clash)
     {
         return !(DbElement.GetElement(clash.FirstElement).IsValid && DbElement.GetElement(clash.SecondElement).IsValid);
@@ -1211,9 +1312,10 @@ public partial class ClashChecker
 
             return false;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return true;
+            Logger.WriteLine($"Ошибка IsClashIgnore: {ex.Message}", LogType.Error);
+            return false;
         }
     }
 
