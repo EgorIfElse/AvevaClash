@@ -11,12 +11,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net.Mail;
 using System.Text;
 using System.Windows;
 using Aveva.Core.Utilities.CommandLine;
-using System.Collections.Generic;
 using CC = global::ClashChecker.ClashChecker;
 //using System.Windows.Forms;
 using PML = Aveva.Core.Utilities.CommandLine.Command;
@@ -84,29 +84,41 @@ namespace ClashViewForm
        
         private HashSet<string> GetCurrentUserDepartments()
         {
-           
-            DbElement ulog = DbElement.GetElement($"/+{MyUlogId}");
+            DbElement ulog = DbElement.GetElement($"/{MyUlogId}");
+            DbAttribute deptAttribute = DbAttribute.GetDbAttribute(":UserDept");
+            string departmentsValue = ulog.GetAsString(deptAttribute) ?? string.Empty;
+            string[] departments = departmentsValue.Split(new[] { ' ', ',', ';', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-            DbAttribute DeptAtt = DbAttribute.GetDbAttribute(":depts");
-            string[] depts = ulog.GetStringArray(DeptAtt);
-            return new HashSet<string>(depts,StringComparer.OrdinalIgnoreCase);
+            return departments.Select(department => department.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
         [PMLNetCallable]
         public DateTime GetZoneLastModified(string zoneRef)
         {
-            var zone = DbElement.GetElement(zoneRef);
-            var lastModifiedAttribute = DbAttribute.GetDbAttribute("lastmod");
-            DateTime lastModified = zone.GetDateTime(lastModifiedAttribute);
+            DbElement zone = DbElement.GetElement(zoneRef);
+            DbAttribute checkAttribute = DbAttribute.GetDbAttribute(":Check");
+            DateTime lastModified = GetAttributeDate(zone, checkAttribute);
 
             foreach (DbElement element in new DBElementCollection(zone).Cast<DbElement>())
             {
-                DateTime elementLastModified = element.GetDateTime(lastModifiedAttribute);
+                DateTime elementLastModified = GetAttributeDate(element, checkAttribute);
+
                 if (elementLastModified > lastModified)
                     lastModified = elementLastModified;
             }
 
             return lastModified;
+        }
+
+        private DateTime GetAttributeDate(DbElement element, DbAttribute attribute)
+        {
+            string dateValue = element.GetAsString(attribute) ?? string.Empty;
+
+            if (DateTime.TryParseExact(dateValue.Trim(), "HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+                return date;
+
+            Logger.WriteLine($"Не удалось преобразовать дату '{dateValue}' элемента {element.Name()}");
+            return DateTime.MinValue;
         }
 
         [PMLNetCallable]
