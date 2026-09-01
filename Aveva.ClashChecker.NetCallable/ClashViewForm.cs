@@ -96,18 +96,26 @@ namespace ClashViewForm
         public DateTime GetZoneLastModified(string zoneRef)
         {
             DbElement zone = DbElement.GetElement(zoneRef);
-            DbAttribute checkAttribute = DbAttribute.GetDbAttribute(":Check");
-            DateTime lastModified = GetAttributeDate(zone, checkAttribute);
+            DbAttribute lastModifiedAttribute = DbAttribute.GetDbAttribute("lastmod");
+            DateTime lastModified = GetAttributeDate(zone, lastModifiedAttribute);
 
             foreach (DbElement element in new DBElementCollection(zone).Cast<DbElement>())
             {
-                DateTime elementLastModified = GetAttributeDate(element, checkAttribute);
+                DateTime elementLastModified = GetAttributeDate(element, lastModifiedAttribute);
 
                 if (elementLastModified > lastModified)
                     lastModified = elementLastModified;
             }
 
             return lastModified;
+        }
+
+        public DateTime GetZoneLastCheck(string zoneRef)
+        {
+            DbElement zone = DbElement.GetElement(zoneRef);
+            DbAttribute lastCheckAttribute = DbAttribute.GetDbAttribute(":Check");
+
+            return GetAttributeDate(zone, lastCheckAttribute);
         }
 
         private DateTime GetAttributeDate(DbElement element, DbAttribute attribute)
@@ -182,9 +190,8 @@ namespace ClashViewForm
             PML.CreateCommand($"$p Из зоны {zoneRef} удалено {notExistingClashes.Count} несуществующих коллизий").RunInPdms();
 
             DateTime checkDate = DateTime.Now;
-            zone.SetAttribute(
-                DbAttribute.GetDbAttribute(":Lastchek"),
-                checkDate);
+            string checkDateValue = checkDate.ToString("HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture);
+            zone.SetAttribute(DbAttribute.GetDbAttribute(":Check"), checkDateValue);
 
             UpdateZoneList();
 
@@ -305,16 +312,8 @@ namespace ClashViewForm
                 return false;
             }
 
-            DateTime lastCheck;
-            try
-            {
-                lastCheck = zone.GetDateTime(
-                    DbAttribute.GetDbAttribute(":Lastchek"));
-            }
-            catch
-            {
-                return false;
-            }
+            DateTime lastCheck = GetZoneLastCheck(zoneRef);
+            if (lastCheck == DateTime.MinValue) return false;
 
             DateTime zoneLastModified = GetZoneLastModified(zoneRef);
             if (lastCheck < zoneLastModified) return false;

@@ -293,7 +293,7 @@ public partial class MainWindow : Window
 
         try
         {
-            DateTime lastCheck = zone.GetDateTime(DbAttribute.GetDbAttribute(":Lastchek"));
+            DateTime lastCheck = logic.GetZoneLastCheck(CurrZone);
 
             if (lastCheck != DateTime.MinValue)
             {
@@ -312,7 +312,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.WriteLine(
-                $"Не удалось получить :Lastchek зоны {CurrZone}: {ex.Message}");
+                $"Не удалось получить :Check зоны {CurrZone}: {ex.Message}");
         }
     }
 
