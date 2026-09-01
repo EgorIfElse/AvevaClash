@@ -15,6 +15,7 @@ using System.Linq;
 using System.Net.Mail;
 using System.Text;
 using System.Windows;
+using Aveva.Core.Utilities.CommandLine;
 using System.Collections.Generic;
 using CC = global::ClashChecker.ClashChecker;
 //using System.Windows.Forms;
@@ -163,7 +164,7 @@ namespace ClashViewForm
                                                                             .ToList();
             foreach (var clash in notExistingClashes)
             {
-                checker.DeleteById(clashConnection, clashTableName, clash, "AfterCheckZONE", ".CheckZone: коллизия больше не относится к зоне и удалена после проверки");
+                checker.DeleteById(clashConnection, clashTableName, clash, ".CheckZone: коллизия больше не относится к зоне и удалена после проверки");
             }
 
             PML.CreateCommand($"$p Из зоны {zoneRef} удалено {notExistingClashes.Count} несуществующих коллизий").RunInPdms();
