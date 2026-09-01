@@ -38,6 +38,19 @@
             <Setter Property="Padding" Value="12,6"/>
         </Style>
 
+        <!-- Разделитель между группами элементов коллизии -->
+        <Style x:Key="GroupEndHeaderStyle"
+               TargetType="DataGridColumnHeader"
+               BasedOn="{StaticResource BaseColumnHeaderStyle}">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        </Style>
+
+        <Style x:Key="GroupEndCellStyle" TargetType="DataGridCell">
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        </Style>
+
         <!-- Прогрессбар карточек -->
         <Style x:Key="ModernProgressBar" TargetType="ProgressBar">
             <Setter Property="Height" Value="5"/>
@@ -70,11 +83,11 @@
             <Setter Property="MinWidth" Value="120"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="Background" Value="White"/>
-
-            <Setter Property="BorderBrush" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -91,12 +104,17 @@
 
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1D4ED8"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1D4ED8"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#EFF6FF"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#2563EB"/>
                             </Trigger>
 
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1E40AF"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#DBEAFE"/>
+                            </Trigger>
+
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -114,6 +132,50 @@
 
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Переключатель дополнительных столбцов -->
+        <Style x:Key="SwitchToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="44" Height="24">
+                            <Border x:Name="Track"
+                                    Background="#D1D5DB"
+                                    CornerRadius="12"/>
+                            <Ellipse x:Name="Thumb"
+                                     Width="20"
+                                     Height="20"
+                                     Margin="2"
+                                     Fill="White"
+                                     HorizontalAlignment="Left"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track"
+                                        Property="Background"
+                                        Value="#3B82F6"/>
+                                <Setter TargetName="Thumb"
+                                        Property="HorizontalAlignment"
+                                        Value="Right"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Track"
+                                        Property="Opacity"
+                                        Value="0.45"/>
+                                <Setter TargetName="Thumb"
+                                        Property="Opacity"
+                                        Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </Window.Resources>
@@ -145,19 +207,13 @@
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
-                           Text="Зона"
-                           VerticalAlignment="Center"
-                           Margin="0,0,10,0"
-                           FontSize="13"
-                           FontWeight="SemiBold" Height="18"/>
-
                 <!-- ComboBox с иконкой -->
-                <Border
+                <Border Grid.Column="0"
+                        Grid.ColumnSpan="2"
                         CornerRadius="8"
                         Background="White"
                         BorderBrush="#D1D5DB"
-                        BorderThickness="1" Grid.ColumnSpan="2" Margin="69,0,0,0">
+                        BorderThickness="1">
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -168,7 +224,7 @@
                         <materialDesign:PackIcon Kind="PackageVariantClosed"
                                                  Width="18"
                                                  Height="18"
-                                                 
+                                                 Foreground="#3B82F6"
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"/>
 
@@ -182,12 +238,12 @@
                                   StaysOpenOnEdit="True"
                                   Padding="0,4,8,4"
                                   FontWeight="SemiBold"
-                                  Foreground="#111827"
+                                  Foreground="#64748B"
                                   SelectionChanged="CbZone_SelectionChanged"
                                   BorderBrush="Transparent"
                                   BorderThickness="0"
                                   Background="Transparent"
-                                  FontSize="13"
+                                  FontSize="12"
                                   VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
@@ -195,19 +251,113 @@
                 <!-- Обновить -->
                 <Button Grid.Column="3"
                         Style="{StaticResource PrimaryButtonStyle}"
-                        Click="BtnRefresh_Click" Margin="10,0,17,0">
-
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="RefreshCircle"
-                                                 Width="16"
-                                                 Height="16"
-                                                 Margin="0,0,7,0"
-                                                 VerticalAlignment="Center"/>
-
-                        <TextBlock Text="Обновить"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
+                        Width="36"
+                        MinWidth="36"
+                        Padding="0"
+                        Margin="10,0,17,0"
+                        ToolTip="Обновить"
+                        Click="BtnRefresh_Click">
+                    <materialDesign:PackIcon Kind="RefreshCircle"
+                                             Width="18"
+                                             Height="18"
+                                             Foreground="#3B82F6"
+                                             VerticalAlignment="Center"/>
                 </Button>
+
+                <StackPanel Grid.Column="4"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                    <Border Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="10,6"
+                            MinWidth="165"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon x:Name="LastCheckIcon"
+                                                     Kind="Calendar"
+                                                     Width="20"
+                                                     Height="20"
+                                                     Foreground="#3B82F6"
+                                                     Margin="0,0,9,0"
+                                                     VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Дата проверки"
+                                           Foreground="#64748B"
+                                           FontSize="12"/>
+                                <TextBlock x:Name="TxtLastCheck"
+                                           Text="—"
+                                           Foreground="#3B82F6"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="10,6"
+                            MinWidth="210"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Account"
+                                                     Width="20"
+                                                     Height="20"
+                                                     Foreground="#3B82F6"
+                                                     Margin="0,0,9,0"
+                                                     VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Разработчик"
+                                           Foreground="#64748B"
+                                           FontSize="12"/>
+                                <TextBlock x:Name="TxtDesigner"
+                                           Text="—"
+                                           Foreground="#3B82F6"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <Border Grid.Column="4"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Background="#F8FAFC"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="7"
+                        Padding="10,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="TxtToggleColumns"
+                                   Text="Доп. столбцы"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#64748B"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=ToggleColumns}"
+                                                     Value="True">
+                                            <Setter Property="Foreground" Value="#3B82F6"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ToggleButton x:Name="ToggleColumns"
+                                      Style="{StaticResource SwitchToggleButtonStyle}"
+                                      IsChecked="False"
+                                      Click="ToggleColumns_Click"
+                                      ToolTip="Показать или скрыть дополнительные столбцы"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -240,7 +390,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Width="48" Height="48" CornerRadius="12" Background="#2F6FED">
+                                <Border Width="48" Height="48" CornerRadius="12" Background="#3B82F6">
                                     <materialDesign:PackIcon Kind="LayersSearch"
                                                              Width="24"
                                                              Height="24"
@@ -250,7 +400,8 @@
                                 </Border>
 
                                 <TextBlock Grid.Column="1"
-                                           Text="Всего"
+                                           Text="Всего коллизий"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -273,11 +424,12 @@
                                 <ProgressBar x:Name="PbAll"
                                              Style="{StaticResource ModernProgressBar}"
                                              Value="100"
-                                             Foreground="#2F6FED"/>
+                                             Foreground="#3B82F6"/>
 
                                 <TextBlock x:Name="TxtPercentAll"
                                            Grid.Column="1"
                                            Text="100%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -305,7 +457,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Width="48" Height="48" CornerRadius="12" Background="#22C55E">
+                                <Border Width="48" Height="48" CornerRadius="12" Background="#64748B">
                                     <materialDesign:PackIcon Kind="NewBox"
                                                              Width="24"
                                                              Height="24"
@@ -316,6 +468,7 @@
 
                                 <TextBlock Grid.Column="1"
                                            Text="Новые"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -338,11 +491,12 @@
                                 <ProgressBar x:Name="PbNew"
                                              Style="{StaticResource ModernProgressBar}"
                                              Value="0"
-                                             Foreground="#22C55E"/>
+                                             Foreground="#64748B"/>
 
                                 <TextBlock x:Name="TxtPercentNew"
                                            Grid.Column="1"
                                            Text="0%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -370,7 +524,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Width="48" Height="48" CornerRadius="12" Background="#60A5FA">
+                                <Border Width="48" Height="48" CornerRadius="12" Background="#F59E0B">
                                     <materialDesign:PackIcon Kind="SendCheck"
                                                              Width="24"
                                                              Height="24"
@@ -381,6 +535,7 @@
 
                                 <TextBlock Grid.Column="1"
                                            Text="Отправлено"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -403,11 +558,12 @@
                                 <ProgressBar x:Name="PbSend"
                                              Style="{StaticResource ModernProgressBar}"
                                              Value="0"
-                                             Foreground="#60A5FA"/>
+                                             Foreground="#F59E0B"/>
 
                                 <TextBlock x:Name="TxtPercentSend"
                                            Grid.Column="1"
                                            Text="0%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -435,7 +591,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Width="48" Height="48" CornerRadius="12" Background="#F59E0B">
+                                <Border Width="48" Height="48" CornerRadius="12" Background="#3B82F6">
                                     <materialDesign:PackIcon Kind="Wrench"
                                                              Width="24"
                                                              Height="24"
@@ -446,6 +602,7 @@
 
                                 <TextBlock Grid.Column="1"
                                            Text="В работе"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -468,11 +625,12 @@
                                 <ProgressBar x:Name="PbInWork"
                                              Style="{StaticResource ModernProgressBar}"
                                              Value="0"
-                                             Foreground="#F59E0B"/>
+                                             Foreground="#3B82F6"/>
 
                                 <TextBlock x:Name="TxtPercentInWork"
                                            Grid.Column="1"
                                            Text="0%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -511,6 +669,7 @@
 
                                 <TextBlock Grid.Column="1"
                                            Text="Согласовано"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -538,6 +697,7 @@
                                 <TextBlock x:Name="TxtPercentApprove"
                                            Grid.Column="1"
                                            Text="0%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -576,6 +736,7 @@
 
                                 <TextBlock Grid.Column="1"
                                            Text="Просрочено"
+                                           Foreground="#64748B"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            VerticalAlignment="Top"
@@ -603,6 +764,7 @@
                                 <TextBlock x:Name="TxtPercentAllert"
                                            Grid.Column="1"
                                            Text="0%"
+                                           Foreground="#64748B"
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Right"
@@ -625,6 +787,7 @@
                   IsReadOnly="True"
                   SelectionMode="Extended"
                   SelectionUnit="FullRow"
+                  FrozenColumnCount="2"
                   HeadersVisibility="Column"
                   RowHeight="30"
                   FontSize="12"
@@ -644,6 +807,11 @@
                   SelectionChanged="DgClashes_SelectionChanged">
 
             <DataGrid.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                                 Color="#EFF6FF"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
+                                 Color="#2F343B"/>
+
                 <Style TargetType="TextBlock">
                     <Setter Property="TextAlignment" Value="Center"/>
                     <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -659,22 +827,23 @@
                     <Setter Property="BorderThickness" Value="0"/>
 
                     <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F3F6FA"/>
-                        </Trigger>
-
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#DCEBFA"/>
-                            <Setter Property="Foreground" Value="#1F2937"/>
-                        </Trigger>
-
                         <DataTrigger Binding="{Binding ApproveUser}" Value="{x:Null}">
                             <Setter Property="Background" Value="#F7F3E8"/>
                         </DataTrigger>
 
                         <DataTrigger Binding="{Binding Existing}" Value="False">
-                            <Setter Property="Background" Value="#FFBD2828"/>
+                            <Setter Property="Background" Value="#FEF2F2"/>
+                            <Setter Property="Foreground" Value="#B91C1C"/>
                         </DataTrigger>
+
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#F8FAFC"/>
+                        </Trigger>
+
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#EFF6FF"/>
+                            <Setter Property="Foreground" Value="#2F343B"/>
+                        </Trigger>
                     </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
@@ -691,59 +860,93 @@
 
             <DataGrid.Columns>
 
-                <DataGridTextColumn Binding="{Binding Id}"
-                                    Width="SizeToHeader"
-                                    Foreground="#FFBD2828"
-                                    ElementStyle="{StaticResource CenterTextStyle}">
-                    <DataGridTextColumn.Header>
-                        <TextBlock Text="ID" ToolTip="порядковый номер"/>
-                    </DataGridTextColumn.Header>
-                </DataGridTextColumn>
-                <DataGridTemplateColumn Header="Статус" Width="120">
+                <DataGridTemplateColumn Header="Статус" Width="190">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
 
                             <Border x:Name="StatusBorder"
-                    Padding="10,3"
-                    CornerRadius="10">
+                                    Padding="10,3"
+                                    CornerRadius="10"
+                                    Background="#F1F5F9">
 
-                                <TextBlock x:Name="StatusText"
-                           Text="{Binding Status}"
-                           HorizontalAlignment="Center"
-                           FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal"
+                                            HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon x:Name="StatusIcon"
+                                                             Kind="CircleMedium"
+                                                             Width="14"
+                                                             Height="14"
+                                                             Margin="0,0,5,0"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="#64748B"/>
+
+                                    <TextBlock x:Name="StatusText"
+                                               Text="{Binding Status}"
+                                               VerticalAlignment="Center"
+                                               Foreground="#64748B"
+                                               FontWeight="SemiBold"/>
+
+                                    <TextBlock Text="{Binding StatusAge}"
+                                               Margin="5,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, ElementName=StatusText}"
+                                               FontSize="10"
+                                               Opacity="0.75">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
 
                             </Border>
 
                             <DataTemplate.Triggers>
 
                                 <DataTrigger Binding="{Binding Status}" Value="Новая">
-                                    <Setter TargetName="StatusBorder" Property="Background" Value="#DFF7E8"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#10B981"/>
+                                    <Setter TargetName="StatusBorder" Property="Background" Value="#F1F5F9"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#64748B"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="CircleMedium"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#64748B"/>
                                 </DataTrigger>
 
                                 <DataTrigger Binding="{Binding Status}" Value="Отправлено">
-                                    <Setter TargetName="StatusBorder" Property="Background" Value="#DBEAFE"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#2563EB"/>
+                                    <Setter TargetName="StatusBorder" Property="Background" Value="#FFFBEB"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#F59E0B"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="SendCheck"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#F59E0B"/>
                                 </DataTrigger>
 
                                 <DataTrigger Binding="{Binding Status}" Value="В работе">
-                                    <Setter TargetName="StatusBorder" Property="Background" Value="#FEF3C7"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#D97706"/>
+                                    <Setter TargetName="StatusBorder" Property="Background" Value="#EFF6FF"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#3B82F6"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="Wrench"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#3B82F6"/>
                                 </DataTrigger>
 
                                 <DataTrigger Binding="{Binding Status}" Value="Согласовано">
                                     <Setter TargetName="StatusBorder" Property="Background" Value="#DCFCE7"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#16A34A"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#10B981"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="CheckCircle"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#10B981"/>
                                 </DataTrigger>
 
-                                <DataTrigger Binding="{Binding Status}" Value="Запрос просрочен">
+                                <DataTrigger Binding="{Binding Status}" Value="Просрочен запрос">
                                     <Setter TargetName="StatusBorder" Property="Background" Value="#FEE2E2"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#DC2626"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#EF4444"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="ClockAlert"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#EF4444"/>
                                 </DataTrigger>
 
-                                <DataTrigger Binding="{Binding Status}" Value="Работа просрочена">
+                                <DataTrigger Binding="{Binding Status}" Value="Просрочена работа">
                                     <Setter TargetName="StatusBorder" Property="Background" Value="#FEE2E2"/>
-                                    <Setter TargetName="StatusText" Property="Foreground" Value="#DC2626"/>
+                                    <Setter TargetName="StatusText" Property="Foreground" Value="#EF4444"/>
+                                    <Setter TargetName="StatusIcon" Property="Kind" Value="ClockAlert"/>
+                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#EF4444"/>
                                 </DataTrigger>
 
                             </DataTemplate.Triggers>
@@ -752,134 +955,143 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <DataGridTextColumn Binding="{Binding Id}"
+                                    Width="SizeToHeader"
+                                    Foreground="#64748B"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="ID" ToolTip="порядковый номер"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
 
-                <DataGridTextColumn Binding="{Binding Building}"
+
+                <DataGridTextColumn x:Name = "GL"
+                                    Binding="{Binding Building}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="GL" ToolTip="здание/сооружение"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <!--<DataGridTextColumn
+                <DataGridTextColumn x:Name = "CT"
+                                    Visibility="Collapsed"
                                     Binding="{Binding FirstElement}" 
-                                    HeaderStyle="{StaticResource  HeaderGroup1Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                         <DataGridTextColumn.Header>
                         <TextBlock Text="CT" ToolTip="тип коллизии"/>
                         </DataGridTextColumn.Header>
                     </DataGridTextColumn>
-                    -->
+                    
 
 
-                <DataGridTextColumn
+                <DataGridTextColumn x:Name = "R1"
                                     Binding="{Binding FirstElement}" 
-                                    
                                     ElementStyle="{StaticResource CenterTextStyle}"
                                     Width="SizeToHeader">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="R1" ToolTip="уникальный ключ 1-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <!-- <DataGridTextColumn 
+                <DataGridTextColumn x:Name = "E1"
+                                    Visibility="Collapsed"
                                     Binding="{Binding FirstType}"
                                     SortMemberPath="FirstUserMode"
-                                    HeaderStyle="{StaticResource  HeaderGroup1Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="E1 " ToolTip="тип 1-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                -->
-                <DataGridTextColumn 
+               
+                <DataGridTextColumn x:Name = "U1"
                                     Binding="{Binding FirstUserMode}" 
-                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="U1" ToolTip="проектировщик 1-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "D1"
                                     Binding="{Binding FirstDept}" 
-                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="D1" ToolTip="подразделение 1-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "G1"
                                     Binding="{Binding FirstZone}"
-                                   
                                     Width="SizeToHeader"
+                                    HeaderStyle="{StaticResource GroupEndHeaderStyle}"
+                                    CellStyle="{StaticResource GroupEndCellStyle}"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="G1" ToolTip="Зона первого элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn
-                                   Binding="{Binding SecondElement}" 
-                                   
-                                   ElementStyle="{StaticResource CenterTextStyle}"
-                                   Width="SizeToHeader">
+                <DataGridTextColumn x:Name = "R2"
+                                    Binding="{Binding SecondElement}" 
+                                    ElementStyle="{StaticResource CenterTextStyle}"
+                                    Width="SizeToHeader">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="R1" ToolTip="уникальный ключ 2-го элемента коллизии"/>
+                        <TextBlock Text="R2" ToolTip="уникальный ключ 2-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <!--
-                <DataGridTextColumn 
+                
+                <DataGridTextColumn x:Name = "E2"
+                                    Visibility="Collapsed"
                                    Binding="{Binding SecondType}"
                                    SortMemberPath="FirstUserMode"
-                                   HeaderStyle="{StaticResource  HeaderGroup1Style}"
+                                   HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                    Width="SizeToHeader"
                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="E1 " ToolTip="тип 2-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                -->
-                <DataGridTextColumn 
+              
+                <DataGridTextColumn x:Name = "U2"
                                     Binding="{Binding SecondUserMode}" 
-                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="U1" ToolTip="проектировщик 2-го элемента коллизии"/>
+                        <TextBlock Text="U2" ToolTip="проектировщик 2-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "D2"
                                     Binding="{Binding SecondDept}" 
-                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="D1" ToolTip="подразделение 2-го элемента коллизии"/>
+                        <TextBlock Text="D2" ToolTip="подразделение 2-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "G2"
                                     Binding="{Binding SecondZone}"
-                                    
                                     Width="SizeToHeader"
+                                    HeaderStyle="{StaticResource GroupEndHeaderStyle}"
+                                    CellStyle="{StaticResource GroupEndCellStyle}"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="G2" ToolTip="Зона второго элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "XT"
                                     Binding="{Binding Existing}"
-                                    
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="XT" ToolTip="наличие коллизии на момент проверки"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <!--
-                <DataGridTextColumn 
+                
+                <DataGridTextColumn x:Name = "DT"
+                                    Visibility="Collapsed"
                                     Binding="{Binding Date}"
-                                    HeaderStyle="{StaticResource  HeaderGroup2Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -887,44 +1099,46 @@
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                
-                <DataGridTextColumn 
+                <DataGridTextColumn x:Name = "X0"
+                                    Visibility="Collapsed"
                                     Binding="{Binding x}"
-                                    HeaderStyle="{StaticResource  HeaderGroup2Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="XO" ToolTip="позиция X коллизии в координатах от нуля площадки"/>
+                        <TextBlock Text="X0" ToolTip="позиция X коллизии в координатах от нуля площадки"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "Y0"
+                                    Visibility="Collapsed"
                                     Binding="{Binding Y}" 
-                                    HeaderStyle="{StaticResource  HeaderGroup2Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="YO" ToolTip="позиция Y коллизии в координатах от нуля площадки"/>
+                        <TextBlock Text="Y0" ToolTip="позиция Y коллизии в координатах от нуля площадки"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn  x:Name = "Z0"
+                                     Visibility="Collapsed"
                                     Binding="{Binding Z}" 
-                                    HeaderStyle="{StaticResource  HeaderGroup2Style}"
+                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="ZO" ToolTip="позиция Z коллизии в координатах от нуля площадки"/>
+                        <TextBlock Text="Z0" ToolTip="позиция Z коллизии в координатах от нуля площадки"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                 -->
-                <DataGridTextColumn
+                 
+                <DataGridTextColumn x:Name = "RT"
                                     Binding="{Binding RequestToDept}" 
-                                    
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="RT" ToolTip="запрос на согласование коллизии в отдел"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
+                <DataGridTextColumn x:Name = "RU"
                                     Binding="{Binding RequestUser}" 
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
@@ -932,52 +1146,52 @@
                         <TextBlock Text="RU" ToolTip="кто запрашивает согласование"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
-                                   Binding="{Binding RequestDate}" 
-                                   Width="Auto"
-                                   ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn x:Name = "RD"
+                                    Binding="{Binding RequestDate}" 
+                                    Width="Auto"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="RD" ToolTip="дата/время запроса на согласование"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
-                              Binding="{Binding ApproveUser}" 
-                              Width="Auto"
-                              ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn  x:Name = "AU"
+                                     Binding="{Binding ApproveUser}" 
+                                     Width="Auto"
+                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="AU" ToolTip="проектировщик, согласовавший коллизию"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
 
-                <DataGridTextColumn  
-                              Binding="{Binding ApproveDate}" 
-                              Width="Auto"
-                              ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn  x:Name = "AD"
+                                     Binding="{Binding ApproveDate}" 
+                                     Width="Auto"
+                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="AD" ToolTip="дата/время согласования коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
 
-                <DataGridTextColumn  
-                          Binding="{Binding ApproveReason}" 
-                          Width="Auto"
-                          ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn x:Name = "AR"
+                                    Binding="{Binding ApproveReason}" 
+                                    Width="Auto"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="AR" ToolTip="причина согласования коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
-                          Binding="{Binding InWorkUser}" 
-                          Width="Auto"
-                          ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn  x:Name = "WU"
+                                     Binding="{Binding InWorkUser}" 
+                                     Width="Auto"
+                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="WU" ToolTip="проектировщик, взявший коллизию в работу"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
-                <DataGridTextColumn  
-                        Binding="{Binding InWorkDate}" 
-                        Width="Auto"
-                        ElementStyle="{StaticResource CenterTextStyle}">
+                <DataGridTextColumn x:Name = "WD"
+                                    Binding="{Binding InWorkDate}" 
+                                    Width="Auto"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="WD " ToolTip="дата/время взятия коллизии в работу"/>
                     </DataGridTextColumn.Header>
@@ -995,33 +1209,16 @@
                 Padding="10,8"
                 Margin="0,10,0,0">
 
-            <DockPanel LastChildFill="False">
-                <TextBlock x:Name="TbStatus"
-                       DockPanel.Dock="Left"
-                       Grid.Column="0"
-                       Foreground="#6B7280"
-                       FontSize="12"/>
-                <TextBlock x:Name="TxtSelectedCount"
-                           DockPanel.Dock="Left"
-                           Text="Выбрано: 0 коллизий"
-                           VerticalAlignment="Center"
-                           Foreground="#374151"
-                           FontSize="12"
-                           Margin="16,0,10,0"/>
-                <Button x:Name="BtnShowElements"
-                        DockPanel.Dock="Left"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        Click="BtnShowElements_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="CubeOutline"
-                                                 Width="18"
-                                                 Height="18"
-                                                 Margin="0,0,6,0"
-                                                 VerticalAlignment="Center"/>
-                        <TextBlock Text="Показать элементы"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
                 <Border x:Name="Indicator"
                         Width="18"
                         Height="18"
@@ -1029,11 +1226,38 @@
                         Background="#D1d5db"
                         BorderBrush="#BFC6CE"
                         BorderThickness="1"
-                        Margin="10"/>
+                        Margin="0,0,10,0"/>
+                <TextBlock x:Name="TxtCheckStatus"
+                           Text="Статус проверки не определён"
+                           VerticalAlignment="Center"
+                           Foreground="#64748B"
+                           FontSize="12"
+                           Margin="0,0,16,0"/>
+                <TextBlock x:Name="TxtSelectedCount"
+                            Text="Выбрано: 0 коллизий"
+                            VerticalAlignment="Center"
+                            Foreground="#64748B"
+                            FontSize="12"
+                            Margin="0,0,10,0"/>
+                <Button x:Name="BtnShowElements"
+                         Style="{StaticResource PrimaryButtonStyle}"
+                         IsEnabled="False"
+                         Width="36"
+                         MinWidth="36"
+                         Padding="0"
+                         ToolTip="Показать элементы"
+                         Click="BtnShowElements_Click">
+                    <materialDesign:PackIcon Kind="CubeOutline"
+                                             Width="18"
+                                             Height="18"
+                                             Foreground="#3B82F6"
+                                             VerticalAlignment="Center"/>
+                </Button>
+                </StackPanel>
 
 
 
-                <StackPanel DockPanel.Dock="Right"
+                <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right">
 
@@ -1045,7 +1269,7 @@
                             <materialDesign:PackIcon Kind="CheckAll"
                                          Width="24"
                                          Height="24"
-                                         Foreground="Black"
+                                         Foreground="#3B82F6"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"/>
                             <TextBlock Text="Проверить"
@@ -1056,12 +1280,13 @@
 
                     <Button x:Name="BtnApprove"
                             Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
                             Click="BtnApprove_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="TagApprove"
                                                               Width="24"
                                                               Height="24"
-                                                              Foreground="Black"
+                                                              Foreground="#3B82F6"
                                                               HorizontalAlignment="Center"
                                                               VerticalAlignment="Center"/>
                             <TextBlock Text="Согласовать"
@@ -1072,12 +1297,13 @@
 
                     <Button x:Name="BtnTakeInWork"
                             Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
                             Click="BtnTakeInWork_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="TaskPlus"
                                           Width="24"
                                           Height="24"
-                                          Foreground="Black"
+                                          Foreground="#3B82F6"
                                           HorizontalAlignment="Center"
                                           VerticalAlignment="Center"/>
                             <TextBlock Text="Принять в работу "
@@ -1088,12 +1314,13 @@
 
                     <Button x:Name="BtnRequest"
                             Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
                             Click="BtnRequest_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="SendCircleOutline"
                            Width="24"
                            Height="24"
-                           Foreground="Black"
+                           Foreground="#3B82F6"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
                             <TextBlock Text="Отправить запрос "
@@ -1104,6 +1331,9 @@
 
                     <Button x:Name="BtnReject"
                             Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
+                            Background="White"
+                            BorderBrush="#DC2626"
                             Click="BtnReject_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Close"
@@ -1118,7 +1348,7 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
-            </DockPanel>
+            </Grid>
         </Border>
         <Grid x:Name="ApproveOverlay"
               Visibility="Collapsed"

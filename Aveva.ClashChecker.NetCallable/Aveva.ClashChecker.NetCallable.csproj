@@ -8,6 +8,7 @@
 		<Nullable>Enable</Nullable>
 		<Platforms>AnyCPU;x86</Platforms>
 		<CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == '' and Exists('\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS')">\\KPEI-MSK-HQ-AVEVA-FS01\Share\AVEVA\AVEVADLL\CLS</CompanyReferencesPath>
+		<CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == '' and Exists('C:\Program Files (x86)\AVEVA\Everything3D2.10\Aveva.Core.Database.dll')">C:\Program Files (x86)\AVEVA\Everything3D2.10</CompanyReferencesPath>
 		<CompanyReferencesPath Condition="'$(CompanyReferencesPath)' == ''">$(MSBuildThisFileDirectory)..\References</CompanyReferencesPath>
 	</PropertyGroup>
 	<PropertyGroup>

@@ -33,7 +33,8 @@ public record ClashEntity
     public string ApproveReason { get; set; } = "";
     public string InWorkUser { get; set; } = "";
     public DateTime? InWorkDate { get; set; }
-    public string Status { get; set; }
+    public string Status { get; set; } = "";
+    public string StatusAge { get; set; } = "";
 
 }
 

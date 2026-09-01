@@ -253,11 +253,76 @@ public partial class MainWindow : Window
         {
             string selectedZone = CbZone.SelectedValue.ToString();
             CurrZone = selectedZone;
+            UpdateZoneInfo();
         }
        
 
             Refresh();
        
+    }
+
+    private void UpdateZoneInfo()
+    {
+        TxtLastCheck.Text = "—";
+        TxtDesigner.Text = "—";
+        SetLastCheckColor(0x64, 0x74, 0x8B);
+
+        if (string.IsNullOrWhiteSpace(CurrZone)
+            || CurrZone == "ALL"
+            || CurrZone == "CE")
+        {
+            return;
+        }
+
+        DbElement zone = DbElement.GetElement(CurrZone);
+        if (zone.IsNull || !zone.IsValid)
+            return;
+
+        try
+        {
+            string designer = zone.GetAsString(DbAttribute.GetDbAttribute(":Designer"));
+
+            if (!string.IsNullOrWhiteSpace(designer))
+                TxtDesigner.Text = designer;
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteLine(
+                $"Не удалось получить :Designer зоны {CurrZone}: {ex.Message}");
+        }
+
+        try
+        {
+            DateTime lastCheck = zone.GetDateTime(DbAttribute.GetDbAttribute(":Lastchek"));
+
+            if (lastCheck != DateTime.MinValue)
+            {
+                TxtLastCheck.Text = $"{lastCheck:dd.MM.yyyy HH:mm}";
+
+                DateTime lastModified = logic.GetZoneLastModified(CurrZone);
+                bool isActual = lastCheck >= lastModified
+                    && (DateTime.Now - lastCheck).TotalDays <= 2;
+
+                if (isActual)
+                    SetLastCheckColor(0x3B, 0x82, 0xF6);
+                else
+                    SetLastCheckColor(0xEF, 0x44, 0x44);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteLine(
+                $"Не удалось получить :Lastchek зоны {CurrZone}: {ex.Message}");
+        }
+    }
+
+    private void SetLastCheckColor(byte red, byte green, byte blue)
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(red, green, blue));
+
+        LastCheckIcon.Foreground = brush;
+        TxtLastCheck.Foreground = brush;
     }
 
     //  private void LoadClashEntity(string zoneRef)
@@ -397,6 +462,7 @@ public partial class MainWindow : Window
 
         logic.CheckZone(CurrZone, true);
 
+        UpdateZoneInfo();
         Refresh();
     }
     private void BtnApprove_Click(object sender, RoutedEventArgs e)
@@ -454,8 +520,10 @@ public partial class MainWindow : Window
             var ApproveReason = item.ApproveReason;
             var InWorkUser = item.InWorkUser;
             var InWorkDate = item.InWorkDate;
-            
-            bool isMyDept = RequestToDept == MyDept || Dept1 == MyDept || Dept2 == MyDept || MyDept == "SYSTEM";
+
+            bool hasRequest = !string.IsNullOrWhiteSpace(item.RequestUser) || item.RequestDate != null || !string.IsNullOrWhiteSpace(RequestToDept);
+            bool isInternalDepartmentClash = string.Equals(Dept1, Dept2, StringComparison.OrdinalIgnoreCase);
+            bool isMyDept = hasRequest ? HasDepartmentAccess(RequestToDept) : isInternalDepartmentClash && HasDepartmentAccess(Dept1);
             bool hasApprove = !string.IsNullOrWhiteSpace(ApproveUser) || ApproveDate != null || !string.IsNullOrWhiteSpace(ApproveReason);
             bool hasInWork = !string.IsNullOrWhiteSpace(InWorkUser) || InWorkDate != null;
 
@@ -477,13 +545,6 @@ public partial class MainWindow : Window
             }
         }
 
-       // var Reason = Microsoft.VisualBasic.Interaction.InputBox("Введите причину согласования", "Согласование", "Допустимая коллизия");
-       // if (Reason.Length < 5)
-       // {
-       //     System.Windows.MessageBox.Show("Согласование отменено. Причина согласования не может быть менее 5 символов");
-       //     return;
-       // }
-
         var Ids = new List<int>();
         var idsWithRequest = new List<int>();
         var idsWithNotRequest = new List<int>();
@@ -491,8 +552,7 @@ public partial class MainWindow : Window
         {
             var Id = item.Id;
             bool hasRequest = !string.IsNullOrWhiteSpace(item.RequestUser) || item.RequestDate != null || !string.IsNullOrWhiteSpace(item.RequestToDept);
-            // bool hasNoRequest = !string.IsNullOrWhiteSpace(item.RequestUser)|| item.RequestDate == null || !string.IsNullOrWhiteSpace(item.RequestToDept);
-            bool isMyDept = item.FirstDept == MyDept && item.SecondDept == MyDept;
+            bool isMyDept = string.Equals(item.FirstDept, item.SecondDept,StringComparison.OrdinalIgnoreCase) && HasDepartmentAccess(item.FirstDept);
 
 
             if (hasRequest)
@@ -593,8 +653,7 @@ public partial class MainWindow : Window
 
             bool hasApprove = !string.IsNullOrWhiteSpace(ApproveUser) || ApproveDate != null || !string.IsNullOrWhiteSpace(ApproveReason);
             bool hasInWork = !string.IsNullOrWhiteSpace(InWorkUser) || InWorkDate != null;
-            //bool canTakeInWork = (item.RequestToDept == MyDept || MyDept == "SYSTEM") && !string.IsNullOrWhiteSpace(item.RequestUser) && item.RequestDate != null && (string.IsNullOrWhiteSpace(item.ApproveUser) && item.ApproveDate == null && string.IsNullOrWhiteSpace(item.ApproveReason));
-            if (item.RequestToDept != MyDept && MyDept != "SYSTEM")
+            if (!HasDepartmentAccess(item.RequestToDept))
             {
                 System.Windows.MessageBox.Show($"взять в работу можно только колиизии по которым есть запрос в ваш отдел (колонка RequestTo) (Id={Id})");
                 return;
@@ -987,8 +1046,42 @@ public partial class MainWindow : Window
     }
     private void DgClashes_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        TxtSelectedCount.Text =
-            $"Выбрано: {DgClashes.SelectedItems.Count} коллизий";
+        TxtSelectedCount.Text = GetSelectedClashesText(DgClashes.SelectedItems.Count);
+        UpdateActionButtonsState();
+    }
+
+    private string GetSelectedClashesText(int count)
+    {
+        int lastTwoDigits = count % 100;
+        int lastDigit = count % 10;
+
+        if (lastTwoDigits >= 11 && lastTwoDigits <= 14)
+            return $"Выбрано: {count} коллизий";
+
+        switch (lastDigit)
+        {
+            case 1:
+                return $"Выбрана: {count} коллизия";
+
+            case 2:
+            case 3:
+            case 4:
+                return $"Выбрано: {count} коллизии";
+
+            default:
+                return $"Выбрано: {count} коллизий";
+        }
+    }
+
+    private void UpdateActionButtonsState()
+    {
+        bool hasSelection = DgClashes.SelectedItems.Count > 0;
+
+        BtnShowElements.IsEnabled = hasSelection;
+        BtnRequest.IsEnabled = hasSelection;
+        BtnReject.IsEnabled = hasSelection;
+        BtnTakeInWork.IsEnabled = hasSelection;
+        BtnApprove.IsEnabled = hasSelection;
     }
     private void Refresh()
     {
@@ -1001,14 +1094,13 @@ public partial class MainWindow : Window
             LoadZone();
             if (CbZone.SelectedItem == null) return;
             var clashes = logic.Show(ClashTableName, CurrZone);
-
-            
-            DgClashes.ItemsSource = clashes;
-            
-            UpdateStatusKomplect();
-            clashes = DgClashes.ItemsSource as List<ClashEntity>;
             if (clashes == null) return;
+
             var stat = CalculateStatistic(clashes);
+            DgClashes.ItemsSource = clashes;
+            UpdateActionButtonsState();
+
+            UpdateStatusKomplect();
             UpdateCard(TxtAllClash, PbAll, TxtPercentAll, stat.Total, stat.Total);
             UpdateCard(TxtNewClash, PbNew, TxtPercentNew, stat.New, stat.Total);
             UpdateCard(TxtSendClash, PbSend, TxtPercentSend, stat.Request, stat.Total);
@@ -1029,7 +1121,8 @@ public partial class MainWindow : Window
         if (logic.IsGreenZone(CurrZone, ClashTableName))
         {
             Indicator.Background = Brushes.LightGreen;
-            Indicator.ToolTip = "Все коллизии согласованны";
+            Indicator.ToolTip = "Проверка актуальна";
+            TxtCheckStatus.Text = "Проверка актуальна";
 
             return true;
 
@@ -1038,7 +1131,8 @@ public partial class MainWindow : Window
 
         {
             Indicator.Background = Brushes.IndianRed;
-            Indicator.ToolTip = "Есть несогласованные коллизии";
+            Indicator.ToolTip = "Требуется проверка";
+            TxtCheckStatus.Text = "Требуется проверка";
             return false;
         }
 
@@ -1052,7 +1146,8 @@ public partial class MainWindow : Window
         stat.Total = clashes.Count;
         foreach (var c in clashes)
         {
-           c.Status = GetClasStatus(c);
+            c.Status = GetClasStatus(c);
+            c.StatusAge = GetStatusAge(c);
             switch (c.Status)
             {
                 case "Новая":
@@ -1095,7 +1190,27 @@ public partial class MainWindow : Window
 
     private void BtnRefresh_Click(object sender, RoutedEventArgs e)
     {
+        UpdateZoneInfo();
         Refresh();
+    }
+
+    private void ToggleColumns_Click(object sender, RoutedEventArgs e)
+    {
+        Visibility visibility = ToggleColumns.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+        DataGridColumn[] columns =
+        [
+            CT,
+            E1,
+            E2,
+            DT,
+            X0,
+            Y0,
+            Z0
+        ];
+
+        foreach (DataGridColumn column in columns)
+            column.Visibility = visibility;
     }
 
     private string GetClasStatus(ClashEntity c)
@@ -1123,5 +1238,18 @@ public partial class MainWindow : Window
         if (c.ApproveDate != null)
             return "Согласовано";
         return "Бeз статуса";
+    }
+
+    private string GetStatusAge(ClashEntity clash)
+    {
+        if (clash.ApproveDate.HasValue)
+            return "";
+
+        DateTime? statusDate = clash.InWorkDate ?? clash.RequestDate ?? clash.Date;
+        if (!statusDate.HasValue)
+            return "";
+
+        int days = Math.Max(0, (DateTime.Now.Date - statusDate.Value.Date).Days);
+        return $"{days} дн.";
     }
 }
