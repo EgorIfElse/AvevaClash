@@ -38,19 +38,6 @@
             <Setter Property="Padding" Value="12,6"/>
         </Style>
 
-        <!-- Разделитель между группами элементов коллизии -->
-        <Style x:Key="GroupEndHeaderStyle"
-               TargetType="DataGridColumnHeader"
-               BasedOn="{StaticResource BaseColumnHeaderStyle}">
-            <Setter Property="BorderBrush" Value="#3B82F6"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-        </Style>
-
-        <Style x:Key="GroupEndCellStyle" TargetType="DataGridCell">
-            <Setter Property="BorderBrush" Value="#3B82F6"/>
-            <Setter Property="BorderThickness" Value="0,0,1,0"/>
-        </Style>
-
         <!-- Прогрессбар карточек -->
         <Style x:Key="ModernProgressBar" TargetType="ProgressBar">
             <Setter Property="Height" Value="5"/>
@@ -797,7 +784,7 @@
                   BorderBrush="#E3E6EA"
                   BorderThickness="1"
                   EnableRowVirtualization="True"
-                  EnableColumnVirtualization="True"
+                  EnableColumnVirtualization="False"
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="#ECEFF3"
                   VerticalGridLinesBrush="Transparent"
@@ -976,7 +963,6 @@
                 <DataGridTextColumn x:Name = "CT"
                                     Visibility="Collapsed"
                                     Binding="{Binding FirstElement}" 
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                         <DataGridTextColumn.Header>
@@ -998,7 +984,6 @@
                                     Visibility="Collapsed"
                                     Binding="{Binding FirstType}"
                                     SortMemberPath="FirstUserMode"
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1025,8 +1010,6 @@
                 <DataGridTextColumn x:Name = "G1"
                                     Binding="{Binding FirstZone}"
                                     Width="SizeToHeader"
-                                    HeaderStyle="{StaticResource GroupEndHeaderStyle}"
-                                    CellStyle="{StaticResource GroupEndCellStyle}"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="G1" ToolTip="Зона первого элемента коллизии"/>
@@ -1045,7 +1028,6 @@
                                     Visibility="Collapsed"
                                    Binding="{Binding SecondType}"
                                    SortMemberPath="FirstUserMode"
-                                   HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                    Width="SizeToHeader"
                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1072,8 +1054,6 @@
                 <DataGridTextColumn x:Name = "G2"
                                     Binding="{Binding SecondZone}"
                                     Width="SizeToHeader"
-                                    HeaderStyle="{StaticResource GroupEndHeaderStyle}"
-                                    CellStyle="{StaticResource GroupEndCellStyle}"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="G2" ToolTip="Зона второго элемента коллизии"/>
@@ -1091,7 +1071,6 @@
                 <DataGridTextColumn x:Name = "DT"
                                     Visibility="Collapsed"
                                     Binding="{Binding Date}"
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1101,8 +1080,7 @@
                
                 <DataGridTextColumn x:Name = "X0"
                                     Visibility="Collapsed"
-                                    Binding="{Binding x}"
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
+                                    Binding="{Binding X}"
                                     Width="Auto"
                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1112,7 +1090,6 @@
                 <DataGridTextColumn x:Name = "Y0"
                                     Visibility="Collapsed"
                                     Binding="{Binding Y}" 
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1122,7 +1099,6 @@
                 <DataGridTextColumn  x:Name = "Z0"
                                      Visibility="Collapsed"
                                     Binding="{Binding Z}" 
-                                    HeaderStyle="{StaticResource BaseColumnHeaderStyle}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>

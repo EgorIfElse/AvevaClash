@@ -1,5 +1,6 @@
 ﻿using Aveva.ClashChecker.NetCallable;
 using Aveva.ClashChecker.NetCallable.Models;
+using Aveva.Core.Commands;
 using Aveva.Core.Database;
 using ClashViewForm;
 using Dapper;
@@ -253,12 +254,9 @@ public partial class MainWindow : Window
         {
             string selectedZone = CbZone.SelectedValue.ToString();
             CurrZone = selectedZone;
-            UpdateZoneInfo();
         }
-       
 
-            Refresh();
-       
+        Refresh();
     }
 
     private void UpdateZoneInfo()
@@ -296,18 +294,7 @@ public partial class MainWindow : Window
             DateTime lastCheck = logic.GetZoneLastCheck(CurrZone);
 
             if (lastCheck != DateTime.MinValue)
-            {
                 TxtLastCheck.Text = $"{lastCheck:dd.MM.yyyy HH:mm}";
-
-                DateTime lastModified = logic.GetZoneLastModified(CurrZone);
-                bool isActual = lastCheck >= lastModified
-                    && (DateTime.Now - lastCheck).TotalDays <= 2;
-
-                if (isActual)
-                    SetLastCheckColor(0x3B, 0x82, 0xF6);
-                else
-                    SetLastCheckColor(0xEF, 0x44, 0x44);
-            }
         }
         catch (Exception ex)
         {
@@ -422,34 +409,33 @@ public partial class MainWindow : Window
 
     private void BtnShowElements_Click(object sender, RoutedEventArgs e)
     {
-        var selectedClashes = DgClashes.SelectedItems
-            .Cast<ClashEntity>()
-            .ToList();
+        var elementRefs = DgClashes.SelectedItems.Cast<ClashEntity>().SelectMany(clash => new[] { clash.FirstElement, clash.SecondElement }).ToList();
 
-        if (selectedClashes.Count == 0)
-        {
-            MessageBox.Show("Выберите хотя бы одну коллизию.");
-            return;
-        }
+        var validElementRefs = new List<string>();
 
-        var elementRefs = selectedClashes
-            .SelectMany(clash => new[] { clash.FirstElement, clash.SecondElement })
-            .Where(elementRef => !string.IsNullOrWhiteSpace(elementRef))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        int addedCount = 0;
         foreach (string elementRef in elementRefs)
         {
             DbElement element = DbElement.GetElement(elementRef);
+
             if (element.IsNull || !element.IsValid)
                 continue;
 
-            PML.CreateCommand($"Add {elementRef}").RunInPdms();
-            addedCount++;
+            validElementRefs.Add(elementRef);
         }
 
-        MessageBox.Show($"В Drawlist добавлено элементов: {addedCount}.");
+        if (validElementRefs.Count == 0)
+        {
+            MessageBox.Show("В выбранных коллизиях не найдено существующих элементов.");
+            return;
+        }
+
+        PML.CreateCommand("REM ALL").RunInPdms();
+
+        foreach (string elementRef in validElementRefs)
+            PML.CreateCommand($"Add {elementRef}").RunInPdms();
+
+        var commandManager = new PMLNetCommandManager();
+        commandManager.ExecuteCommand("AVEVA.View.Centre.Selection");
     }
 
     private void BtnCheck_Click(object sender, RoutedEventArgs e)
@@ -460,10 +446,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        DateTime previousCheck = logic.GetZoneLastCheck(CurrZone);
         logic.CheckZone(CurrZone, true);
+        DateTime currentCheck = logic.GetZoneLastCheck(CurrZone);
+        bool checkCompleted = currentCheck > previousCheck;
 
-        UpdateZoneInfo();
-        Refresh();
+        Refresh(checkCompleted);
     }
     private void BtnApprove_Click(object sender, RoutedEventArgs e)
     {
@@ -1083,7 +1071,7 @@ public partial class MainWindow : Window
         BtnTakeInWork.IsEnabled = hasSelection;
         BtnApprove.IsEnabled = hasSelection;
     }
-    private void Refresh()
+    private void Refresh(bool zoneJustChecked = false)
     {
         if (_isRefreshing)
             return;
@@ -1093,6 +1081,8 @@ public partial class MainWindow : Window
 
             LoadZone();
             if (CbZone.SelectedItem == null) return;
+            UpdateZoneInfo();
+
             var clashes = logic.Show(ClashTableName, CurrZone);
             if (clashes == null) return;
 
@@ -1100,7 +1090,7 @@ public partial class MainWindow : Window
             DgClashes.ItemsSource = clashes;
             UpdateActionButtonsState();
 
-            UpdateStatusKomplect();
+            UpdateStatusKomplect(zoneJustChecked);
             UpdateCard(TxtAllClash, PbAll, TxtPercentAll, stat.Total, stat.Total);
             UpdateCard(TxtNewClash, PbNew, TxtPercentNew, stat.New, stat.Total);
             UpdateCard(TxtSendClash, PbSend, TxtPercentSend, stat.Request, stat.Total);
@@ -1116,13 +1106,16 @@ public partial class MainWindow : Window
 
     }
     
-    private bool UpdateStatusKomplect()
+    private bool UpdateStatusKomplect(bool zoneJustChecked = false)
     {
-        if (logic.IsGreenZone(CurrZone, ClashTableName))
+        bool isActual = zoneJustChecked || logic.IsGreenZone(CurrZone, ClashTableName);
+
+        if (isActual)
         {
             Indicator.Background = Brushes.LightGreen;
             Indicator.ToolTip = "Проверка актуальна";
             TxtCheckStatus.Text = "Проверка актуальна";
+            SetLastCheckColor(0x3B, 0x82, 0xF6);
 
             return true;
 
@@ -1133,6 +1126,10 @@ public partial class MainWindow : Window
             Indicator.Background = Brushes.IndianRed;
             Indicator.ToolTip = "Требуется проверка";
             TxtCheckStatus.Text = "Требуется проверка";
+
+            if (TxtLastCheck.Text != "—")
+                SetLastCheckColor(0xEF, 0x44, 0x44);
+
             return false;
         }
 

@@ -32,6 +32,9 @@
     <Reference Include="Aveva.Core">
       <HintPath>$(CompanyReferencesPath)\Aveva.Core.dll</HintPath>
     </Reference>
+    <Reference Include="Aveva.Core.Commands">
+      <HintPath>$(CompanyReferencesPath)\Aveva.Core.Commands.dll</HintPath>
+    </Reference>
     <Reference Include="Aveva.Core.Database">
       <HintPath>$(CompanyReferencesPath)\Aveva.Core.Database.dll</HintPath>
     </Reference>

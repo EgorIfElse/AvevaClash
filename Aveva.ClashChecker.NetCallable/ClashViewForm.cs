@@ -39,6 +39,11 @@ namespace ClashViewForm
         public DateTime Dateto = DateTime.Now;
         public DateTime Dateform = DateTime.Now;
         public CC checker = new CC();
+        private static readonly string[] AvevaDateFormats = new[]
+        {
+            "HH:mm:ss d MMMM yyyy",
+            "HH:mm d MMM yyyy"
+        };
 
 
         [PMLNetCallable]
@@ -93,11 +98,11 @@ namespace ClashViewForm
         }
 
         [PMLNetCallable]
-        public DateTime GetZoneLastModified(string zoneRef)
+        public DateTime GetZoneElementsLastModified(string zoneRef)
         {
             DbElement zone = DbElement.GetElement(zoneRef);
             DbAttribute lastModifiedAttribute = DbAttribute.GetDbAttribute("lastmod");
-            DateTime lastModified = GetAttributeDate(zone, lastModifiedAttribute);
+            DateTime lastModified = DateTime.MinValue;
 
             foreach (DbElement element in new DBElementCollection(zone).Cast<DbElement>())
             {
@@ -122,7 +127,7 @@ namespace ClashViewForm
         {
             string dateValue = element.GetAsString(attribute) ?? string.Empty;
 
-            if (DateTime.TryParseExact(dateValue.Trim(), "HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            if (DateTime.TryParseExact(dateValue.Trim(), AvevaDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date))
                 return date;
 
             Logger.WriteLine($"Не удалось преобразовать дату '{dateValue}' элемента {element.Name()}");
@@ -192,6 +197,7 @@ namespace ClashViewForm
             DateTime checkDate = DateTime.Now;
             string checkDateValue = checkDate.ToString("HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture);
             zone.SetAttribute(DbAttribute.GetDbAttribute(":Check"), checkDateValue);
+            MDB.CurrentMDB.SaveWork("");
 
             UpdateZoneList();
 
@@ -315,8 +321,8 @@ namespace ClashViewForm
             DateTime lastCheck = GetZoneLastCheck(zoneRef);
             if (lastCheck == DateTime.MinValue) return false;
 
-            DateTime zoneLastModified = GetZoneLastModified(zoneRef);
-            if (lastCheck < zoneLastModified) return false;
+            DateTime elementsLastModified = GetZoneElementsLastModified(zoneRef);
+            if (lastCheck < elementsLastModified) return false;
             var deltaTime = (DateTime.Now - lastCheck).TotalDays;
             return deltaTime <= 2;
         }
