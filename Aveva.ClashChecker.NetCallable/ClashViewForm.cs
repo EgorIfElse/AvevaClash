@@ -205,6 +205,8 @@ namespace ClashViewForm
         }
         public List<ZoneComboItem> UpdateZoneList()
         {
+            DbAttribute isCompleteAttribute = DbAttribute.GetDbAttribute(":IsComplete");
+
             List<DbElement> zonesKomplect = [.. new DBElementCollection(
                     new TypeFilter(DbElementTypeInstance.ZONE))
                 .Cast<DbElement>()
@@ -237,7 +239,8 @@ namespace ClashViewForm
                 new ZoneComboItem
                 {
                     ZoneElement = zone.Name(),
-                    DisplayText = zone.Name()
+                    DisplayText = zone.Name(),
+                    IsComplete = zone.GetBool(isCompleteAttribute)
                 }));
 
             return zoneItems;
@@ -305,26 +308,39 @@ namespace ClashViewForm
         }
         public bool IsGreenZone(string zoneRef, string clashTableName)
         {
-            if (zoneRef == "ALL" || zoneRef == "CE") return false;
+            if (zoneRef == "ALL" || zoneRef == "CE")
+                return false;
 
-            var zone = DbElement.GetElement(zoneRef);
-            if (zone.IsNull || !zone.IsValid) return false;
+            DbElement zone = DbElement.GetElement(zoneRef);
 
-            string zoneDepartment = checker.GetDepartment(zone, "");
-            bool isForeignDepartment = zoneDepartment != MyDept && MyDept != "SYSTEM";
-            if (isForeignDepartment)
+            if (zone.IsNull || !zone.IsValid)
+                return false;
+
+            DateTime lastCheck = GetZoneLastCheck(zoneRef);
+
+            if (lastCheck == DateTime.MinValue)
             {
-                System.Windows.MessageBox.Show($"{zoneRef} — это зона другого отдела");
+                Logger.WriteLine($"Зона {zoneRef}: атрибут :Check не заполнен или дата не распознана.");
                 return false;
             }
 
-            DateTime lastCheck = GetZoneLastCheck(zoneRef);
-            if (lastCheck == DateTime.MinValue) return false;
-
             DateTime elementsLastModified = GetZoneElementsLastModified(zoneRef);
-            if (lastCheck < elementsLastModified) return false;
-            var deltaTime = (DateTime.Now - lastCheck).TotalDays;
-            return deltaTime <= 2;
+
+            Logger.WriteLine(
+                $"Зона {zoneRef}: последняя проверка = {lastCheck:dd.MM.yyyy HH:mm:ss}; " +
+                $"последнее изменение элемента = {elementsLastModified:dd.MM.yyyy HH:mm:ss}.");
+
+            if (lastCheck < elementsLastModified)
+            {
+                Logger.WriteLine($"Зона {zoneRef}: после проверки изменялись элементы.");
+                return false;
+            }
+
+            double daysAfterCheck = (DateTime.Now - lastCheck).TotalDays;
+
+            Logger.WriteLine($"Зона {zoneRef}: после проверки прошло {daysAfterCheck:F2} дней.");
+
+            return daysAfterCheck <= 2;
         }
 
 

@@ -1,6 +1,5 @@
 ﻿using Aveva.ClashChecker.NetCallable;
 using Aveva.ClashChecker.NetCallable.Models;
-using Aveva.Core.Commands;
 using Aveva.Core.Database;
 using ClashViewForm;
 using Dapper;
@@ -409,33 +408,71 @@ public partial class MainWindow : Window
 
     private void BtnShowElements_Click(object sender, RoutedEventArgs e)
     {
-        var elementRefs = DgClashes.SelectedItems.Cast<ClashEntity>().SelectMany(clash => new[] { clash.FirstElement, clash.SecondElement }).ToList();
+        var selectedClashes = DgClashes.SelectedItems.Cast<ClashEntity>().ToList();
+        int executedCount = 0;
 
-        var validElementRefs = new List<string>();
+        Logger.WriteLine($"Запуск !!ClashPoint. Выбрано коллизий: {selectedClashes.Count}");
 
-        foreach (string elementRef in elementRefs)
+        foreach (ClashEntity clash in selectedClashes)
         {
-            DbElement element = DbElement.GetElement(elementRef);
+            try
+            {
+                double status = GetPmlClashStatus(clash.Status);
 
-            if (element.IsNull || !element.IsValid)
-                continue;
+                Logger.WriteLine(
+                    $"Вызов !!ClashPoint: Status={status}; ID={clash.Id}; " +
+                    $"One={clash.FirstElement}; Two={clash.SecondElement}; " +
+                    $"Pos=[{clash.X}, {clash.Y}, {clash.Z}]");
 
-            validElementRefs.Add(elementRef);
+                PML.CreateCommand("!!ClashPointPos = Array()").RunInPdms();
+                PML.CreateCommand($"!!ClashPointPos.Append({clash.X})").RunInPdms();
+                PML.CreateCommand($"!!ClashPointPos.Append({clash.Y})").RunInPdms();
+                PML.CreateCommand($"!!ClashPointPos.Append({clash.Z})").RunInPdms();
+
+                PML.CreateCommand(
+                    $"!!ClashPoint({status}, {clash.Id}, " +
+                    $"'{clash.FirstElement}', " +
+                    $"'{clash.SecondElement}', " +
+                    $"!!ClashPointPos)")
+                    .RunInPdms();
+
+                executedCount++;
+            }
+            catch (Exception ex)
+            {
+                Logger.WriteLine($"Ошибка вызова !!ClashPoint для коллизии {clash.Id}: {ex.Message}");
+            }
         }
 
-        if (validElementRefs.Count == 0)
+        Logger.WriteLine($"Выполнено вызовов !!ClashPoint: {executedCount} из {selectedClashes.Count}");
+    }
+
+    private double GetPmlClashStatus(string status)
+    {
+        switch (status)
         {
-            MessageBox.Show("В выбранных коллизиях не найдено существующих элементов.");
-            return;
+            case "Новая":
+                return 1;
+
+            case "Отправлено":
+                return 2;
+
+            case "В работе":
+                return 3;
+
+            case "Согласовано":
+                return 4;
+
+            case "Просрочен запрос":
+                return 5;
+
+            case "Просрочена работа":
+                return 6;
+
+            case "Без статуса":
+            default:
+                return 0;
         }
-
-        PML.CreateCommand("REM ALL").RunInPdms();
-
-        foreach (string elementRef in validElementRefs)
-            PML.CreateCommand($"Add {elementRef}").RunInPdms();
-
-        var commandManager = new PMLNetCommandManager();
-        commandManager.ExecuteCommand("AVEVA.View.Centre.Selection");
     }
 
     private void BtnCheck_Click(object sender, RoutedEventArgs e)
@@ -1096,7 +1133,7 @@ public partial class MainWindow : Window
             UpdateCard(TxtSendClash, PbSend, TxtPercentSend, stat.Request, stat.Total);
             UpdateCard(TxtApproveClash, PbApprove, TxtPercentApprove, stat.Approve, stat.Total);
             UpdateCard(TxtInWorkClash, PbInWork, TxtPercentInWork, stat.InWork, stat.Total);
-            UpdateCard(TxtAllertClash, PbAllert, TxtPercentAllert, stat.RequestOut, stat.Request);
+            UpdateCard(TxtAllertClash, PbAllert, TxtPercentAllert, stat.RequestOut, stat.Total);
 
             // var view = CollectionViewSource.GetDefaultView(DgClashes.ItemsSource);
             // view.Filter = ClashUsermod1Filter;
@@ -1181,7 +1218,7 @@ public partial class MainWindow : Window
             percent = value * 100.0 / total;
 
         progressBar.Value = percent;
-        PersentProgres.Text = $"{percent:0}%";
+        PersentProgres.Text = $"{percent:0.#}%";
        
     }
 
@@ -1234,7 +1271,7 @@ public partial class MainWindow : Window
         }
         if (c.ApproveDate != null)
             return "Согласовано";
-        return "Бeз статуса";
+        return "Без статуса";
     }
 
     private string GetStatusAge(ClashEntity clash)

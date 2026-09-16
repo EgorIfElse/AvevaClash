@@ -410,12 +410,12 @@ public partial class ClashChecker
         ["E1"] = "NVARCHAR(12) NOT NULL",
         ["U1"] = "NVARCHAR(32) NOT NULL",
         ["D1"] = "NVARCHAR(16)",
-        ["G1"] = "NVARCHAR(16)",
+        ["G1"] = "NVARCHAR(64)",
         ["R2"] = "NVARCHAR(24) NOT NULL",
         ["E2"] = "NVARCHAR(12) NOT NULL",
         ["U2"] = "NVARCHAR(32) NOT NULL",
         ["D2"] = "NVARCHAR(16)",
-        ["G2"] = "NVARCHAR(16)",
+        ["G2"] = "NVARCHAR(64)",
         ["XT"] = "BIT NOT NULL",
         ["DT"] = "DATETIME NOT NULL",
         ["X0"] = "INT NOT NULL",
@@ -442,12 +442,12 @@ public partial class ClashChecker
         ["E1"] = "NVARCHAR(12) NOT NULL",
         ["U1"] = "NVARCHAR(32) NOT NULL",
         ["D1"] = "NVARCHAR(16)",
-        ["G1"] = "NVARCHAR(16)",
+        ["G1"] = "NVARCHAR(64)",
         ["R2"] = "NVARCHAR(24) NOT NULL",
         ["E2"] = "NVARCHAR(12) NOT NULL",
         ["U2"] = "NVARCHAR(32) NOT NULL",
         ["D2"] = "NVARCHAR(16)",
-        ["G2"] = "NVARCHAR(16)",
+        ["G2"] = "NVARCHAR(64)",
         ["XT"] = "BIT NOT NULL",
         ["DT"] = "DATETIME NOT NULL",
         ["X0"] = "INT NOT NULL",
@@ -479,12 +479,12 @@ public partial class ClashChecker
                 [E1] NVARCHAR(12) NOT NULL,
                 [U1] NVARCHAR(32) NOT NULL,
                 [D1] NVARCHAR(16),
-                [G1] NVARCHAR(16),
+                [G1] NVARCHAR(64),
                 [R2] NVARCHAR(24) NOT NULL,
                 [E2] NVARCHAR(12) NOT NULL,
                 [U2] NVARCHAR(32) NOT NULL,
                 [D2] NVARCHAR(16),
-                [G2] NVARCHAR(16),  
+                [G2] NVARCHAR(64),
                 [XT] BIT NOT NULL,
                 [DT] DATETIME NOT NULL,
                 [X0] INT NOT NULL,
@@ -555,12 +555,12 @@ public partial class ClashChecker
                 [E1] NVARCHAR(12) NOT NULL,
                 [U1] NVARCHAR(32) NOT NULL,
                 [D1] NVARCHAR(16),
-                [G1] NVARCHAR(16),
+                [G1] NVARCHAR(64),
                 [R2] NVARCHAR(24) NOT NULL,
                 [E2] NVARCHAR(12) NOT NULL,
                 [U2] NVARCHAR(32) NOT NULL,
                 [D2] NVARCHAR(16),
-                [G2] NVARCHAR(16),
+                [G2] NVARCHAR(64),
                 [XT] BIT NOT NULL,
                 [DT] DATETIME NOT NULL,
                 [X0] INT NOT NULL,
@@ -710,8 +710,8 @@ public partial class ClashChecker
 
                 if (checkMode == "FULL")
                 {
-                    lastModifiedUserMod1 = History(dbElem1, "user");
-                    lastModifiedUserMod2 = History(dbElem2, "user");
+                    lastModifiedUserMod1 = GetDesignerOrLastUser(dbElem1);
+                    lastModifiedUserMod2 = GetDesignerOrLastUser(dbElem2);
                 }
                 else
                 {
@@ -818,6 +818,21 @@ public partial class ClashChecker
             _ => "",
         };
     }
+
+    private string GetDesignerOrLastUser(DbElement element)
+    {
+        DbAttribute designerAttribute = DbAttribute.GetDbAttribute(":Designer");
+        string designer = element.GetAsString(designerAttribute);
+
+        if (!string.IsNullOrWhiteSpace(designer)
+            && !string.Equals(designer.Trim(), "<Undefined>", StringComparison.OrdinalIgnoreCase))
+        {
+            return designer.Trim();
+        }
+
+        return History(element, "user");
+    }
+
     /// <summary>
     /// Возвращает имя зоны или пустую строку.
     /// </summary>
@@ -1152,7 +1167,11 @@ public partial class ClashChecker
             BulkInsertClashes(sqlConnection, dt, clashTableName);
 
             GC.Collect();
-            PML.CreateCommand($"$p {notIgnoredClashes.Count()} коллизий подтвердилось после проверки").RunInPdms();
+            PML.CreateCommand(
+                $"$p Результат проверки: найдено {notIgnoredClashes.Count}, " +
+                $"подтверждено существующих {existingUpdate}, " +
+                $"добавлено новых {dt.Rows.Count}")
+                .RunInPdms();
 
         }
         catch (Exception ex)
@@ -1220,8 +1239,8 @@ public partial class ClashChecker
         var firstZone = GetZoneName(clash.First);
         var secondZone = GetZoneName(clash.Second);
 
-        var firstUserMode = History(clash.First, "user");
-        var secondUserMode = History(clash.Second, "user");
+        var firstUserMode = GetDesignerOrLastUser(clash.First);
+        var secondUserMode = GetDesignerOrLastUser(clash.Second);
 
         
 
@@ -1299,8 +1318,6 @@ public partial class ClashChecker
         try
         {
             if (CheckPipeWithJntc(clash))
-                return true;
-            if (CheckGensecWithPane(clash))
                 return true;
             if (CheckHangWithBranch(clash))
                 return true;
@@ -1417,57 +1434,6 @@ public partial class ClashChecker
         }
 
         return false;
-
-    }
-
-    /// <summary>
-    /// Ингорируем GENSEC с PANE, за исключением вхождений в STRU с CL в имени || FRMW с CC в имени
-    /// </summary>
-    /// <param name="clash"></param>
-    /// <returns></returns>
-    private bool CheckGensecWithPane(Clash clash)
-    {
-
-        var firstType = clash.First.ElementType;
-        var secondType = clash.Second.ElementType;
-        DbElement pane;
-        DbElement sctn;
-
-        if (firstType == DbElementTypeInstance.GENSEC && secondType == DbElementTypeInstance.PANEL)
-        {
-            pane = clash.Second;
-            sctn = clash.First;
-        }
-        else if (firstType == DbElementTypeInstance.PANEL && secondType == DbElementTypeInstance.GENSEC)
-        {
-            pane = clash.First;
-            sctn = clash.Second;
-        }
-        else
-        {
-            return false;
-        }
-
-        var stru = sctn.GetOwnerByType(DbElementTypeInstance.STRUCTURE);
-        var zone = pane.GetOwnerByType(DbElementTypeInstance.ZONE);
-
-        string zoneName = zone.Name();
-        if (!zoneName.Contains('_') || zoneName.Split('_').Length < 3 || zoneName.Split('_')[2] != "CL")
-            return false;
-
-        string struName = stru.Name();
-        if (!struName.Contains('_') || struName.Split('_').Length < 4 || struName.Split('_')[3] != "CL")
-            return false;
-
-        var frmw = pane.GetOwnerByType(DbElementTypeInstance.FRMWORK);
-        if (frmw.IsNull)
-            return false;
-
-        string frmwName = frmw.Name();
-        if (!frmwName.Contains('_') || frmwName.Split('_').Length < 5 || frmwName.Split('_')[4].Substring(0, 1) != "CC")
-            return false;
-
-        return true;
 
     }
 
