@@ -16,18 +16,24 @@ namespace VIewModelNew
         {
             AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
         }
-        private static Assembly ResolveAssembly( object sender, ResolveEventArgs args)
+        private static Assembly ResolveAssembly(object sender, ResolveEventArgs args)
         {
-            string pluginDirectory = Path.GetDirectoryName(typeof(VIewModelNew).Assembly.Location);
-
-            if (string.IsNullOrWhiteSpace(pluginDirectory))
-                return null;
-
             string assemblyName = new AssemblyName(args.Name).Name + ".dll";
+            string[] assemblyDirectories =
+            {
+                @"C:\AVEVA\AvevaWorkDLL",
+                @"C:\AVEVA\AvevaWorkDLL\CLS\AvevaClash\ViewModelNew\bin\Debug\net481"
+            };
 
-            string assemblyPath = Path.Combine(pluginDirectory, assemblyName);
+            foreach (string assemblyDirectory in assemblyDirectories)
+            {
+                string assemblyPath = Path.Combine(assemblyDirectory, assemblyName);
 
-            return File.Exists(assemblyPath) ? Assembly.LoadFrom(assemblyPath) : null;
+                if (File.Exists(assemblyPath))
+                    return Assembly.LoadFrom(assemblyPath);
+            }
+
+            return null;
         }
         [PMLNetCallable]
         public VIewModelNew()
