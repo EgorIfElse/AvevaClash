@@ -208,7 +208,7 @@ public partial class MainWindow : Window
                 SubjectEncoding = Encoding.UTF8,
                 BodyEncoding = Encoding.UTF8
             };
-            using var smtp = new SmtpClient("mail", 25)
+            using var smtp = new SmtpClient("mail.evgrp.ru", 25)
             {
                 EnableSsl = false,
                 UseDefaultCredentials = false

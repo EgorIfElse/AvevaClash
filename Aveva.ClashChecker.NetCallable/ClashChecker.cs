@@ -708,16 +708,8 @@ public partial class ClashChecker
                 if (build == "") build = GetBuild(dbElem2);
 
 
-                if (checkMode == "FULL")
-                {
-                    lastModifiedUserMod1 = GetDesignerOrLastUser(dbElem1);
-                    lastModifiedUserMod2 = GetDesignerOrLastUser(dbElem2);
-                }
-                else
-                {
-                    lastModifiedUserMod1 = clash.FirstUserMode;
-                    lastModifiedUserMod2 = clash.SecondUserMode;
-                }
+                lastModifiedUserMod1 = GetDesignerOrLastUser(dbElem1);
+                lastModifiedUserMod2 = GetDesignerOrLastUser(dbElem2);
                 if (clash.FirstUserMode != lastModifiedUserMod1 || clash.SecondUserMode != lastModifiedUserMod2 || clash.FirstZone != RealZone1 || clash.SecondZone != RealZone2 || clash.FirstDept != RealDept1 || clash.SecondDept != RealDept2 || clash.Building != build)
                 {
 
@@ -821,13 +813,29 @@ public partial class ClashChecker
 
     private string GetDesignerOrLastUser(DbElement element)
     {
-        DbAttribute designerAttribute = DbAttribute.GetDbAttribute(":Designer");
-        string designer = element.GetAsString(designerAttribute);
+        DbElement zone = element.GetZone();
 
-        if (!string.IsNullOrWhiteSpace(designer)
-            && !string.Equals(designer.Trim(), "<Undefined>", StringComparison.OrdinalIgnoreCase))
+        if (zone.IsNull || !zone.IsValid)
+            return History(element, "user");
+
+        DbAttribute designerAttribute = DbAttribute.GetDbAttribute(":Designer");
+        string designerValue = zone.GetAsString(designerAttribute);
+
+        if (!string.IsNullOrWhiteSpace(designerValue)
+            && !string.Equals(designerValue.Trim(), "<Undefined>", StringComparison.OrdinalIgnoreCase))
         {
-            return designer.Trim();
+            string description = designerAttribute.GetAllowedUDAValueDescription(
+                zone.ElementType,
+                designerValue);
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                description = description.Trim();
+                int atIndex = description.IndexOf('@');
+
+                if (atIndex > 0)
+                    return description.Substring(0, atIndex).Trim();
+            }
         }
 
         return History(element, "user");
@@ -1252,14 +1260,14 @@ public partial class ClashChecker
         row["Usermod1"] = Cut(firstUserMode, 32);
         row["Flnm1"] = Cut(flnm1, 50);
         row["Dept1"] = Cut(firstDept, 16) != null ? Cut(firstDept, 16) : DBNull.Value;
-        row["Zone1"] = Cut(firstZone, 16) != null ? Cut(firstZone, 16) : DBNull.Value;
+        row["Zone1"] = Cut(firstZone, 64) != null ? Cut(firstZone, 64) : DBNull.Value;
 
         row["El2"] = Cut(secondElement, 24);
         row["Type2"] = Cut(secondType, 12);
         row["Usermod2"] = Cut(secondUserMode, 32);
         row["Flnm2"] = Cut(flnm2, 50);
         row["Dept2"] = Cut(secondDept, 16) != null ? Cut(secondDept, 16) : DBNull.Value;
-        row["Zone2"] = Cut(secondZone, 16) != null ? Cut(secondZone, 16) : DBNull.Value;
+        row["Zone2"] = Cut(secondZone, 64) != null ? Cut(secondZone, 64) : DBNull.Value;
 
         row["Date"] = DateTime.Now;
         row["X"] = x;

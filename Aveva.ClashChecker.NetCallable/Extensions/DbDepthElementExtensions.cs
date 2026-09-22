@@ -26,22 +26,38 @@ namespace Aveva.ClashChecker.NetCallable.Extensions
 
         public static DbElement GetSite(this DbElement dbElement)
         {
-            return dbElement.GetOwnerByDepth(1);
+            return GetElementOrOwnerByType(dbElement, DbElementTypeInstance.SITE);
         }
 
         public static DbElement GetZone(this DbElement dbElement)
         {
-            return dbElement.GetOwnerByDepth(2);
+            return GetElementOrOwnerByType(dbElement, DbElementTypeInstance.ZONE);
         }
 
         public static DbElement GetPipe(this DbElement dbElement)
         {
-            return dbElement.GetOwnerByDepth(3);
+            return GetElementOrOwnerByType(dbElement, DbElementTypeInstance.PIPE);
         }
 
         public static DbElement GetGpwl(this DbElement dbElement)
         {
-            return dbElement.GetOwnerByDepth(1);
+            DbElement gpwld = GetElementOrOwnerByType(dbElement, DbElementTypeInstance.GPWLD);
+
+            if (gpwld != null && !gpwld.IsNull && gpwld.IsValid)
+                return gpwld;
+
+            return GetElementOrOwnerByType(dbElement, DbElementTypeInstance.SYGPWL);
+        }
+
+        private static DbElement GetElementOrOwnerByType(DbElement dbElement, DbElementType elementType)
+        {
+            if (dbElement == null || dbElement.IsNull || !dbElement.IsValid)
+                return DbElement.GetElement("*");
+
+            if (dbElement.ElementType == elementType)
+                return dbElement;
+
+            return dbElement.GetOwnerByType(elementType);
         }
     }
 }
