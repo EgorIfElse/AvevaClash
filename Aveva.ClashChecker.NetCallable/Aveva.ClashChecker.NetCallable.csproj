@@ -21,7 +21,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.72" />
-		<PackageReference Include="DataGridExtensions" Version="2.9.1" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
 	</ItemGroup>
 	<ItemGroup>
@@ -42,6 +41,9 @@
 		</Reference>
 		<Reference Include="Aveva.Core3D.Clasher">
 			<HintPath>$(CompanyReferencesPath)\Aveva.Core3D.Clasher.dll</HintPath>
+		</Reference>
+		<Reference Include="DataGridExtensions">
+		  <HintPath>..\..\AvevaClash\VIewModelNew\bin\Debug\net481\DataGridExtensions.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.VisualBasic" />
 		<Reference Include="PMLNet">

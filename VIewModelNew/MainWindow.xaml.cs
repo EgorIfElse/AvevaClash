@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net.Mail;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -45,8 +46,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-       
-       
+        Assembly filterAssembly = typeof(DataGridExtensions.DataGridFilter).Assembly;
+
+        MessageBox.Show(
+            $"DataGridExtensions:\n" +
+            $"Версия: {filterAssembly.GetName().Version}\n" +
+            $"Путь: {filterAssembly.Location}");
+
         LoadZone();
       
         MyDept = logic.MyDept;
