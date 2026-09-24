@@ -134,14 +134,25 @@ public partial class ClashChecker
 
             // ReplaceRefIFC(clashConnection, clashTableName, ifcTableName, clashRefUpdateLog, projectCode);
 
+            NormalizeStoredClashTypes(clashConnection, clashTableName);
             UpdateClashElementInfo(clashConnection, "FULL", clashTableName, string.Empty);
             Logger.WriteLine("Выполнен UpdateClashElementInfo");
+            int initialClashCount = clashConnection.ExecuteScalar<int>($"SELECT COUNT(*) FROM [{clashTableName}]");
             clashConnection.Execute($"UPDATE [{clashTableName}] SET [XT] = 0");
 
-            string initialClashesLogString = $"Коллизий до проверки: {clashConnection.ExecuteScalar<int>($"select top 1 COUNT(*) from {clashTableName}")}";
+            Logger.WriteLine($"Коллизий до проверки: {initialClashCount}");
 
-            Logger.WriteLine(initialClashesLogString);
-            ColZone(clashConnection, clashTableName, "");
+            var failedZoneNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool nightCheckCompleted = ColZone(clashConnection, clashTableName, "", failedZoneNames);
+            if (!nightCheckCompleted)
+            {
+                Logger.WriteLine("Ночная очистка отменена: ColZone завершился с общей ошибкой. Строки оставлены с XT = 0.", LogType.Error);
+                Logger.FinishLog();
+                return;
+            }
+
+            CleanupNightCheckResults(clashConnection, clashTableName, initialClashCount, failedZoneNames);
+            Logger.FinishLog();
         }
         catch (Exception ex)
         {
@@ -155,7 +166,11 @@ public partial class ClashChecker
 
 
 
-    public void ColZone(SqlConnection clashConnection, string clashTableName, string zoneRef)
+    public bool ColZone(
+        SqlConnection clashConnection,
+        string clashTableName,
+        string zoneRef,
+        HashSet<string>? failedZoneNames = null)
     {
         var totalStopwatch = Stopwatch.StartNew();
         TimeSpan currentCollectionTime = TimeSpan.Zero;
@@ -242,14 +257,17 @@ public partial class ClashChecker
                 for (int i = 0; i < currentZones.Count; i++)
                 {
                     DbElement currentZone = currentZones[i];
+                    string currentZoneRef = currentZone.GetAsString(DbAttributeInstance.REF);
+                    try
+                    {
                     double[] currentZoneWvolume = currentZone.GetDoubleArray(DbAttributeInstance.WVOL);
                     if (currentZoneWvolume.Length < 6)
                     {
                         Logger.WriteLine($"Зона {currentZone.Name()} пропущена: некорректный WVOL");
+                        failedZoneNames?.Add(currentZone.Name());
                         continue;
                     }
 
-                    string currentZoneRef = currentZone.GetAsString(DbAttributeInstance.REF);
                     int removedCount = remainingObstructionZones.RemoveAll(zone =>
                         string.Equals(
                             zone.GetAsString(DbAttributeInstance.REF),
@@ -273,14 +291,23 @@ public partial class ClashChecker
                     if (addedObstructionCount == 0)
                     {
                         Logger.WriteLine($"Зона {currentZone.Name()} пропущена: Obstruction List пуст");
+                        failedZoneNames?.Add(currentZone.Name());
                         continue;
                     }
 
-                    TimeSpan currentClashCheckTime = CheckZone(currentZone, obstructionList, clashOptions,
-                        clashConnection, clashTableName, i, zoneCount);
+                    bool zoneCheckSucceeded = CheckZone(currentZone, obstructionList, clashOptions,
+                        clashConnection, clashTableName, i, zoneCount, out TimeSpan currentClashCheckTime);
                     clashCheckTime += currentClashCheckTime;
+                    if (!zoneCheckSucceeded)
+                        failedZoneNames?.Add(currentZone.Name());
                     Logger.WriteLine($"Зона {currentZone.Name()}: clash-проверка заняла "
                         + $"{currentClashCheckTime.TotalSeconds:F3} сек");
+                    }
+                    catch (Exception ex)
+                    {
+                        failedZoneNames?.Add(currentZone.Name());
+                        Logger.WriteLine($"Ошибка обработки зоны {currentZone.Name()}: {ex.Message}. Переход к следующей зоне.", LogType.Error);
+                    }
                 }
             }
             else
@@ -310,15 +337,22 @@ public partial class ClashChecker
                 if (addedObstructionCount == 0)
                 {
                     Logger.WriteLine($"Зона {selectedZone.Name()} пропущена: Obstruction List пуст");
+                    failedZoneNames?.Add(selectedZone.Name());
+                    return false;
                 }
                 else
                 {
                     int selectedZoneIndex = currentZones.FindIndex(zone => zone.Ref == selectedZone.Ref);
-                    TimeSpan currentClashCheckTime = CheckZone(selectedZone, obstructionList, clashOptions,
-                        clashConnection, clashTableName, selectedZoneIndex, zoneCount);
+                    bool zoneCheckSucceeded = CheckZone(selectedZone, obstructionList, clashOptions,
+                        clashConnection, clashTableName, selectedZoneIndex, zoneCount, out TimeSpan currentClashCheckTime);
                     clashCheckTime += currentClashCheckTime;
                     Logger.WriteLine($"Зона {selectedZone.Name()}: clash-проверка заняла "
                         + $"{currentClashCheckTime.TotalSeconds:F3} сек");
+                    if (!zoneCheckSucceeded)
+                    {
+                        failedZoneNames?.Add(selectedZone.Name());
+                        return false;
+                    }
                 }
             }
 
@@ -334,9 +368,11 @@ public partial class ClashChecker
             Logger.WriteLine($"ColZone: формирование Obstruction List: {obstructionListBuildTime.TotalMilliseconds:F0} мс");
             Logger.WriteLine($"ColZone: clash-проверка: {clashCheckTime.TotalMilliseconds:F0} мс");
             Logger.WriteLine($"ColZone: всего обращений к PURPOSE при сборе Current: {purposeReadCount}");
+            if (string.IsNullOrEmpty(zoneRef) && failedZoneNames != null)
+                Logger.WriteLine($"Итог по зонам: проверено {zoneCount - failedZoneNames.Count}; с ошибкой или пропущено {failedZoneNames.Count}; всего {zoneCount}.");
             Logger.WriteLine("Обработка завершена!");
             Logger.FinishLog();
-            return;
+            return true;
         }
 
 
@@ -347,7 +383,7 @@ public partial class ClashChecker
             Logger.WriteLine(ex.Message, LogType.Error);
             Logger.FinishLog();
 
-            return;
+            return false;
         }
 
     }
@@ -376,29 +412,39 @@ public partial class ClashChecker
     }
     
 
-    private TimeSpan CheckZone(DbElement zone,
+    private bool CheckZone(DbElement zone,
                            ObstructionList obstructionList,
                            ClashOptions clashOptions,
                            SqlConnection clashConnection,
                            string clashTableName,
                            int index,
-                           int zoneCount)
+                           int zoneCount,
+                           out TimeSpan elapsed)
     {
-        var clashSet = ClashSet.Create();
-        Logger.WriteLine($"Начата проверка зоны {zone.Name()} [{index + 1}/{zoneCount}] ...");
         var clashCheckStopwatch = Stopwatch.StartNew();
-        var checkResult = Clasher.Instance.Check([zone], clashOptions, obstructionList, clashSet);
-        clashCheckStopwatch.Stop();
-        if (!checkResult)
+        try
         {
-            Logger.WriteLine($"Desclash не удалось проверить зону {zone.Name()}! Переход к следующей зоне...");
+            var clashSet = ClashSet.Create();
+            Logger.WriteLine($"Начата проверка зоны {zone.Name()} [{index + 1}/{zoneCount}] ...");
+            bool checkResult = Clasher.Instance.Check([zone], clashOptions, obstructionList, clashSet);
+            clashCheckStopwatch.Stop();
+            elapsed = clashCheckStopwatch.Elapsed;
+            if (!checkResult)
+            {
+                Logger.WriteLine($"Desclash не удалось проверить зону {zone.Name()}! Переход к следующей зоне...");
+                return false;
+            }
 
-            return clashCheckStopwatch.Elapsed;
+            Logger.WriteLine($"Зона {zone.Name()} проверена!");
+            return CheckResultToBase(clashConnection, clashTableName, clashSet);
         }
-        Logger.WriteLine($"Зона {zone.Name()} Проверена!");
-
-        CheckResultToBase(clashConnection, clashTableName, clashSet);
-        return clashCheckStopwatch.Elapsed;
+        catch (Exception ex)
+        {
+            clashCheckStopwatch.Stop();
+            elapsed = clashCheckStopwatch.Elapsed;
+            Logger.WriteLine($"Ошибка проверки зоны {zone.Name()}: {ex.Message}", LogType.Error);
+            return false;
+        }
     }
 
     private static Dictionary<string, string> RequiredClashTableColumns = new Dictionary<string, string>
@@ -811,6 +857,78 @@ public partial class ClashChecker
         };
     }
 
+    public void NormalizeStoredClashTypes(SqlConnection clashConnection, string clashTableName)
+    {
+        clashConnection.Execute($@"
+            UPDATE [{clashTableName}]
+            SET [CT] = CASE
+                WHEN UPPER([CT]) IN ('HH', 'HARD') THEN 'Hard'
+                ELSE 'Soft'
+            END;");
+    }
+
+    private void CleanupNightCheckResults(
+        SqlConnection clashConnection,
+        string clashTableName,
+        int initialClashCount,
+        HashSet<string> failedZoneNames)
+    {
+        if (clashConnection.State != ConnectionState.Open)
+            clashConnection.Open();
+
+        List<ClashEntity> notConfirmedClashes = clashConnection.Query<ClashEntity>($@"
+            SELECT {ClashSql}
+            FROM [{clashTableName}]
+            WHERE [XT] = 0;").ToList();
+
+        double notConfirmedPercent = initialClashCount == 0
+            ? 0
+            : notConfirmedClashes.Count * 100.0 / initialClashCount;
+
+        Logger.WriteLine($"Ночная проверка: строк до проверки {initialClashCount}; "
+            + $"XT = 0 после проверки {notConfirmedClashes.Count} ({notConfirmedPercent:F2}%); "
+            + $"зон с ошибками {failedZoneNames.Count}.");
+
+        if (notConfirmedPercent > 25.0)
+        {
+            Logger.WriteLine("Ночная очистка отменена: доля XT = 0 превысила безопасный порог 25%. "
+                + "Строки оставлены с XT = 0 для разбора администратором.", LogType.Error);
+            return;
+        }
+
+        int deletedCount = 0;
+        int protectedCount = 0;
+        int errorCount = 0;
+
+        foreach (ClashEntity clash in notConfirmedClashes)
+        {
+            if (failedZoneNames.Contains(clash.FirstZone ?? string.Empty)
+                || failedZoneNames.Contains(clash.SecondZone ?? string.Empty))
+            {
+                protectedCount++;
+                continue;
+            }
+
+            try
+            {
+                DeleteById(
+                    clashConnection,
+                    clashTableName,
+                    clash,
+                    "Коллизия не подтвердилась при ночной проверке");
+                deletedCount++;
+            }
+            catch (Exception ex)
+            {
+                errorCount++;
+                Logger.WriteLine($"Не удалось обработать коллизию {clash.Id}: {ex.Message}", LogType.Error);
+            }
+        }
+
+        Logger.WriteLine($"Ночная очистка: обработано {deletedCount}; "
+            + $"оставлено из-за ошибок зон {protectedCount}; ошибок SQL {errorCount}.");
+    }
+
     private string GetDesignerOrLastUser(DbElement element)
     {
         DbElement zone = element.GetZone();
@@ -1045,7 +1163,7 @@ public partial class ClashChecker
 
         return clashList;
     }
-    private void CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
+    private bool CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
         if (sqlConnection.State != ConnectionState.Open)
             sqlConnection.Open();
@@ -1095,7 +1213,7 @@ public partial class ClashChecker
             {
                 Pairs.Rows.Add(
 
-                    n.Type.ToString(),
+                    GetSqlClashType(n),
                     n.First.GetAsString(DbAttributeInstance.REF),
                     n.Second.GetAsString(DbAttributeInstance.REF),
                     (int)n.ClashPosition.X,
@@ -1159,7 +1277,7 @@ public partial class ClashChecker
             foreach (var clash in notIgnoredClashes)
             {
 
-                var clashType = clash.Type.ToString();
+                string clashType = GetSqlClashType(clash);
                 var El1Ref = clash.First.GetAsString(DbAttributeInstance.REF);
                 var El2Ref = clash.Second.GetAsString(DbAttributeInstance.REF);
                 int X = (int)clash.ClashPosition.X;
@@ -1181,14 +1299,24 @@ public partial class ClashChecker
                 $"добавлено новых {dt.Rows.Count}")
                 .RunInPdms();
 
+            return true;
+
         }
         catch (Exception ex)
         {
             Logger.WriteLine($"Ошибка в CheckResultToBase {ex.Message}");
+            return false;
         }
         finally
         {
-            sqlConnection.Execute("DROP TABLE #pairs;");
+            try
+            {
+                sqlConnection.Execute("IF OBJECT_ID('tempdb..#pairs') IS NOT NULL DROP TABLE #pairs;");
+            }
+            catch (Exception ex)
+            {
+                Logger.WriteLine($"Не удалось удалить временную таблицу #pairs: {ex.Message}");
+            }
 
         }
     }
@@ -1232,7 +1360,7 @@ public partial class ClashChecker
     /// <param name="clash"></param>
     private void AdditionTableForInsert(Clash clash, DataTable dt, int x, int y, int z)
     {
-        var clashType = clash.Type.ToString();
+        string clashType = GetSqlClashType(clash);
         var firstElement = clash.First.GetAsString(DbAttributeInstance.REF);
         var secondElement = clash.Second.GetAsString(DbAttributeInstance.REF);
         var firstType = clash.First.ElementType.ToString();
@@ -1550,6 +1678,13 @@ public partial class ClashChecker
 
 
 
+
+    private static string GetSqlClashType(Clash clash)
+    {
+        return string.Equals(clash.Type.ToString(), "HH", StringComparison.OrdinalIgnoreCase)
+            ? "Hard"
+            : "Soft";
+    }
 
     public static string MakeKey(string clashType, string el1, string el2, int X, int Y, int Z)
               => $"{clashType}|{el1}|{el2}|{X}|{Y}|{Z}";

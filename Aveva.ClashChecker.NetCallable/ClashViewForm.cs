@@ -130,7 +130,8 @@ namespace ClashViewForm
             if (DateTime.TryParseExact(dateValue.Trim(), AvevaDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out DateTime date))
                 return date;
 
-            Logger.WriteLine($"Не удалось преобразовать дату '{dateValue}' элемента {element.Name()}");
+            if (element.ElementType == DbElementTypeInstance.ZONE)
+                Logger.WriteLine($"Не удалось преобразовать дату '{dateValue}' зоны {element.Name()}");
             return DateTime.MinValue;
         }
 
@@ -158,6 +159,7 @@ namespace ClashViewForm
                    
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
+            checker.NormalizeStoredClashTypes(clashConnection, clashTableName);
             var notExistingCount = clashConnection.ExecuteScalar<int>(@$"select count(*)
                                                                from {clashTableName} 
                                                                WHERE [XT] = 0
@@ -179,7 +181,21 @@ namespace ClashViewForm
 
             PML.CreateCommand($"$p Коллизий зоны {zoneRef} до проверки {clashesByZone.Count}").RunInPdms();
 
-            checker.ColZone(clashConnection, clashTableName, zoneRef);
+            clashConnection.Execute($@"UPDATE [{clashTableName}]
+                                       SET [XT] = 0
+                                       WHERE [G1] = @zoneRef OR [G2] = @zoneRef",
+                                       new { zoneRef });
+
+            bool checkSucceeded = checker.ColZone(clashConnection, clashTableName, zoneRef);
+            if (!checkSucceeded)
+            {
+                Logger.WriteLine($"Проверка зоны {zoneRef} завершилась с ошибкой. "
+                    + "Удаление коллизий и запись :Check не выполнены.", LogType.Error);
+                System.Windows.MessageBox.Show(
+                    $"Проверка зоны {zoneRef} завершилась с ошибкой.\n\n"
+                    + "Коллизии с Existing = 0 оставлены для разбора администратором.");
+                return;
+            }
 
             var notExistingClashes = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql}
                                                                             FROM {clashTableName}
@@ -187,12 +203,28 @@ namespace ClashViewForm
                                                                             AND ([G1] = @zoneRef OR [G2] = @zoneRef)",
                                                                             new { zoneRef })
                                                                             .ToList();
+            int cleanupErrorCount = 0;
             foreach (var clash in notExistingClashes)
             {
-                checker.DeleteById(clashConnection, clashTableName, clash, ".CheckZone: коллизия больше не относится к зоне и удалена после проверки");
+                try
+                {
+                    checker.DeleteById(clashConnection, clashTableName, clash, ".CheckZone: коллизия больше не относится к зоне и удалена после проверки");
+                }
+                catch (Exception ex)
+                {
+                    cleanupErrorCount++;
+                    Logger.WriteLine($"Не удалось обработать коллизию {clash.Id}: {ex.Message}", LogType.Error);
+                }
             }
 
-            PML.CreateCommand($"$p Из зоны {zoneRef} удалено {notExistingClashes.Count} несуществующих коллизий").RunInPdms();
+            int processedClashCount = notExistingClashes.Count - cleanupErrorCount;
+            PML.CreateCommand($"$p Из зоны {zoneRef} обработано {processedClashCount} несуществующих коллизий").RunInPdms();
+
+            if (cleanupErrorCount > 0)
+            {
+                Logger.WriteLine($"Проверка зоны {zoneRef}: не обработано коллизий {cleanupErrorCount}. :Check не обновлён.", LogType.Error);
+                return;
+            }
 
             DateTime checkDate = DateTime.Now;
             string checkDateValue = checkDate.ToString("HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture);
@@ -332,7 +364,29 @@ namespace ClashViewForm
 
             if (lastCheck < elementsLastModified)
             {
-                Logger.WriteLine($"Зона {zoneRef}: после проверки изменялись элементы.");
+                DbAttribute lastModifiedAttribute = DbAttribute.GetDbAttribute("lastmod");
+                var modifiedElements = new List<(string ElementRef, DateTime LastModified)>();
+
+                foreach (DbElement element in new DBElementCollection(zone).Cast<DbElement>())
+                {
+                    DateTime elementLastModified = GetAttributeDate(element, lastModifiedAttribute);
+
+                    if (elementLastModified > lastCheck)
+                    {
+                        string elementRef = element.GetAsString(DbAttributeInstance.REF);
+                        modifiedElements.Add((elementRef, elementLastModified));
+                    }
+                }
+
+                Logger.WriteLine($"Зона {zoneRef}: после проверки изменялись элементы — {modifiedElements.Count} шт.");
+
+                foreach (var modifiedElement in modifiedElements.OrderByDescending(element => element.LastModified))
+                {
+                    Logger.WriteLine(
+                        $"Изменённый элемент: {modifiedElement.ElementRef}; " +
+                        $"LASTMOD = {modifiedElement.LastModified:dd.MM.yyyy HH:mm:ss}");
+                }
+
                 return false;
             }
 
