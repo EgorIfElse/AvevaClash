@@ -983,7 +983,7 @@
                 </DataGridTextColumn>
                 <DataGridTextColumn x:Name = "CT"
                                     Visibility="Collapsed"
-                                    Binding="{Binding FirstElement}" 
+                                    Binding="{Binding ClashType}"
                                     Width="SizeToHeader"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                         <DataGridTextColumn.Header>
@@ -1052,7 +1052,7 @@
                                    Width="SizeToHeader"
                                    ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="E1 " ToolTip="тип 2-го элемента коллизии"/>
+                        <TextBlock Text="E2 " ToolTip="тип 2-го элемента коллизии"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
               

@@ -420,6 +420,7 @@ public partial class MainWindow : Window
                 Logger.WriteLine(
                     $"Вызов !!ClashPoint: Status={status}; ID={clash.Id}; " +
                     $"One={clash.FirstElement}; Two={clash.SecondElement}; " +
+                    $"E1={clash.FirstType}; E2={clash.SecondType}; " +
                     $"Pos=[{clash.X}, {clash.Y}, {clash.Z}]");
 
                 PML.CreateCommand("!!ClashPointPos = Array()").RunInPdms();
@@ -431,6 +432,8 @@ public partial class MainWindow : Window
                     $"!!ClashPoint({status}, {clash.Id}, " +
                     $"'{clash.FirstElement}', " +
                     $"'{clash.SecondElement}', " +
+                    $"'{clash.FirstType}', " +
+                    $"'{clash.SecondType}', " +
                     $"!!ClashPointPos)")
                     .RunInPdms();
 

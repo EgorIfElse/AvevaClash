@@ -55,7 +55,7 @@ namespace ClashViewForm
         }
        public string ClashConnectionString = new Func<string>(() =>
     {
-        Command commsnd = Command.CreateCommand("!!Connect = !!LoginToSQL('User')");
+        Command commsnd = Command.CreateCommand("!!Connect = !!LoginToSQL('Admin')");
         commsnd.RunInPdms();
         return Command.GetStringFromPML("!!Connect").Trim('/','"');
     })();
