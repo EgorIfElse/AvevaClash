@@ -1,5 +1,5 @@
 ﻿using System;
-namespace Aveva.ClashChecker.NetCallable;
+namespace ClashForKPI;
 
 public static class Exceptions
 {

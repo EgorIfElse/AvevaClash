@@ -1,4 +1,4 @@
-namespace Aveva.ClashChecker.NetCallable.Models;
+namespace ClashForKPI.Models;
 
 public class ZoneComboItem
 {

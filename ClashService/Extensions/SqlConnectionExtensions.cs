@@ -3,7 +3,7 @@ using System.Linq;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
-namespace Aveva.ClashChecker.NetCallable.Extensions;
+namespace ClashForKPI.Extensions;
 
 public static class SqlConnectionExtensions
 {

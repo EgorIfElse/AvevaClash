@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace Aveva.ClashChecker.NetCallable;
+namespace ClashForKPI;
 
 /// <summary>
 /// Класс для логгирования в файл
@@ -34,7 +34,7 @@ public class ClashLogger
 
         StartTime = DateTime.Now;
         LogDirectory = logDirectory;
-        //FilePath = $"{LogDirectory}\\ClashChecker_{currentTime}.log";
+        //FilePath = $"{LogDirectory}\\ClashService_{currentTime}.log";
     }
 
 
@@ -56,7 +56,7 @@ public class ClashLogger
     {
         DateTime currentTime = DateTime.Now;
         var filetime = currentTime.ToString("yyyy-MM-dd_HH-mm-ss");
-        string filePath = $"{LogDirectory}\\ClashChecker_{filetime}.log";
+        string filePath = $"{LogDirectory}\\ClashService_{filetime}.log";
        // File.Create(filePath);
        Logs.Add($"Время выполнения: {(currentTime - StartTime).TotalSeconds} секунд");
         File.WriteAllLines(filePath, Logs);

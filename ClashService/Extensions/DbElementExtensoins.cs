@@ -1,7 +1,7 @@
 ﻿using Aveva.Core.Database;
 using System.Runtime.CompilerServices;
 
-namespace Aveva.ClashChecker.NetCallable.Extensions;
+namespace ClashForKPI.Extensions;
 
 public static class DbElementExtensoins
 {

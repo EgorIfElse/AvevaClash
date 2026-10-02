@@ -856,16 +856,6 @@
                 </Style>
             </DataGrid.RowStyle>
 
-            <DataGrid.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="Найти в дереве элемент №1" Click="Search1_MouseRightButtonDown"/>
-                    <MenuItem Header="Найти в дереве элемент №2" Click="Search2_MouseRightButtonDown"/>
-                    <MenuItem Header="Добавить и подсветить в 3D элемент №1" Click="Add_Select1_MouseRightButtonDown"/>
-                    <MenuItem Header="Добавить и подсветить в 3D элемент №2" Click="Add_Select2_MouseRightButtonDown"/>
-                    <MenuItem Header="Пронумеровать выбранные" Click="NumbersOfSelectedClash"/>
-                </ContextMenu>
-            </DataGrid.ContextMenu>
-
             <DataGrid.Columns>
 
                 <DataGridTemplateColumn Header="Статус" Width="190" SortMemberPath="Status">

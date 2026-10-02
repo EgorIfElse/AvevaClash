@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Aveva.ClashChecker.NetCallable.Models;
+namespace ClashForKPI.Models;
 
 public record ClashEntity
 {

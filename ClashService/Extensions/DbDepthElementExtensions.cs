@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Aveva.ClashChecker.NetCallable.Extensions
+namespace ClashForKPI.Extensions
 {
     public static class DbDepthElementExtensions
     {

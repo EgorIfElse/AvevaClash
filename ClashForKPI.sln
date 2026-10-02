@@ -17,7 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", 
 		References\PMLNet.dll = References\PMLNet.dll
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aveva.ClashChecker.NetCallable", "Aveva.ClashChecker.NetCallable\Aveva.ClashChecker.NetCallable.csproj", "{9B05BF19-CA77-490C-82B2-C3B811938411}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClashService", "ClashService\ClashService.csproj", "{9B05BF19-CA77-490C-82B2-C3B811938411}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VIewModel", "VIewModelNew\VIewModel.csproj", "{A168A376-7273-4756-9E12-0CCEC5E03E24}"
 EndProject

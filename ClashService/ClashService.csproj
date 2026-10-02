@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 	<PropertyGroup>
-		<AssemblyName>ClashChecker</AssemblyName>
+		<AssemblyName>ClashService</AssemblyName>
+		<RootNamespace>ClashForKPI</RootNamespace>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<TargetFramework>net481</TargetFramework>
 		<RuntimeIdentifiers>win-x86</RuntimeIdentifiers>

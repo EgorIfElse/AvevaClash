@@ -1,5 +1,5 @@
 ﻿using Aveva.Core.Utilities.CommandLine;
-namespace Aveva.ClashChecker.NetCallable;
+namespace ClashForKPI;
 
 public static class PmlHelper
 {

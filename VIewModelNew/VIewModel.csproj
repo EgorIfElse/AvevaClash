@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Aveva.ClashChecker.NetCallable\Aveva.ClashChecker.NetCallable.csproj" />
+    <ProjectReference Include="..\ClashService\ClashService.csproj" />
   </ItemGroup>
 
   <ItemGroup>

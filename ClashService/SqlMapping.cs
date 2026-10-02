@@ -1,11 +1,11 @@
-﻿using Aveva.ClashChecker.NetCallable.Models;
+using ClashForKPI.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Aveva.ClashChecker.NetCallable.Sql;
+namespace ClashForKPI.Sql;
 
 public static class SqlMapping
 {
