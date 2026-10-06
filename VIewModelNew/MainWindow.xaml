@@ -1081,7 +1081,7 @@
                 
                 <DataGridTextColumn x:Name = "DT"
                                     Visibility="Collapsed"
-                                    Binding="{Binding Date}"
+                                    Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
                                     Width="Auto"
                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1134,7 +1134,7 @@
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn x:Name = "RD"
-                                    Binding="{Binding RequestDate}" 
+                                    Binding="{Binding RequestDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1151,7 +1151,7 @@
                 </DataGridTextColumn>
 
                 <DataGridTextColumn  x:Name = "AD"
-                                     Binding="{Binding ApproveDate}" 
+                                     Binding="{Binding ApproveDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
                                      Width="Auto"
                                      ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
@@ -1176,7 +1176,7 @@
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn x:Name = "WD"
-                                    Binding="{Binding InWorkDate}" 
+                                    Binding="{Binding InWorkDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
                                     Width="Auto"
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>

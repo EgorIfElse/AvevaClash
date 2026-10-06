@@ -56,14 +56,31 @@ public partial class MainWindow : Window
         return !string.IsNullOrWhiteSpace(department) && MyDepartments.Contains(department);
     }
 
-
-
-
-    private void SendRequestNotifications(List<ClashEntity> clashes)
+    private bool IsCurrentZoneFirstSide(ClashEntity clash)
     {
-        var groupsByUser = clashes.GroupBy(clash => clash.SecondUserMode);
+        return string.Equals(CurrZone, clash.FirstZone, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetRequestRecipientUser(ClashEntity clash)
+    {
+        if (IsCurrentZoneFirstSide(clash))
+            return clash.SecondUserMode;
+
+        return clash.FirstUserMode;
+    }
+    private string GetRequestRecipientDept(ClashEntity clash)
+    {
+        if (IsCurrentZoneFirstSide(clash))
+            return clash.SecondDept;
+
+        return clash.FirstDept;
+    }
+    private List<ClashEntity> SendRequestNotifications(List<ClashEntity> clashes)
+    {
+        var groupsByUser = clashes.GroupBy(GetRequestRecipientUser);
         List<string> sentUsers = [];
         List<string> failedUsers = [];
+        List<ClashEntity> notifiedClashes = [];
         string currentUserMail = GetUserMail(MyUlogId);
 
         foreach (var userGroup in groupsByUser)
@@ -82,7 +99,10 @@ public partial class MainWindow : Window
             }
 
             if (SendMailWithFallback(currentUserMail, userMail, subject, body))
+            {
                 sentUsers.Add(user);
+                notifiedClashes.AddRange(userClashes);
+            }
             else
                 failedUsers.Add(user);
         }
@@ -98,6 +118,7 @@ public partial class MainWindow : Window
             message = "Уведомления отправлены: " + string.Join(", ", sentUsers) + "\nНе отправлены: " + string.Join(", ", failedUsers);
 
         MessageBox.Show(message);
+        return notifiedClashes;
     }
 
     private string BuildRequestEmailBody(List<ClashEntity> clashes)
@@ -533,17 +554,36 @@ public partial class MainWindow : Window
 
         foreach (ClashEntity item in selectedClashes)
         {
-            if (string.IsNullOrWhiteSpace(item.SecondDept))
+            bool currentZoneIsFirstSide = string.Equals(CurrZone, item.FirstZone, StringComparison.OrdinalIgnoreCase);
+
+            string senderDept;
+            string recipientDept;
+            string recipientUser;
+
+            if (currentZoneIsFirstSide)
             {
-                string error = $"Коллизия {item.Id}: не заполнен D2. Отправка запроса отменена. Обратитесь к администратору AVEVA.";
+                senderDept = item.FirstDept;
+                recipientDept = item.SecondDept;
+                recipientUser = item.SecondUserMode;
+            }
+            else
+            {
+                senderDept = item.SecondDept;
+                recipientDept = item.FirstDept;
+                recipientUser = item.FirstUserMode;
+            }
+
+            if (string.IsNullOrWhiteSpace(recipientDept))
+            {
+                string error = $"Коллизия {item.Id}: не заполнен отдел получателя. Отправка запроса отменена. Обратитесь к администратору AVEVA.";
                 Logger.WriteLine(error, LogType.Error);
                 MessageBox.Show(error);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(item.SecondUserMode))
+            if (string.IsNullOrWhiteSpace(recipientUser))
             {
-                string error = $"Коллизия {item.Id}: не заполнен U2. Отправка запроса отменена. Обратитесь к администратору AVEVA.";
+                string error = $"Коллизия {item.Id}: не определён пользователь-получатель. Отправка запроса отменена. Обратитесь к администратору AVEVA.";
                 Logger.WriteLine(error, LogType.Error);
                 MessageBox.Show(error);
                 return;
@@ -553,9 +593,9 @@ public partial class MainWindow : Window
             bool hasApprove = !string.IsNullOrWhiteSpace(item.ApproveUser) || item.ApproveDate != null || !string.IsNullOrWhiteSpace(item.ApproveReason);
             bool hasInWork = !string.IsNullOrWhiteSpace(item.InWorkUser) || item.InWorkDate != null;
 
-            if (!HasDepartmentAccess(item.FirstDept))
+            if (!HasDepartmentAccess(senderDept))
             {
-                MessageBox.Show($"Нельзя отправить запрос по коллизии {item.Id}.\nВ атрибуте :UserDept отсутствует отдел D1: {item.FirstDept}.");
+                MessageBox.Show($"Нельзя отправить запрос по коллизии {item.Id}.\nВ атрибуте :UserDept отсутствует отдел текущего комплекта: {senderDept}.");
                 return;
             }
 
@@ -575,7 +615,12 @@ public partial class MainWindow : Window
                 return;
             }
         }
-        var groups = selectedClashes.GroupBy(clash => clash.SecondDept);
+        List<ClashEntity> notifiedClashes = SendRequestNotifications(selectedClashes);
+
+        if (notifiedClashes.Count == 0)
+            return;
+
+        var groups = notifiedClashes.GroupBy(GetRequestRecipientDept);
         try
         {
             using SqlConnection clashConnection = new(ClashConnectionString);
@@ -597,7 +642,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        SendRequestNotifications(selectedClashes);
         Refresh();
     }
 
