@@ -816,9 +816,9 @@
 
             <DataGrid.Resources>
                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
-                                 Color="#EFF6FF"/>
+                                 Color="#DBEAFE"/>
                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
-                                 Color="#2F343B"/>
+                                 Color="#1E3A8A"/>
 
                 <Style TargetType="TextBlock">
                     <Setter Property="TextAlignment" Value="Center"/>
@@ -849,8 +849,10 @@
                         </Trigger>
 
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#EFF6FF"/>
-                            <Setter Property="Foreground" Value="#2F343B"/>
+                            <Setter Property="Background" Value="#DBEAFE"/>
+                            <Setter Property="Foreground" Value="#1E3A8A"/>
+                            <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            <Setter Property="BorderThickness" Value="4,0,0,0"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -1375,6 +1377,81 @@
                 </StackPanel>
             </Border>
             
+        </Grid>
+
+        <Grid x:Name="AccessDeniedOverlay"
+              Visibility="Collapsed"
+              Background="#66000000"
+              Grid.Row="0"
+              Grid.RowSpan="4">
+            <Border Width="500"
+                    Padding="24"
+                    CornerRadius="12"
+                    Background="White"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                        <Border Width="38" Height="38" CornerRadius="19" Background="#EFF6FF" Margin="0,0,12,0">
+                            <materialDesign:PackIcon Kind="InformationOutline"
+                                                     Width="21"
+                                                     Height="21"
+                                                     Foreground="#3B82F6"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Нет доступа к комплекту" FontSize="17" FontWeight="SemiBold" Foreground="#334155"/>
+                            <TextBlock Text="Запрос не был отправлен" FontSize="12" Foreground="#64748B" Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="Выбранный комплект" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock x:Name="TxtAccessDeniedZone" FontSize="13" Foreground="#334155" Margin="0,3,0,10"/>
+                            <TextBlock Text="Необходимый отдел" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock x:Name="TxtAccessDeniedDept" FontSize="13" Foreground="#334155" Margin="0,3,0,10"/>
+                            <TextBlock Text="Текущий пользователь" FontSize="12" Foreground="#64748B"/>
+                            <TextBlock x:Name="TxtAccessDeniedUser" FontSize="13" Foreground="#334155" Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel x:Name="SuggestedZonePanel" Margin="0,18,0,0">
+                        <TextBlock Text="Вы можете выполнить действие из доступного вам комплекта:" FontSize="12" Foreground="#64748B"/>
+                        <Button Background="Transparent"
+                                BorderThickness="0"
+                                Padding="0"
+                                Margin="0,7,0,0"
+                                HorizontalAlignment="Left"
+                                Cursor="Hand"
+                                Click="SuggestedZone_Click">
+                            <TextBlock x:Name="TxtSuggestedZone"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#3B82F6"
+                                       TextDecorations="Underline"/>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock x:Name="TxtAccessDeniedHint"
+                               Text="Для получения доступа обратитесь к администратору AVEVA."
+                               Visibility="Collapsed"
+                               TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="#64748B"
+                               Margin="0,18,0,0"/>
+
+                    <Button Width="100"
+                            HorizontalAlignment="Right"
+                            Margin="0,22,0,0"
+                            Content="Закрыть"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="BtnAccessDeniedClose_Click"/>
+                </StackPanel>
+            </Border>
         </Grid>
 
 

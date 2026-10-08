@@ -18,6 +18,11 @@ namespace ClashForKPI
     [PMLNetCallable]
     public class ClashLauncher
     {
+        public TimeSpan LastPreparationElapsed { get; private set; }
+        public TimeSpan LastClashCheckElapsed { get; private set; }
+        public TimeSpan LastSqlSyncElapsed { get; private set; }
+        public TimeSpan LastCleanupElapsed { get; private set; }
+        public TimeSpan LastTotalCheckElapsed { get; private set; }
         public string MyUlogId = Project.CurrentProject.LoginUser;
         public string MyDept = Project.CurrentProject.UserName;
         public HashSet<string> MyDepartments{get;private set;} = new(StringComparer.OrdinalIgnoreCase);
@@ -100,6 +105,17 @@ namespace ClashForKPI
         [PMLNetCallable]
         public void CheckZone(string zoneRef, bool logToPdmsConsole = true)
         {
+            CheckZone(zoneRef, logToPdmsConsole, 1);
+        }
+
+        public void CheckZone(string zoneRef, bool logToPdmsConsole, int checkMode)
+        {
+            var totalCheckStopwatch = Stopwatch.StartNew();
+            LastPreparationElapsed = TimeSpan.Zero;
+            LastClashCheckElapsed = TimeSpan.Zero;
+            LastSqlSyncElapsed = TimeSpan.Zero;
+            LastCleanupElapsed = TimeSpan.Zero;
+            LastTotalCheckElapsed = TimeSpan.Zero;
            // Logger = new ClashLogger(logDirectoryPath);
             Logger.LogInPdmsConsole = logToPdmsConsole;
             DbElement zone = DbElement.GetElement(zoneRef);
@@ -133,7 +149,10 @@ namespace ClashForKPI
                 return;
             }
 
-            clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef);
+            var preparationStopwatch = Stopwatch.StartNew();
+            if (checkMode == 1)
+                clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef, true);
+
             int clashCountBeforeCheck = clashConnection.ExecuteScalar<int>($@"SELECT COUNT(*) FROM [{clashTableName}] WHERE [G1] = @zoneRef OR [G2] = @zoneRef", new { zoneRef });
             Logger.WriteLine($"Коллизий зоны {zoneRef} до проверки: {clashCountBeforeCheck}");
 
@@ -141,8 +160,13 @@ namespace ClashForKPI
                                        SET [XT] = 0
                                        WHERE [G1] = @zoneRef OR [G2] = @zoneRef",
                                        new { zoneRef });
+            preparationStopwatch.Stop();
+            LastPreparationElapsed = preparationStopwatch.Elapsed;
+            Logger.WriteLine($"Ручная проверка, режим {checkMode}: подготовка до clash-check заняла {LastPreparationElapsed.TotalSeconds:F3} сек.");
 
-            bool checkSucceeded = clashService.CheckZones(clashConnection, clashTableName, zoneRef);
+            bool checkSucceeded = clashService.CheckZones(clashConnection, clashTableName, zoneRef, syncMode: checkMode);
+            LastClashCheckElapsed = clashService.LastClashCheckElapsed;
+            LastSqlSyncElapsed = clashService.LastSqlSyncElapsed;
             if (!checkSucceeded)
             {
                 Logger.WriteLine($"Проверка зоны {zoneRef} завершилась с ошибкой. "
@@ -153,6 +177,7 @@ namespace ClashForKPI
                 return;
             }
 
+            var cleanupStopwatch = Stopwatch.StartNew();
             var notExistingClashes = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql}
                                                                             FROM {clashTableName}
                                                                             WHERE [XT] = 0
@@ -174,6 +199,8 @@ namespace ClashForKPI
             }
 
             int processedClashCount = notExistingClashes.Count - cleanupErrorCount;
+            cleanupStopwatch.Stop();
+            LastCleanupElapsed = cleanupStopwatch.Elapsed;
             Logger.WriteLine($"В зоне {zoneRef} обработано исчезнувших коллизий: {processedClashCount}");
 
             if (cleanupErrorCount > 0)
@@ -186,6 +213,9 @@ namespace ClashForKPI
             string checkDateValue = checkDate.ToString("HH:mm:ss d MMMM yyyy", CultureInfo.InvariantCulture);
             zone.SetAttribute(DbAttribute.GetDbAttribute(":Check"), checkDateValue);
             MDB.CurrentMDB.SaveWork("");
+            totalCheckStopwatch.Stop();
+            LastTotalCheckElapsed = totalCheckStopwatch.Elapsed;
+            Logger.WriteLine($"Замер ручной проверки, режим {checkMode}: до check {LastPreparationElapsed.TotalSeconds:F3} сек.; clash-check {LastClashCheckElapsed.TotalSeconds:F3} сек.; SQL {LastSqlSyncElapsed.TotalSeconds:F3} сек.; очистка {LastCleanupElapsed.TotalSeconds:F3} сек.; всего {LastTotalCheckElapsed.TotalSeconds:F3} сек.");
         }
         public List<ZoneComboItem> UpdateZoneList()
         {

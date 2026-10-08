@@ -4,8 +4,10 @@ using ViewForm;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Windows.Interop;
 
 namespace VIewModelNew
 {
@@ -46,8 +48,15 @@ namespace VIewModelNew
         [PMLNetCallable]
         public void MainShowWpf()
         {
-
             var window = new MainWindow();
+            IntPtr avevaWindowHandle = Process.GetCurrentProcess().MainWindowHandle;
+
+            if (avevaWindowHandle != IntPtr.Zero)
+            {
+                var windowHelper = new WindowInteropHelper(window);
+                windowHelper.Owner = avevaWindowHandle;
+            }
+
             ElementHost.EnableModelessKeyboardInterop(window);
             window.Show();
         }

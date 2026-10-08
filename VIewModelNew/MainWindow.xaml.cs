@@ -5,6 +5,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
@@ -35,6 +36,8 @@ public partial class MainWindow : Window
     new(StringComparer.OrdinalIgnoreCase);
     public string MyUlogId = "";
     public string ClashConnectionString = "";
+    private string suggestedZone = "";
+    private int suggestedClashId;
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private readonly ClashLogger Logger = new ClashLogger(DefaultLogDirectoryPath);
     public MainWindow()
@@ -54,6 +57,45 @@ public partial class MainWindow : Window
     private bool HasDepartmentAccess(string department)
     {
         return !string.IsNullOrWhiteSpace(department) && MyDepartments.Contains(department);
+    }
+
+    private void ShowAccessDeniedOverlay(string department, string oppositeZone, int clashId, bool canOpenOppositeZone)
+    {
+        suggestedZone = oppositeZone;
+        suggestedClashId = clashId;
+        TxtAccessDeniedZone.Text = CurrZone;
+        TxtAccessDeniedDept.Text = department;
+        TxtAccessDeniedUser.Text = MyUlogId;
+        TxtSuggestedZone.Text = oppositeZone;
+        SuggestedZonePanel.Visibility = canOpenOppositeZone ? Visibility.Visible : Visibility.Collapsed;
+        TxtAccessDeniedHint.Visibility = canOpenOppositeZone ? Visibility.Collapsed : Visibility.Visible;
+        AccessDeniedOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void SuggestedZone_Click(object sender, RoutedEventArgs e)
+    {
+        AccessDeniedOverlay.Visibility = Visibility.Collapsed;
+        CbZone.SelectedValue = suggestedZone;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(SelectSuggestedClash));
+    }
+
+    private void SelectSuggestedClash()
+    {
+        ClashEntity targetClash = DgClashes.ItemsSource.Cast<ClashEntity>().FirstOrDefault(clash => clash.Id == suggestedClashId);
+
+        if (targetClash == null)
+            return;
+
+        DgClashes.SelectedItems.Clear();
+        DgClashes.SelectedItem = targetClash;
+        DgClashes.ScrollIntoView(targetClash);
+        DgClashes.UpdateLayout();
+        DgClashes.Focus();
+    }
+
+    private void BtnAccessDeniedClose_Click(object sender, RoutedEventArgs e)
+    {
+        AccessDeniedOverlay.Visibility = Visibility.Collapsed;
     }
 
     private bool IsCurrentZoneFirstSide(ClashEntity clash)
@@ -98,7 +140,7 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            if (SendMailWithFallback(currentUserMail, userMail, subject, body))
+            if (SendMailFromAdmin(currentUserMail, userMail, subject, body))
             {
                 sentUsers.Add(user);
                 notifiedClashes.AddRange(userClashes);
@@ -186,13 +228,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private bool SendMailWithFallback(string currentUserMail, string to, string subject, string body)
+    private bool SendMailFromAdmin(string currentUserMail, string to, string subject, string body)
     {
-        if (SendMail(currentUserMail, to, currentUserMail, subject, body))
-            return true;
-
         const string adminMail = "pdmsadmin@k-pei.ru";
-        Logger.WriteLine($"Повторная отправка письма пользователю {to} от служебного адреса {adminMail}.");
+        Logger.WriteLine($"Отправка письма пользователю {to} от служебного адреса {adminMail}. Копия: {currentUserMail}.");
         return SendMail(adminMail, to, currentUserMail, subject, body);
     }
 
@@ -367,12 +406,34 @@ public partial class MainWindow : Window
             return;
         }
 
+        MessageBoxResult modeResult = MessageBox.Show(
+            "1  OLD + G\n"
+            + "2  NEW + G + INFOALL\n"
+            + "3  NEW + G + INFONEW\n\n"
+            + "Да = 1    Нет = 2    Отмена = 3",
+            "Режим проверки", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+        int checkMode = modeResult == MessageBoxResult.Yes ? 1 : modeResult == MessageBoxResult.No ? 2 : 3;
         DateTime previousCheck = launcher.GetZoneLastCheck(CurrZone);
-        launcher.CheckZone(CurrZone, true);
+        launcher.CheckZone(CurrZone, true, checkMode);
         DateTime currentCheck = launcher.GetZoneLastCheck(CurrZone);
         bool checkCompleted = currentCheck > previousCheck;
 
+        var formRefreshStopwatch = Stopwatch.StartNew();
         Refresh(checkCompleted);
+        formRefreshStopwatch.Stop();
+
+        if (checkCompleted)
+        {
+            MessageBox.Show($"Режим {checkMode}. Замер ручной проверки:\n\n"
+                + $"До clash-check: {launcher.LastPreparationElapsed.TotalSeconds:F3} сек.\n"
+                + $"Clash-check AVEVA: {launcher.LastClashCheckElapsed.TotalSeconds:F3} сек.\n"
+                + $"Синхронизация SQL: {launcher.LastSqlSyncElapsed.TotalSeconds:F3} сек.\n"
+                + $"Очистка XT = 0: {launcher.LastCleanupElapsed.TotalSeconds:F3} сек.\n"
+                + $"Обновление формы: {formRefreshStopwatch.Elapsed.TotalSeconds:F3} сек.\n"
+                + $"Всего до обновления формы: {launcher.LastTotalCheckElapsed.TotalSeconds:F3} сек.\n"
+                + $"Полное время с обновлением формы: {(launcher.LastTotalCheckElapsed + formRefreshStopwatch.Elapsed).TotalSeconds:F3} сек.", "Замер проверки");
+        }
     }
     private void BtnApprove_Click(object sender, RoutedEventArgs e)
     {
@@ -559,18 +620,21 @@ public partial class MainWindow : Window
             string senderDept;
             string recipientDept;
             string recipientUser;
+            string oppositeZone;
 
             if (currentZoneIsFirstSide)
             {
                 senderDept = item.FirstDept;
                 recipientDept = item.SecondDept;
                 recipientUser = item.SecondUserMode;
+                oppositeZone = item.SecondZone;
             }
             else
             {
                 senderDept = item.SecondDept;
                 recipientDept = item.FirstDept;
                 recipientUser = item.FirstUserMode;
+                oppositeZone = item.FirstZone;
             }
 
             if (string.IsNullOrWhiteSpace(recipientDept))
@@ -595,7 +659,7 @@ public partial class MainWindow : Window
 
             if (!HasDepartmentAccess(senderDept))
             {
-                MessageBox.Show($"Нельзя отправить запрос по коллизии {item.Id}.\nВ атрибуте :UserDept отсутствует отдел текущего комплекта: {senderDept}.");
+                ShowAccessDeniedOverlay(senderDept, oppositeZone, item.Id, HasDepartmentAccess(recipientDept));
                 return;
             }
 
@@ -770,7 +834,7 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            SendMailWithFallback(GetUserMail(MyUlogId), userMail, subject, body);
+            SendMailFromAdmin(GetUserMail(MyUlogId), userMail, subject, body);
         }
 
         Refresh();
