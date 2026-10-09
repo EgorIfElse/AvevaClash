@@ -408,7 +408,7 @@ public partial class MainWindow : Window
 
         MessageBoxResult modeResult = MessageBox.Show(
             "1  OLD + G\n"
-            + "2  NEW + G + INFOALL\n"
+            + "2  NEW + G + ZONEUSER\n"
             + "3  NEW + G + INFONEW\n\n"
             + "Да = 1    Нет = 2    Отмена = 3",
             "Режим проверки", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);

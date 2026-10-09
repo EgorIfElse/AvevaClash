@@ -1069,6 +1069,8 @@ public class ClashService
                            c.[CT] AS ClashType,
                            c.[R1] AS El1,
                            c.[R2] AS El2,
+                           c.[U1] AS User1, c.[G1] AS Zone1,
+                           c.[U2] AS User2, c.[G2] AS Zone2,
                            c.[X0] AS X, c.[Y0] AS Y, c.[Z0] AS Z,
                            c.[XT] AS Existing
                     FROM [{clashTableName}] c
@@ -1123,6 +1125,11 @@ public class ClashService
 
             }
             var clashesToInsert = CreateClashInsertTable();
+            var matchedClashesToUpdate = CreateMatchedClashUpdateTable();
+            var elementInfoCache = new Dictionary<string, ClashElementInfo>(StringComparer.Ordinal);
+            var queuedUpdateIds = new HashSet<int>();
+            int elementInfoCacheHits = 0;
+            int elementInfoReads = 0;
             int gensecRebindCount = 0;
 
             foreach (Clash clash in notIgnoredClashes)
@@ -1140,7 +1147,8 @@ public class ClashService
                     if (syncMode == 2)
                     {
                         bool directOrder = exactRow.El1 == firstElementRef && exactRow.El2 == secondElementRef;
-                        UpdateMatchedClashInfo(sqlConnection, clashTableName, exactRow.Id, clash, directOrder);
+                        AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, exactRow.Id, clash, directOrder,
+                            exactRow.User1, exactRow.Zone1, exactRow.User2, exactRow.Zone2, false, ref elementInfoReads, ref elementInfoCacheHits);
                     }
                     continue;
                 }
@@ -1173,7 +1181,8 @@ public class ClashService
                             }
 
                             if (syncMode == 2)
-                                UpdateMatchedClashInfo(sqlConnection, clashTableName, row.Id, clash, true);
+                                AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, row.Id, clash, true,
+                                    string.Empty, row.Zone1, string.Empty, row.Zone2, true, ref elementInfoReads, ref elementInfoCacheHits);
 
                             gensecRebindCount++;
                             continue;
@@ -1195,7 +1204,8 @@ public class ClashService
                             }
 
                             if (syncMode == 2)
-                                UpdateMatchedClashInfo(sqlConnection, clashTableName, row.Id, clash, false);
+                                AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, row.Id, clash, false,
+                                    string.Empty, row.Zone1, string.Empty, row.Zone2, true, ref elementInfoReads, ref elementInfoCacheHits);
 
                             gensecRebindCount++;
                             continue;
@@ -1208,6 +1218,12 @@ public class ClashService
 
             Logger.WriteLine($"Перепривязано строк GENSEC/PANEL: {gensecRebindCount}");
             Logger.WriteLine($"Новых коллизий подготовлено к записи: {clashesToInsert.Rows.Count}");
+
+            if (syncMode == 2)
+            {
+                BulkUpdateMatchedClashes(sqlConnection, matchedClashesToUpdate, clashTableName);
+                Logger.WriteLine($"ZONEUSER: изменились зона или Designer у строк: {matchedClashesToUpdate.Rows.Count}; уникальных элементов прочитано: {elementInfoReads}; попаданий в кэш: {elementInfoCacheHits}.");
+            }
 
             BulkInsertClashes(sqlConnection, clashesToInsert, clashTableName);
 
@@ -1231,6 +1247,7 @@ public class ClashService
             try
             {
                 sqlConnection.Execute("IF OBJECT_ID('tempdb..#pairs') IS NOT NULL DROP TABLE #pairs;");
+                sqlConnection.Execute("IF OBJECT_ID('tempdb..#MatchedClashUpdates') IS NOT NULL DROP TABLE #MatchedClashUpdates;");
             }
             catch (Exception ex)
             {
@@ -1551,27 +1568,75 @@ public class ClashService
             : "Soft";
     }
 
-    private void UpdateMatchedClashInfo(SqlConnection connection, string tableName, int id, Clash clash, bool directOrder)
+    private void AddMatchedClashUpdate(DataTable updates, HashSet<int> queuedIds, Dictionary<string, ClashElementInfo> cache, int id, Clash clash, bool directOrder,
+        string oldUser1, string oldZone1, string oldUser2, string oldZone2, bool forceUpdate, ref int reads, ref int cacheHits)
     {
+        if (queuedIds.Contains(id))
+            return;
+
         DbElement firstSide = directOrder ? clash.First : clash.Second;
         DbElement secondSide = directOrder ? clash.Second : clash.First;
+        ClashElementInfo firstInfo = GetClashElementInfo(firstSide, cache, ref reads, ref cacheHits);
+        ClashElementInfo secondInfo = GetClashElementInfo(secondSide, cache, ref reads, ref cacheHits);
+        bool informationChanged = oldUser1 != firstInfo.User || oldZone1 != firstInfo.Zone || oldUser2 != secondInfo.User || oldZone2 != secondInfo.Zone;
 
-        connection.Execute($@"UPDATE [{tableName}] SET [GL] = @building, [R1] = @ref1, [E1] = @type1, [U1] = @user1, [D1] = @dept1, [G1] = @zone1,
-            [R2] = @ref2, [E2] = @type2, [U2] = @user2, [D2] = @dept2, [G2] = @zone2, [XT] = 1 WHERE [ID] = @id", new
+        if (!forceUpdate && !informationChanged)
+            return;
+
+        queuedIds.Add(id);
+        updates.Rows.Add(id, firstInfo.User, firstInfo.Zone, secondInfo.User, secondInfo.Zone);
+    }
+
+    private ClashElementInfo GetClashElementInfo(DbElement element, Dictionary<string, ClashElementInfo> cache, ref int reads, ref int cacheHits)
+    {
+        string elementRef = GetClashElementReference(element);
+        if (cache.TryGetValue(elementRef, out ClashElementInfo info))
         {
-            id,
-            building = GetBuildingCode(firstSide),
-            ref1 = GetClashElementReference(firstSide),
-            type1 = firstSide.ElementType.ToString(),
-            user1 = GetDesignerOrLastUser(firstSide),
-            dept1 = GetDepartment(firstSide),
-            zone1 = GetZoneName(firstSide),
-            ref2 = GetClashElementReference(secondSide),
-            type2 = secondSide.ElementType.ToString(),
-            user2 = GetDesignerOrLastUser(secondSide),
-            dept2 = GetDepartment(secondSide),
-            zone2 = GetZoneName(secondSide)
-        });
+            cacheHits++;
+            return info;
+        }
+
+        reads++;
+        info = new ClashElementInfo
+        {
+            User = GetDesignerOrLastUser(element),
+            Zone = GetZoneName(element)
+        };
+        cache.Add(elementRef, info);
+        return info;
+    }
+
+    private static DataTable CreateMatchedClashUpdateTable()
+    {
+        var table = new DataTable();
+        table.Columns.Add("ID", typeof(int));
+        table.Columns.Add("U1", typeof(string));
+        table.Columns.Add("G1", typeof(string));
+        table.Columns.Add("U2", typeof(string));
+        table.Columns.Add("G2", typeof(string));
+        return table;
+    }
+
+    private static void BulkUpdateMatchedClashes(SqlConnection connection, DataTable updates, string tableName)
+    {
+        if (updates.Rows.Count == 0)
+            return;
+
+        connection.Execute(@"IF OBJECT_ID('tempdb..#MatchedClashUpdates') IS NOT NULL DROP TABLE #MatchedClashUpdates;
+            CREATE TABLE #MatchedClashUpdates (ID INT NOT NULL PRIMARY KEY, U1 NVARCHAR(100), G1 NVARCHAR(100), U2 NVARCHAR(100), G2 NVARCHAR(100));");
+
+        using (var bulk = new SqlBulkCopy(connection))
+        {
+            bulk.DestinationTableName = "#MatchedClashUpdates";
+            foreach (DataColumn column in updates.Columns)
+                bulk.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+            bulk.BatchSize = 5000;
+            bulk.BulkCopyTimeout = 0;
+            bulk.WriteToServer(updates);
+        }
+
+        connection.Execute($@"UPDATE target SET target.U1 = source.U1, target.G1 = source.G1, target.U2 = source.U2, target.G2 = source.G2, target.XT = 1
+            FROM [{tableName}] target INNER JOIN #MatchedClashUpdates source ON source.ID = target.ID;");
     }
 
     #endregion
@@ -1605,6 +1670,10 @@ public class ExistingRow
     public string ClashType { get; set; } = "";
     public string El1 { get; set; } = "";
     public string El2 { get; set; } = "";
+    public string User1 { get; set; } = "";
+    public string Zone1 { get; set; } = "";
+    public string User2 { get; set; } = "";
+    public string Zone2 { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
     public int Z { get; set; }
@@ -1625,4 +1694,10 @@ public class GensecCandidate
     public int X { get; set; }
     public int Y { get; set; }
     public int Z { get; set; }
+}
+
+public class ClashElementInfo
+{
+    public string User { get; set; } = "";
+    public string Zone { get; set; } = "";
 }
