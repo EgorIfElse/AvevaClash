@@ -426,10 +426,17 @@ public partial class MainWindow : Window
         if (checkCompleted)
         {
             MessageBox.Show($"Режим {checkMode}. Замер ручной проверки:\n\n"
+                + $"Открытие SQL и проверки: {launcher.LastStartupElapsed.TotalSeconds:F3} сек.\n"
                 + $"До clash-check: {launcher.LastPreparationElapsed.TotalSeconds:F3} сек.\n"
+                + $"Сбор Current: {launcher.LastCurrentCollectionElapsed.TotalSeconds:F3} сек.\n"
+                + $"Сбор Obstruction: {launcher.LastObstructionCollectionElapsed.TotalSeconds:F3} сек.\n"
+                + $"Формирование ObstructionList: {launcher.LastObstructionListElapsed.TotalSeconds:F3} сек.\n"
                 + $"Clash-check AVEVA: {launcher.LastClashCheckElapsed.TotalSeconds:F3} сек.\n"
                 + $"Синхронизация SQL: {launcher.LastSqlSyncElapsed.TotalSeconds:F3} сек.\n"
+                + $"CheckZones полностью: {launcher.LastCheckZonesElapsed.TotalSeconds:F3} сек.\n"
                 + $"Очистка XT = 0: {launcher.LastCleanupElapsed.TotalSeconds:F3} сек.\n"
+                + $"Запись :Check: {launcher.LastCheckAttributeElapsed.TotalSeconds:F3} сек.\n"
+                + $"SaveWork: {launcher.LastSaveWorkElapsed.TotalSeconds:F3} сек.\n"
                 + $"Обновление формы: {formRefreshStopwatch.Elapsed.TotalSeconds:F3} сек.\n"
                 + $"Всего до обновления формы: {launcher.LastTotalCheckElapsed.TotalSeconds:F3} сек.\n"
                 + $"Полное время с обновлением формы: {(launcher.LastTotalCheckElapsed + formRefreshStopwatch.Elapsed).TotalSeconds:F3} сек.", "Замер проверки");

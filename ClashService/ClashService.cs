@@ -26,6 +26,10 @@ public class ClashService
 {
     public TimeSpan LastClashCheckElapsed { get; private set; }
     public TimeSpan LastSqlSyncElapsed { get; private set; }
+    public TimeSpan LastCurrentCollectionElapsed { get; private set; }
+    public TimeSpan LastObstructionCollectionElapsed { get; private set; }
+    public TimeSpan LastObstructionListElapsed { get; private set; }
+    public TimeSpan LastCheckZonesElapsed { get; private set; }
 
     #region Создание сервиса для PML.NET
     [PMLNetCallable]
@@ -122,6 +126,10 @@ public class ClashService
     {
         LastClashCheckElapsed = TimeSpan.Zero;
         LastSqlSyncElapsed = TimeSpan.Zero;
+        LastCurrentCollectionElapsed = TimeSpan.Zero;
+        LastObstructionCollectionElapsed = TimeSpan.Zero;
+        LastObstructionListElapsed = TimeSpan.Zero;
+        LastCheckZonesElapsed = TimeSpan.Zero;
         var totalStopwatch = Stopwatch.StartNew();
         //TimeSpan currentCollectionTime = TimeSpan.Zero;
         //TimeSpan obstructionCollectionTime = TimeSpan.Zero;
@@ -138,7 +146,7 @@ public class ClashService
             DbAttribute clashIgnoreAttribute = DbAttribute.GetDbAttribute(":ClashIgnore");
 
             // Current содержит только комплекты PD/RD, которые запускаются как проверяемая сторона.
-            //var currentCollectionStopwatch = Stopwatch.StartNew();
+            var currentCollectionStopwatch = Stopwatch.StartNew();
             List<DbElement> currentZones = [.. new DBElementCollection(
                     new TypeFilter(DbElementTypeInstance.ZONE))
                 .Cast<DbElement>()
@@ -149,18 +157,18 @@ public class ClashService
                     return string.Equals(purpose, "PD", StringComparison.OrdinalIgnoreCase)
                         || string.Equals(purpose, "RD", StringComparison.OrdinalIgnoreCase);
                 })];
-            //currentCollectionStopwatch.Stop();
-            //currentCollectionTime = currentCollectionStopwatch.Elapsed;
+            currentCollectionStopwatch.Stop();
+            LastCurrentCollectionElapsed = currentCollectionStopwatch.Elapsed;
             currentZoneCount = currentZones.Count;
 
             // Obstruction содержит все разрешённые зоны, включая зоны, которые сами не проверяются.
-            //var obstructionCollectionStopwatch = Stopwatch.StartNew();
+            var obstructionCollectionStopwatch = Stopwatch.StartNew();
             List<DbElement> initialObstructionZones = [.. new DBElementCollection(
                     new TypeFilter(DbElementTypeInstance.ZONE))
                 .Cast<DbElement>()
                 .Where(zone => !zone.GetBool(clashIgnoreAttribute))];
-            //obstructionCollectionStopwatch.Stop();
-            //obstructionCollectionTime = obstructionCollectionStopwatch.Elapsed;
+            obstructionCollectionStopwatch.Stop();
+            LastObstructionCollectionElapsed = obstructionCollectionStopwatch.Elapsed;
             initialObstructionZoneCount = initialObstructionZones.Count;
 
             List<DbElement> remainingObstructionZones = [.. initialObstructionZones];
@@ -280,6 +288,8 @@ public class ClashService
             clashConnection.Close();
 
             totalStopwatch.Stop();
+            LastObstructionListElapsed = obstructionListBuildTime;
+            LastCheckZonesElapsed = totalStopwatch.Elapsed;
             Logger.WriteLine($"CheckZones: общее время: {totalStopwatch.Elapsed.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: сбор Current: {currentCollectionTime.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: сбор исходной Obstruction-коллекции: {obstructionCollectionTime.TotalMilliseconds:F0} мс");
@@ -298,6 +308,8 @@ public class ClashService
         catch (Exception ex)
         {
             totalStopwatch.Stop();
+            LastObstructionListElapsed = obstructionListBuildTime;
+            LastCheckZonesElapsed = totalStopwatch.Elapsed;
             Logger.WriteLine($"CheckZones: общее время до ошибки: {totalStopwatch.Elapsed.TotalMilliseconds:F0} мс");
             Logger.WriteLine(ex.Message, LogType.Error);
             Logger.FinishLog();
