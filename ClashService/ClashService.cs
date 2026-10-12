@@ -121,8 +121,7 @@ public class ClashService
         SqlConnection clashConnection,
         string clashTableName,
         string zoneRef,
-        HashSet<string>? failedZoneNames = null,
-        int syncMode = 1)
+        HashSet<string>? failedZoneNames = null)
     {
         LastClashCheckElapsed = TimeSpan.Zero;
         LastSqlSyncElapsed = TimeSpan.Zero;
@@ -221,10 +220,6 @@ public class ClashService
                         ObstructionList obstructionList = CreateObstructionList(currentZoneWvolume, remainingObstructionZones, out int obstructionCount);
                         obstructionListStopwatch.Stop();
                         obstructionListBuildTime += obstructionListStopwatch.Elapsed;
-                        Logger.WriteLine($"Зона {currentZone.Name()}: в Obstruction List добавлено "
-                            + $"{obstructionCount} зон; формирование заняло "
-                            + $"{obstructionListStopwatch.Elapsed.TotalSeconds:F3} сек");
-
                         if (obstructionCount == 0)
                         {
                             Logger.WriteLine($"Зона {currentZone.Name()} пропущена: Obstruction List пуст");
@@ -232,12 +227,10 @@ public class ClashService
                             continue;
                         }
 
-                        bool zoneCheckSucceeded = CheckZone(currentZone, obstructionList, clashOptions, clashConnection, clashTableName, syncMode, out TimeSpan currentClashCheckTime);
+                        bool zoneCheckSucceeded = CheckZone(currentZone, obstructionList, clashOptions, clashConnection, clashTableName, out TimeSpan currentClashCheckTime);
                         clashCheckTime += currentClashCheckTime;
                         if (!zoneCheckSucceeded)
                             failedZoneNames?.Add(currentZone.Name());
-                        Logger.WriteLine($"Зона {currentZone.Name()}: clash-проверка заняла "
-                            + $"{currentClashCheckTime.TotalSeconds:F3} сек");
                     }
                     catch (Exception ex)
                     {
@@ -261,10 +254,6 @@ public class ClashService
                 ObstructionList obstructionList = CreateObstructionList(selectedZoneWvol, remainingObstructionZones, out int obstructionCount);
                 obstructionListStopwatch.Stop();
                 obstructionListBuildTime += obstructionListStopwatch.Elapsed;
-                Logger.WriteLine($"Зона {selectedZone.Name()}: в Obstruction List добавлено "
-                    + $"{obstructionCount} зон; формирование заняло "
-                    + $"{obstructionListStopwatch.Elapsed.TotalSeconds:F3} сек");
-
                 if (obstructionCount == 0)
                 {
                     Logger.WriteLine($"Зона {selectedZone.Name()} пропущена: Obstruction List пуст");
@@ -273,10 +262,8 @@ public class ClashService
                 }
                 else
                 {
-                    bool zoneCheckSucceeded = CheckZone(selectedZone, obstructionList, clashOptions, clashConnection, clashTableName, syncMode, out TimeSpan currentClashCheckTime);
+                    bool zoneCheckSucceeded = CheckZone(selectedZone, obstructionList, clashOptions, clashConnection, clashTableName, out TimeSpan currentClashCheckTime);
                     clashCheckTime += currentClashCheckTime;
-                    Logger.WriteLine($"Зона {selectedZone.Name()}: clash-проверка заняла "
-                        + $"{currentClashCheckTime.TotalSeconds:F3} сек");
                     if (!zoneCheckSucceeded)
                     {
                         failedZoneNames?.Add(selectedZone.Name());
@@ -290,12 +277,9 @@ public class ClashService
             totalStopwatch.Stop();
             LastObstructionListElapsed = obstructionListBuildTime;
             LastCheckZonesElapsed = totalStopwatch.Elapsed;
-            Logger.WriteLine($"CheckZones: общее время: {totalStopwatch.Elapsed.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: сбор Current: {currentCollectionTime.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: сбор исходной Obstruction-коллекции: {obstructionCollectionTime.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: сортировка Obstruction-коллекции: {sortingTime.TotalMilliseconds:F0} мс; зон: {initialObstructionZoneCount}; обращений к PURPOSE: {purposeReadCountDuringSorting}");
-            Logger.WriteLine($"CheckZones: формирование Obstruction List: {obstructionListBuildTime.TotalMilliseconds:F0} мс");
-            Logger.WriteLine($"CheckZones: clash-проверка: {clashCheckTime.TotalMilliseconds:F0} мс");
             //Logger.WriteLine($"CheckZones: всего обращений к PURPOSE при сборе Current: {purposeReadCount}");
             if (string.IsNullOrEmpty(zoneRef) && failedZoneNames != null)
                 Logger.WriteLine($"Итог по зонам: проверено {zoneCount - failedZoneNames.Count}; с ошибкой или пропущено {failedZoneNames.Count}; всего {zoneCount}.");
@@ -310,7 +294,6 @@ public class ClashService
             totalStopwatch.Stop();
             LastObstructionListElapsed = obstructionListBuildTime;
             LastCheckZonesElapsed = totalStopwatch.Elapsed;
-            Logger.WriteLine($"CheckZones: общее время до ошибки: {totalStopwatch.Elapsed.TotalMilliseconds:F0} мс");
             Logger.WriteLine(ex.Message, LogType.Error);
             Logger.FinishLog();
 
@@ -344,7 +327,7 @@ public class ClashService
     #endregion
 
     #region Проверка одной зоны и сохранение результата
-    private bool CheckZone(DbElement zone, ObstructionList obstructionList, ClashOptions clashOptions, SqlConnection clashConnection, string clashTableName, int syncMode, out TimeSpan elapsed)
+    private bool CheckZone(DbElement zone, ObstructionList obstructionList, ClashOptions clashOptions, SqlConnection clashConnection, string clashTableName, out TimeSpan elapsed)
     {
         var clashCheckStopwatch = Stopwatch.StartNew();
         try
@@ -362,10 +345,9 @@ public class ClashService
 
             Logger.WriteLine($"Зона {zone.Name()} проверена.");
             var sqlSyncStopwatch = Stopwatch.StartNew();
-            bool resultSaved = CheckResultToBase(clashConnection, clashTableName, clashSet, syncMode);
+            bool resultSaved = CheckResultToBase(clashConnection, clashTableName, clashSet);
             sqlSyncStopwatch.Stop();
             LastSqlSyncElapsed += sqlSyncStopwatch.Elapsed;
-            Logger.WriteLine($"Синхронизация результата проверки с SQL: {sqlSyncStopwatch.Elapsed.TotalSeconds:F3} сек.");
             return resultSaved;
         }
         catch (Exception ex)
@@ -1015,7 +997,7 @@ public class ClashService
     #endregion
 
     #region Сопоставление результатов AVEVA с SQL
-    private bool CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet, int syncMode)
+    private bool CheckResultToBase(SqlConnection sqlConnection, string clashTableName, ClashSet clashSet)
     {
         if (sqlConnection.State != ConnectionState.Open)
             sqlConnection.Open();
@@ -1137,11 +1119,6 @@ public class ClashService
 
             }
             var clashesToInsert = CreateClashInsertTable();
-            var matchedClashesToUpdate = CreateMatchedClashUpdateTable();
-            var elementInfoCache = new Dictionary<string, ClashElementInfo>(StringComparer.Ordinal);
-            var queuedUpdateIds = new HashSet<int>();
-            int elementInfoCacheHits = 0;
-            int elementInfoReads = 0;
             int gensecRebindCount = 0;
 
             foreach (Clash clash in notIgnoredClashes)
@@ -1155,15 +1132,7 @@ public class ClashService
                 string keyRef = MakeKey(clashType, firstElementRef, secondElementRef, x, y, z);
 
                 if (ExistingByKey.TryGetValue(keyRef, out ExistingRow exactRow))
-                {
-                    if (syncMode == 2)
-                    {
-                        bool directOrder = exactRow.El1 == firstElementRef && exactRow.El2 == secondElementRef;
-                        AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, exactRow.Id, clash, directOrder,
-                            exactRow.User1, exactRow.Zone1, exactRow.User2, exactRow.Zone2, false, ref elementInfoReads, ref elementInfoCacheHits);
-                    }
                     continue;
-                }
 
                 string type1 = clash.First.ElementType.ToString();
                 string type2 = clash.Second.ElementType.ToString();
@@ -1192,10 +1161,6 @@ public class ClashService
                                 Logger.WriteLine($"Перепривязка ID={row.Id}, прямой порядок: R2 {row.Ref2} -> {secondElementRef}; тип {row.Type2}; зона {row.Zone2}.");
                             }
 
-                            if (syncMode == 2)
-                                AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, row.Id, clash, true,
-                                    string.Empty, row.Zone1, string.Empty, row.Zone2, true, ref elementInfoReads, ref elementInfoCacheHits);
-
                             gensecRebindCount++;
                             continue;
                         }
@@ -1215,10 +1180,6 @@ public class ClashService
                                 Logger.WriteLine($"Перепривязка ID={row.Id}, обратный порядок: R2 {row.Ref2} -> {firstElementRef}; тип {row.Type2}; зона {row.Zone2}.");
                             }
 
-                            if (syncMode == 2)
-                                AddMatchedClashUpdate(matchedClashesToUpdate, queuedUpdateIds, elementInfoCache, row.Id, clash, false,
-                                    string.Empty, row.Zone1, string.Empty, row.Zone2, true, ref elementInfoReads, ref elementInfoCacheHits);
-
                             gensecRebindCount++;
                             continue;
                         }
@@ -1230,12 +1191,6 @@ public class ClashService
 
             Logger.WriteLine($"Перепривязано строк GENSEC/PANEL: {gensecRebindCount}");
             Logger.WriteLine($"Новых коллизий подготовлено к записи: {clashesToInsert.Rows.Count}");
-
-            if (syncMode == 2)
-            {
-                BulkUpdateMatchedClashes(sqlConnection, matchedClashesToUpdate, clashTableName);
-                Logger.WriteLine($"ZONEUSER: изменились зона или Designer у строк: {matchedClashesToUpdate.Rows.Count}; уникальных элементов прочитано: {elementInfoReads}; попаданий в кэш: {elementInfoCacheHits}.");
-            }
 
             BulkInsertClashes(sqlConnection, clashesToInsert, clashTableName);
 
@@ -1259,7 +1214,6 @@ public class ClashService
             try
             {
                 sqlConnection.Execute("IF OBJECT_ID('tempdb..#pairs') IS NOT NULL DROP TABLE #pairs;");
-                sqlConnection.Execute("IF OBJECT_ID('tempdb..#MatchedClashUpdates') IS NOT NULL DROP TABLE #MatchedClashUpdates;");
             }
             catch (Exception ex)
             {
@@ -1391,6 +1345,12 @@ public class ClashService
     {
         try
         {
+            if (IsBranchAndRestraintInSamePipe(clash))
+                return true;
+
+            if (IsFrameworkOrStructureInsideRestraint(clash))
+                return true;
+
             //if (CheckPipeWithJntc(clash))
             // return true;
             //if (CheckHangWithBranch(clash))
@@ -1408,6 +1368,55 @@ public class ClashService
             Logger.WriteLine($"Ошибка IsClashIgnore: {ex.Message}", LogType.Error);
             return false;
         }
+    }
+
+    private static bool IsBranchAndRestraintInSamePipe(Clash clash)
+    {
+        return IsBranchAndRestraintInSamePipe(clash.First, clash.Second) || IsBranchAndRestraintInSamePipe(clash.Second, clash.First);
+    }
+
+    private static bool IsBranchAndRestraintInSamePipe(DbElement branchSide, DbElement restraintSide)
+    {
+        DbElement branch = GetElementOrOwner(branchSide, DbElementTypeInstance.BRANCH);
+        DbElement restraint = GetElementOrOwner(restraintSide, DbElementTypeInstance.RESTRAINT);
+        if (branch.IsNull || restraint.IsNull)
+            return false;
+
+        DbElement branchPipe = GetElementOrOwner(branch, DbElementTypeInstance.PIPE);
+        DbElement restraintPipe = GetElementOrOwner(restraint, DbElementTypeInstance.PIPE);
+        return !branchPipe.IsNull && !restraintPipe.IsNull && branchPipe == restraintPipe;
+    }
+
+    private static bool IsFrameworkOrStructureInsideRestraint(Clash clash)
+    {
+        return IsFrameworkOrStructureInsideRestraint(clash.First, clash.Second) || IsFrameworkOrStructureInsideRestraint(clash.Second, clash.First);
+    }
+
+    private static bool IsFrameworkOrStructureInsideRestraint(DbElement structureSide, DbElement restraintSide)
+    {
+        DbElement restraint = GetElementOrOwner(restraintSide, DbElementTypeInstance.RESTRAINT);
+        if (restraint.IsNull)
+            return false;
+
+        DbElement structure = GetElementOrOwner(structureSide, DbElementTypeInstance.FRMWORK);
+        if (structure.IsNull)
+            structure = GetElementOrOwner(structureSide, DbElementTypeInstance.SBFRAMEWORK);
+        if (structure.IsNull)
+            structure = GetElementOrOwner(structureSide, DbElementTypeInstance.STRUCTURE);
+        if (structure.IsNull)
+            return false;
+
+        DbElement structureRestraint = GetElementOrOwner(structure.Owner, DbElementTypeInstance.RESTRAINT);
+        return !structureRestraint.IsNull && structureRestraint == restraint;
+    }
+
+    private static DbElement GetElementOrOwner(DbElement element, DbElementType type)
+    {
+        if (element.IsNull || !element.IsValid)
+            return NullElement;
+        if (element.ElementType == type)
+            return element;
+        return element.GetOwnerByType(type);
     }
 
     #endregion
@@ -1580,77 +1589,6 @@ public class ClashService
             : "Soft";
     }
 
-    private void AddMatchedClashUpdate(DataTable updates, HashSet<int> queuedIds, Dictionary<string, ClashElementInfo> cache, int id, Clash clash, bool directOrder,
-        string oldUser1, string oldZone1, string oldUser2, string oldZone2, bool forceUpdate, ref int reads, ref int cacheHits)
-    {
-        if (queuedIds.Contains(id))
-            return;
-
-        DbElement firstSide = directOrder ? clash.First : clash.Second;
-        DbElement secondSide = directOrder ? clash.Second : clash.First;
-        ClashElementInfo firstInfo = GetClashElementInfo(firstSide, cache, ref reads, ref cacheHits);
-        ClashElementInfo secondInfo = GetClashElementInfo(secondSide, cache, ref reads, ref cacheHits);
-        bool informationChanged = oldUser1 != firstInfo.User || oldZone1 != firstInfo.Zone || oldUser2 != secondInfo.User || oldZone2 != secondInfo.Zone;
-
-        if (!forceUpdate && !informationChanged)
-            return;
-
-        queuedIds.Add(id);
-        updates.Rows.Add(id, firstInfo.User, firstInfo.Zone, secondInfo.User, secondInfo.Zone);
-    }
-
-    private ClashElementInfo GetClashElementInfo(DbElement element, Dictionary<string, ClashElementInfo> cache, ref int reads, ref int cacheHits)
-    {
-        string elementRef = GetClashElementReference(element);
-        if (cache.TryGetValue(elementRef, out ClashElementInfo info))
-        {
-            cacheHits++;
-            return info;
-        }
-
-        reads++;
-        info = new ClashElementInfo
-        {
-            User = GetDesignerOrLastUser(element),
-            Zone = GetZoneName(element)
-        };
-        cache.Add(elementRef, info);
-        return info;
-    }
-
-    private static DataTable CreateMatchedClashUpdateTable()
-    {
-        var table = new DataTable();
-        table.Columns.Add("ID", typeof(int));
-        table.Columns.Add("U1", typeof(string));
-        table.Columns.Add("G1", typeof(string));
-        table.Columns.Add("U2", typeof(string));
-        table.Columns.Add("G2", typeof(string));
-        return table;
-    }
-
-    private static void BulkUpdateMatchedClashes(SqlConnection connection, DataTable updates, string tableName)
-    {
-        if (updates.Rows.Count == 0)
-            return;
-
-        connection.Execute(@"IF OBJECT_ID('tempdb..#MatchedClashUpdates') IS NOT NULL DROP TABLE #MatchedClashUpdates;
-            CREATE TABLE #MatchedClashUpdates (ID INT NOT NULL PRIMARY KEY, U1 NVARCHAR(100), G1 NVARCHAR(100), U2 NVARCHAR(100), G2 NVARCHAR(100));");
-
-        using (var bulk = new SqlBulkCopy(connection))
-        {
-            bulk.DestinationTableName = "#MatchedClashUpdates";
-            foreach (DataColumn column in updates.Columns)
-                bulk.ColumnMappings.Add(column.ColumnName, column.ColumnName);
-            bulk.BatchSize = 5000;
-            bulk.BulkCopyTimeout = 0;
-            bulk.WriteToServer(updates);
-        }
-
-        connection.Execute($@"UPDATE target SET target.U1 = source.U1, target.G1 = source.G1, target.U2 = source.U2, target.G2 = source.G2, target.XT = 1
-            FROM [{tableName}] target INNER JOIN #MatchedClashUpdates source ON source.ID = target.ID;");
-    }
-
     #endregion
 
     #region Определение импортируемых элементов GENSEC и PANEL
@@ -1682,10 +1620,6 @@ public class ExistingRow
     public string ClashType { get; set; } = "";
     public string El1 { get; set; } = "";
     public string El2 { get; set; } = "";
-    public string User1 { get; set; } = "";
-    public string Zone1 { get; set; } = "";
-    public string User2 { get; set; } = "";
-    public string Zone2 { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
     public int Z { get; set; }
@@ -1706,10 +1640,4 @@ public class GensecCandidate
     public int X { get; set; }
     public int Y { get; set; }
     public int Z { get; set; }
-}
-
-public class ClashElementInfo
-{
-    public string User { get; set; } = "";
-    public string Zone { get; set; } = "";
 }

@@ -1,5 +1,6 @@
 using ClashForKPI.Models;
 using ClashForKPI.Sql;
+using ClashForKPI.Extensions;
 using Aveva.Core.Database;
 using Aveva.Core.Database.Filters;
 using Aveva.Core.PMLNet;
@@ -112,11 +113,6 @@ namespace ClashForKPI
         [PMLNetCallable]
         public void CheckZone(string zoneRef, bool logToPdmsConsole = true)
         {
-            CheckZone(zoneRef, logToPdmsConsole, 1);
-        }
-
-        public void CheckZone(string zoneRef, bool logToPdmsConsole, int checkMode)
-        {
             var totalCheckStopwatch = Stopwatch.StartNew();
             LastPreparationElapsed = TimeSpan.Zero;
             LastClashCheckElapsed = TimeSpan.Zero;
@@ -165,8 +161,7 @@ namespace ClashForKPI
 
             LastStartupElapsed = totalCheckStopwatch.Elapsed;
             var preparationStopwatch = Stopwatch.StartNew();
-            if (checkMode == 1)
-                clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef, true);
+            clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef, true);
 
             int clashCountBeforeCheck = clashConnection.ExecuteScalar<int>($@"SELECT COUNT(*) FROM [{clashTableName}] WHERE [G1] = @zoneRef OR [G2] = @zoneRef", new { zoneRef });
             Logger.WriteLine($"Коллизий зоны {zoneRef} до проверки: {clashCountBeforeCheck}");
@@ -177,9 +172,8 @@ namespace ClashForKPI
                                        new { zoneRef });
             preparationStopwatch.Stop();
             LastPreparationElapsed = preparationStopwatch.Elapsed;
-            Logger.WriteLine($"Ручная проверка, режим {checkMode}: подготовка до clash-check заняла {LastPreparationElapsed.TotalSeconds:F3} сек.");
 
-            bool checkSucceeded = clashService.CheckZones(clashConnection, clashTableName, zoneRef, syncMode: checkMode);
+            bool checkSucceeded = clashService.CheckZones(clashConnection, clashTableName, zoneRef);
             LastClashCheckElapsed = clashService.LastClashCheckElapsed;
             LastSqlSyncElapsed = clashService.LastSqlSyncElapsed;
             LastCurrentCollectionElapsed = clashService.LastCurrentCollectionElapsed;
@@ -241,7 +235,6 @@ namespace ClashForKPI
             LastSaveWorkElapsed = saveWorkStopwatch.Elapsed;
             totalCheckStopwatch.Stop();
             LastTotalCheckElapsed = totalCheckStopwatch.Elapsed;
-            Logger.WriteLine($"Замер ручной проверки, режим {checkMode}: до check {LastPreparationElapsed.TotalSeconds:F3} сек.; clash-check {LastClashCheckElapsed.TotalSeconds:F3} сек.; SQL {LastSqlSyncElapsed.TotalSeconds:F3} сек.; очистка {LastCleanupElapsed.TotalSeconds:F3} сек.; всего {LastTotalCheckElapsed.TotalSeconds:F3} сек.");
         }
         public List<ZoneComboItem> UpdateZoneList()
         {
@@ -319,6 +312,27 @@ namespace ClashForKPI
                                                         .ToList();
         }
 
+        public List<ClashEntity> GetHistoryClashes(string clashTableName, string zoneRef)
+        {
+            string historyTableName = $"{clashTableName}_his";
+            using SqlConnection sqlConnection = new(ClashConnectionString);
+            sqlConnection.Open();
+
+            if (!sqlConnection.TableExists(historyTableName))
+                return [];
+
+            if (zoneRef == "ALL")
+                return sqlConnection.Query<ClashEntity>($"SELECT {SqlMapping.HistoryClashSql} FROM [{historyTableName}]").ToList();
+
+            if (zoneRef == "CE")
+            {
+                string elementRef = CurrentElement.Element.GetAsString(DbAttributeInstance.REF);
+                return sqlConnection.Query<ClashEntity>($"SELECT {SqlMapping.HistoryClashSql} FROM [{historyTableName}] WHERE [R1] = @elementRef OR [R2] = @elementRef", new { elementRef }).ToList();
+            }
+
+            return sqlConnection.Query<ClashEntity>($"SELECT {SqlMapping.HistoryClashSql} FROM [{historyTableName}] WHERE [G1] = @zoneRef OR [G2] = @zoneRef", new { zoneRef }).ToList();
+        }
+
 
 
 
@@ -337,39 +351,13 @@ namespace ClashForKPI
             if (lastCheck == DateTime.MinValue)
                 return false;
 
-            Stopwatch manualStopwatch = Stopwatch.StartNew();
             bool changedByManualScan = lastCheck < GetZoneElementsLastModified(zoneRef);
-            manualStopwatch.Stop();
-
-            Stopwatch filterStopwatch = Stopwatch.StartNew();
-            bool? changedByFilter = null;
-            try
-            {
-                changedByFilter = HasZoneChangedSince(zone, lastCheck);
-            }
-            catch (Exception ex)
-            {
-                Logger.WriteLine($"Ошибка теста AttributeDateTimeFilter для зоны {zoneRef}: {ex.Message}", LogType.Error);
-            }
-            filterStopwatch.Stop();
-
-            Logger.WriteLine($"Проверка LASTMOD зоны {zoneRef}: ручной перебор = {changedByManualScan}, {manualStopwatch.Elapsed.TotalMilliseconds:F1} мс; фильтр AVEVA = {changedByFilter?.ToString() ?? "ошибка"}, {filterStopwatch.Elapsed.TotalMilliseconds:F1} мс; совпадение = {changedByFilter.HasValue && changedByFilter.Value == changedByManualScan}.");
 
             if (changedByManualScan)
                 return false;
 
             return (DateTime.Now - lastCheck).TotalDays <= 2;
         }
-
-        private static bool HasZoneChangedSince(DbElement zone, DateTime lastCheck)
-        {
-            DbAttribute lastModifiedAttribute = DbAttribute.GetDbAttribute("LASTMOD");
-            var modifiedFilter = new AttributeDateTimeFilter(lastModifiedAttribute, FilterOperator.GreaterThan, lastCheck);
-            var modifiedElements = new DBElementCollection(zone, modifiedFilter) { IncludeRoot = false };
-            return modifiedElements.Cast<DbElement>().Any();
-        }
-
-
 
     }
 }

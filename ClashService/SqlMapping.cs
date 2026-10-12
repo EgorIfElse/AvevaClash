@@ -42,5 +42,7 @@ public static class SqlMapping
     $"WU '{nameof(ClashEntity.InWorkUser)}', " +
     $"WD '{nameof(ClashEntity.InWorkDate)}'";
 
+    public static readonly string HistoryClashSql = ClashSql + $", HistoryDate '{nameof(ClashEntity.HistoryDate)}', HistoryReason '{nameof(ClashEntity.HistoryReason)}'";
+
      
 }

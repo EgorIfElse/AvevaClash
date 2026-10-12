@@ -5,7 +5,6 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
@@ -406,41 +405,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        MessageBoxResult modeResult = MessageBox.Show(
-            "1  OLD + G\n"
-            + "2  NEW + G + ZONEUSER\n"
-            + "3  NEW + G + INFONEW\n\n"
-            + "Да = 1    Нет = 2    Отмена = 3",
-            "Режим проверки", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-
-        int checkMode = modeResult == MessageBoxResult.Yes ? 1 : modeResult == MessageBoxResult.No ? 2 : 3;
         DateTime previousCheck = launcher.GetZoneLastCheck(CurrZone);
-        launcher.CheckZone(CurrZone, true, checkMode);
+        launcher.CheckZone(CurrZone, true);
         DateTime currentCheck = launcher.GetZoneLastCheck(CurrZone);
         bool checkCompleted = currentCheck > previousCheck;
 
-        var formRefreshStopwatch = Stopwatch.StartNew();
         Refresh(checkCompleted);
-        formRefreshStopwatch.Stop();
-
-        if (checkCompleted)
-        {
-            MessageBox.Show($"Режим {checkMode}. Замер ручной проверки:\n\n"
-                + $"Открытие SQL и проверки: {launcher.LastStartupElapsed.TotalSeconds:F3} сек.\n"
-                + $"До clash-check: {launcher.LastPreparationElapsed.TotalSeconds:F3} сек.\n"
-                + $"Сбор Current: {launcher.LastCurrentCollectionElapsed.TotalSeconds:F3} сек.\n"
-                + $"Сбор Obstruction: {launcher.LastObstructionCollectionElapsed.TotalSeconds:F3} сек.\n"
-                + $"Формирование ObstructionList: {launcher.LastObstructionListElapsed.TotalSeconds:F3} сек.\n"
-                + $"Clash-check AVEVA: {launcher.LastClashCheckElapsed.TotalSeconds:F3} сек.\n"
-                + $"Синхронизация SQL: {launcher.LastSqlSyncElapsed.TotalSeconds:F3} сек.\n"
-                + $"CheckZones полностью: {launcher.LastCheckZonesElapsed.TotalSeconds:F3} сек.\n"
-                + $"Очистка XT = 0: {launcher.LastCleanupElapsed.TotalSeconds:F3} сек.\n"
-                + $"Запись :Check: {launcher.LastCheckAttributeElapsed.TotalSeconds:F3} сек.\n"
-                + $"SaveWork: {launcher.LastSaveWorkElapsed.TotalSeconds:F3} сек.\n"
-                + $"Обновление формы: {formRefreshStopwatch.Elapsed.TotalSeconds:F3} сек.\n"
-                + $"Всего до обновления формы: {launcher.LastTotalCheckElapsed.TotalSeconds:F3} сек.\n"
-                + $"Полное время с обновлением формы: {(launcher.LastTotalCheckElapsed + formRefreshStopwatch.Elapsed).TotalSeconds:F3} сек.", "Замер проверки");
-        }
     }
     private void BtnApprove_Click(object sender, RoutedEventArgs e)
     {
@@ -879,7 +849,7 @@ public partial class MainWindow : Window
 
     private void UpdateActionButtonsState()
     {
-        bool hasSelection = DgClashes.SelectedItems.Count > 0;
+        bool hasSelection = DgClashes.SelectedItems.Count > 0 && ToggleHistory.IsChecked != true;
 
         BtnShowElements.IsEnabled = hasSelection;
         BtnRequest.IsEnabled = hasSelection;
@@ -903,7 +873,9 @@ public partial class MainWindow : Window
 
             UpdateZoneInfo();
 
-            List<ClashEntity> clashes = launcher.GetClashes(ClashTableName, CurrZone);
+            List<ClashEntity> clashes = ToggleHistory.IsChecked == true
+                ? launcher.GetHistoryClashes(ClashTableName, CurrZone)
+                : launcher.GetClashes(ClashTableName, CurrZone);
             if (clashes == null)
                 return;
 
@@ -1016,6 +988,16 @@ public partial class MainWindow : Window
 
         foreach (DataGridColumn column in columns)
             column.Visibility = visibility;
+    }
+
+    private void ToggleHistory_Click(object sender, RoutedEventArgs e)
+    {
+        Visibility historyVisibility = ToggleHistory.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        HistoryDateColumn.Visibility = historyVisibility;
+        HistoryReasonColumn.Visibility = historyVisibility;
+        BtnCheck.IsEnabled = ToggleHistory.IsChecked != true;
+        DgClashes.SelectedItems.Clear();
+        Refresh();
     }
 
     private static string GetClashStatus(ClashEntity clash)

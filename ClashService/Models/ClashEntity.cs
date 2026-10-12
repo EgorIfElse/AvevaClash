@@ -35,6 +35,8 @@ public record ClashEntity
     public DateTime? InWorkDate { get; set; }
     public string Status { get; set; } = "";
     public string StatusAge { get; set; } = "";
+    public DateTime? HistoryDate { get; set; }
+    public string HistoryReason { get; set; } = "";
 
 }
 

@@ -7,7 +7,7 @@
         xmlns:dgx="urn:tom-englert.de/DataGridExtensions"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="Проверка на коллизии"
+        Title="Clash Viewer"
         Height="720"
         Width="1500"
         MinHeight="600"
@@ -336,6 +336,7 @@
                 <Border Grid.Column="4"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
+                        Margin="0,0,145,0"
                         Background="#F8FAFC"
                         BorderBrush="#E2E8F0"
                         BorderThickness="1"
@@ -364,6 +365,35 @@
                                       IsChecked="False"
                                       Click="ToggleColumns_Click"
                                       ToolTip="Показать или скрыть дополнительные столбцы"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Background="#F8FAFC"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="7"
+                        Padding="10,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="History" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#64748B"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=ToggleHistory}" Value="True">
+                                            <Setter Property="Foreground" Value="#3B82F6"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ToggleButton x:Name="ToggleHistory"
+                                      Style="{StaticResource SwitchToggleButtonStyle}"
+                                      IsChecked="False"
+                                      Click="ToggleHistory_Click"
+                                      ToolTip="Показать историю коллизий выбранного комплекта"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -1183,6 +1213,26 @@
                                     ElementStyle="{StaticResource CenterTextStyle}">
                     <DataGridTextColumn.Header>
                         <TextBlock Text="WD " ToolTip="дата/время взятия коллизии в работу"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn x:Name="HistoryDateColumn"
+                                    Binding="{Binding HistoryDate, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
+                                    Width="Auto"
+                                    Visibility="Collapsed"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="History Date" ToolTip="дата переноса коллизии в историю"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn x:Name="HistoryReasonColumn"
+                                    Binding="{Binding HistoryReason}"
+                                    Width="Auto"
+                                    Visibility="Collapsed"
+                                    ElementStyle="{StaticResource CenterTextStyle}">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="History Reason" ToolTip="причина переноса коллизии в историю"/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
             </DataGrid.Columns>
