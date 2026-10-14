@@ -38,15 +38,16 @@ public partial class MainWindow : Window
     private string suggestedZone = "";
     private int suggestedClashId;
     private int guideStepIndex;
+    private bool guideElementsShown;
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private readonly ClashLogger Logger = new ClashLogger(DefaultLogDirectoryPath);
-    private readonly (string Title, string Description, string Target)[] guideSteps =
+    private readonly (string Title, string Description, string Target, string Mechanics)[] guideSteps =
     [
-        ("Выберите комплект", "Начните с выбора рабочего комплекта. После выбора форма загрузит коллизии, дату последней проверки и ответственного разработчика.", "Выберите свой комплект в верхнем списке."),
-        ("Проверьте комплект", "Кнопка «Проверить» запускает clash-проверку выбранного комплекта. После успешного завершения дата проверки обновится.", "Нажмите «Проверить», когда готовы актуализировать коллизии комплекта."),
-        ("Откройте элементы в 3D", "Выделите одну или несколько строк и нажмите иконку куба. Элементы появятся в 3D-виде AVEVA, а вид отцентрируется на коллизии.", "Сначала выделите строку коллизии, затем нажмите иконку куба."),
-        ("Обработайте коллизию", "По выбранным строкам можно отправить запрос смежному отделу, принять коллизию в работу или согласовать допустимое пересечение.", "Выберите коллизию — нижние кнопки станут доступны по её статусу и вашему отделу."),
-        ("История и отображение", "History показывает ранее исчезнувшие коллизии с workflow. «Доп. столбцы» и Representation rules помогают посмотреть больше информации и настроить 3D-вид.", "Включите History, чтобы просмотреть историю выбранного комплекта.")
+        ("Точка входа: ваш комплект", "Каждая строка — это пересечение двух элементов. Сначала выберите комплект, за который отвечает ваша команда: дальше вы увидите только коллизии с его участием.", "Выберите свой комплект в верхнем списке. Зелёным отмечены сданные комплекты.", "Clash Viewer читает из SQL актуальные коллизии, дату последней проверки и разработчика зоны. Модель AVEVA на этом шаге не изменяется."),
+        ("Запустить проверку", "Теперь запускаем реальную проверку комплекта. Делайте это, когда модель сохранена и вы готовы обновить её картину коллизий.", "Нажмите «Проверить». После успешного завершения обновится дата проверки.", "AVEVA проверяет элементы выбранной зоны против подготовленного списка препятствий. Найденные пересечения сверяются с SQL: старые подтверждаются, новые добавляются, исчезнувшие обрабатываются по workflow."),
+        ("Разобраться в 3D", "Таблица показывает факт коллизии, а 3D отвечает на главный вопрос: что именно пересеклось и где это происходит.", "Сначала выделите строку коллизии, затем нажмите иконку куба «Показать элементы».", "Для выбранных строк передаются RefNo, типы элементов, статус и координаты в PML-функцию !!ClashPoint. Она добавляет элементы в 3D и центрирует вид."),
+        ("Передать ответственность", "Выберите коллизию и посмотрите доступные действия. Они зависят от статуса строки и прав вашего отдела — так нельзя случайно отправить запрос от чужого комплекта.", "Выберите строку коллизии: после этого станут понятны доступные действия в нижней панели.", "Перед отправкой программа определяет сторону открытого комплекта, отдел-получатель и ответственного. Сначала уходит уведомление; SQL-поля запроса записываются только при успешной отправке письма."),
+        ("Проверить след", "История хранит коллизии, которые перестали существовать, но уже участвовали в работе или согласовании. Так решения не исчезают бесследно.", "Включите History, чтобы увидеть историю выбранного комплекта.", "History читает отдельную SQL-таблицу по текущему комплекту. «Доп. столбцы» показывает технические данные, а Representation rules вызывает PML-настройки 3D-отображения.")
     ];
     public MainWindow()
     {
@@ -115,6 +116,7 @@ public partial class MainWindow : Window
     private void BtnGuide_Click(object sender, RoutedEventArgs e)
     {
         guideStepIndex = 0;
+        guideElementsShown = false;
         UserGuideOverlay.Visibility = Visibility.Visible;
         UpdateGuide();
     }
@@ -135,6 +137,9 @@ public partial class MainWindow : Window
 
     private void BtnGuideNext_Click(object sender, RoutedEventArgs e)
     {
+        if (!CanMoveToNextGuideStep())
+            return;
+
         if (guideStepIndex == guideSteps.Length - 1)
         {
             CloseGuide();
@@ -153,36 +158,150 @@ public partial class MainWindow : Window
 
     private void UpdateGuide()
     {
-        (string title, string description, string target) = guideSteps[guideStepIndex];
-        TxtGuideStep.Text = $"ШАГ {guideStepIndex + 1:00}";
+        (string title, string description, string target, string mechanics) = guideSteps[guideStepIndex];
+        TxtGuideStep.Text = $"МИССИЯ {guideStepIndex + 1:00} · ОБУЧЕНИЕ";
         TxtGuideTitle.Text = title;
         TxtGuideDescription.Text = description;
         TxtGuideTarget.Text = target;
+        TxtGuideMechanics.Text = mechanics;
         TxtGuideProgress.Text = $"{guideStepIndex + 1} из {guideSteps.Length}";
         BtnGuidePrevious.IsEnabled = guideStepIndex > 0;
         BtnGuideNext.Content = guideStepIndex == guideSteps.Length - 1 ? "Готово" : "Далее";
+        UserGuidePanel.HorizontalAlignment = guideStepIndex is 1 or 3 or 4 ? HorizontalAlignment.Left : HorizontalAlignment.Right;
 
-        ClearGuideFocus();
         SetGuideStepDots();
+        GuideWarningPanel.Visibility = Visibility.Collapsed;
+        UpdateGuideActionState();
+    }
 
-        switch (guideStepIndex)
+    private bool CanMoveToNextGuideStep()
+    {
+        if (guideStepIndex == 2)
         {
-            case 0:
-                HighlightGuideBorder(ZoneSelectorBorder);
-                break;
-            case 1:
-                HighlightGuideControl(BtnCheck);
-                break;
-            case 2:
-                HighlightGuideControl(BtnShowElements);
-                break;
-            case 3:
-                HighlightGuideControl(BtnRequest);
-                break;
-            case 4:
-                HighlightGuideBorder(HistoryToggleBorder);
-                break;
+            if (DgClashes.SelectedItems.Count == 0)
+            {
+                ShowGuideWarning("Сначала выберите хотя бы одну строку коллизии в таблице.");
+                return false;
+            }
+
+            if (!guideElementsShown)
+            {
+                ShowGuideWarning("Строка выбрана. Теперь нажмите иконку куба «Показать элементы».");
+                return false;
+            }
         }
+
+        if (guideStepIndex == 3 && DgClashes.SelectedItems.Count == 0)
+        {
+            ShowGuideWarning("Для работы с запросом сначала выберите хотя бы одну строку коллизии.");
+            return false;
+        }
+
+        if (guideStepIndex == 4 && ToggleHistory.IsChecked != true)
+        {
+            ShowGuideWarning("Включите переключатель History, чтобы увидеть историю выбранного комплекта.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void UpdateGuideActionState()
+    {
+        if (UserGuideOverlay?.Visibility != Visibility.Visible)
+            return;
+
+        if (guideStepIndex == 2)
+        {
+            TxtGuideTarget.Text = DgClashes.SelectedItems.Count == 0
+                ? "Выберите одну или несколько строк коллизий в таблице."
+                : guideElementsShown
+                    ? "Готово: элементы переданы в 3D-вид AVEVA. Можно переходить далее."
+                    : "Строка выбрана. Теперь нажмите иконку куба «Показать элементы».";
+        }
+
+        if (guideStepIndex == 3)
+        {
+            TxtGuideTarget.Text = DgClashes.SelectedItems.Count == 0
+                ? "Выберите строку коллизии — после этого станут доступны допустимые действия."
+                : "Строка выбрана. Доступные действия зависят от статуса коллизии и вашего отдела.";
+        }
+
+        if (guideStepIndex == 4 && ToggleHistory.IsChecked == true)
+            TxtGuideTarget.Text = "History включён: отображаются ранее исчезнувшие коллизии выбранного комплекта.";
+
+        ApplyGuideFocus();
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(UpdateGuideSpotlight));
+    }
+
+    private FrameworkElement GetGuideFocusElement()
+    {
+        if (guideStepIndex == 0)
+            return ZoneSelectorBorder;
+
+        if (guideStepIndex == 1)
+            return BtnCheck;
+
+        if ((guideStepIndex is 2 or 3) && DgClashes.SelectedItems.Count == 0)
+            return DgClashes;
+
+        if (guideStepIndex == 2)
+            return BtnShowElements;
+
+        if (guideStepIndex == 3)
+            return BtnRequest;
+
+        return HistoryToggleBorder;
+    }
+
+    private void ApplyGuideFocus()
+    {
+        ClearGuideFocus();
+
+        FrameworkElement focusElement = GetGuideFocusElement();
+
+        if (focusElement is Border border)
+            HighlightGuideBorder(border);
+        else if (focusElement is Control control)
+            HighlightGuideControl(control);
+    }
+
+    private void UserGuideOverlay_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (UserGuideOverlay.Visibility == Visibility.Visible)
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(UpdateGuideSpotlight));
+    }
+
+    private void UpdateGuideSpotlight()
+    {
+        if (UserGuideOverlay.Visibility != Visibility.Visible)
+            return;
+
+        FrameworkElement target = GetGuideFocusElement();
+
+        if (target.ActualWidth <= 0 || target.ActualHeight <= 0)
+            return;
+
+        Point targetPosition = target.TransformToAncestor(UserGuideOverlay).Transform(new Point(0, 0));
+        const double padding = 8;
+        double x = Math.Max(0, targetPosition.X - padding);
+        double y = Math.Max(0, targetPosition.Y - padding);
+        double width = Math.Min(UserGuideOverlay.ActualWidth - x, target.ActualWidth + padding * 2);
+        double height = Math.Min(UserGuideOverlay.ActualHeight - y, target.ActualHeight + padding * 2);
+        double overlayWidth = UserGuideOverlay.ActualWidth;
+        double overlayHeight = UserGuideOverlay.ActualHeight;
+
+        Canvas.SetLeft(GuideShadeTop, 0); Canvas.SetTop(GuideShadeTop, 0); GuideShadeTop.Width = overlayWidth; GuideShadeTop.Height = y;
+        Canvas.SetLeft(GuideShadeBottom, 0); Canvas.SetTop(GuideShadeBottom, y + height); GuideShadeBottom.Width = overlayWidth; GuideShadeBottom.Height = Math.Max(0, overlayHeight - y - height);
+        Canvas.SetLeft(GuideShadeLeft, 0); Canvas.SetTop(GuideShadeLeft, y); GuideShadeLeft.Width = x; GuideShadeLeft.Height = height;
+        Canvas.SetLeft(GuideShadeRight, x + width); Canvas.SetTop(GuideShadeRight, y); GuideShadeRight.Width = Math.Max(0, overlayWidth - x - width); GuideShadeRight.Height = height;
+        Canvas.SetLeft(GuideSpotlightFrame, x); Canvas.SetTop(GuideSpotlightFrame, y); GuideSpotlightFrame.Width = width; GuideSpotlightFrame.Height = height;
+    }
+
+    private void ShowGuideWarning(string message)
+    {
+        TxtGuideWarning.Text = message;
+        GuideWarningPanel.Visibility = Visibility.Visible;
     }
 
     private void SetGuideStepDots()
@@ -218,7 +337,7 @@ public partial class MainWindow : Window
         HistoryToggleBorder.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(226, 232, 240));
         HistoryToggleBorder.BorderThickness = new Thickness(1);
 
-        Control[] controls = [BtnCheck, BtnShowElements, BtnRequest];
+        Control[] controls = [BtnCheck, BtnShowElements, BtnRequest, DgClashes];
         foreach (Control control in controls)
         {
             control.ClearValue(Control.BorderBrushProperty);
@@ -552,6 +671,12 @@ public partial class MainWindow : Window
             {
                 Logger.WriteException($"Ошибка вызова !!ClashPoint для коллизии {clash.Id}", ex);
             }
+        }
+
+        if (UserGuideOverlay?.Visibility == Visibility.Visible && guideStepIndex == 2 && selectedClashes.Count > 0)
+        {
+            guideElementsShown = true;
+            UpdateGuideActionState();
         }
 
     }
@@ -1013,6 +1138,9 @@ public partial class MainWindow : Window
     {
         TxtSelectedCount.Text = GetSelectedClashesText(DgClashes.SelectedItems.Count);
         UpdateActionButtonsState();
+
+        if (UserGuideOverlay?.Visibility == Visibility.Visible)
+            UpdateGuideActionState();
     }
 
     private static string GetSelectedClashesText(int count)
@@ -1189,6 +1317,9 @@ public partial class MainWindow : Window
         BtnCheck.IsEnabled = ToggleHistory.IsChecked != true;
         DgClashes.SelectedItems.Clear();
         Refresh();
+
+        if (UserGuideOverlay?.Visibility == Visibility.Visible)
+            UpdateGuideActionState();
     }
 
     private static string GetClashStatus(ClashEntity clash)

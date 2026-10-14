@@ -1556,8 +1556,20 @@
         <Grid x:Name="UserGuideOverlay"
               Visibility="Collapsed"
               Grid.Row="0"
-              Grid.RowSpan="4">
-            <Border Width="500"
+              Grid.RowSpan="4"
+              SizeChanged="UserGuideOverlay_SizeChanged">
+            <Canvas x:Name="GuideSpotlightCanvas" IsHitTestVisible="False">
+                <Border x:Name="GuideShadeTop" Background="#C70F172A"/>
+                <Border x:Name="GuideShadeBottom" Background="#C70F172A"/>
+                <Border x:Name="GuideShadeLeft" Background="#C70F172A"/>
+                <Border x:Name="GuideShadeRight" Background="#C70F172A"/>
+                <Border x:Name="GuideSpotlightFrame"
+                        BorderBrush="#60A5FA"
+                        BorderThickness="3"
+                        CornerRadius="10"/>
+            </Canvas>
+            <Border x:Name="UserGuidePanel"
+                    Width="500"
                     HorizontalAlignment="Right"
                     Background="White"
                     BorderBrush="#E2E8F0"
@@ -1626,12 +1638,38 @@
                                    Foreground="#64748B"
                                    TextWrapping="Wrap"/>
 
+                        <Border Background="#0F172A"
+                                CornerRadius="12"
+                                Padding="18"
+                                Margin="0,20,0,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="CogOutline"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Foreground="#60A5FA"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="Что происходит под капотом"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="#BFDBFE"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtGuideMechanics"
+                                           Margin="0,9,0,0"
+                                           FontSize="12"
+                                           LineHeight="18"
+                                           Foreground="#E2E8F0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
                         <Border Background="#EFF6FF"
                                 BorderBrush="#BFDBFE"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Padding="18"
-                                Margin="0,30,0,0">
+                                Margin="0,16,0,0">
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="38" Height="38" CornerRadius="19" Background="#3B82F6" Margin="0,0,13,0">
                                     <materialDesign:PackIcon Kind="CursorDefaultClickOutline"
@@ -1652,6 +1690,28 @@
                                                Foreground="#334155"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="GuideWarningPanel"
+                                Visibility="Collapsed"
+                                Background="#FEF2F2"
+                                BorderBrush="#FECACA"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="14"
+                                Margin="0,12,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AlertCircleOutline"
+                                                         Width="19"
+                                                         Height="19"
+                                                         Foreground="#DC2626"
+                                                         Margin="0,0,9,0"/>
+                                <TextBlock x:Name="TxtGuideWarning"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="#B91C1C"
+                                           TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
