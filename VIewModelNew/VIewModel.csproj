@@ -48,7 +48,7 @@
       <HintPath>$(CompanyReferencesPath)\Aveva.Core3D.Clasher.dll</HintPath>
     </Reference>
     <Reference Include="DataGridExtensions">
-      <HintPath>$(CompanyReferencesPath)\DataGridExtensions.dll</HintPath>
+      <HintPath>$(MSBuildThisFileDirectory)..\References\DataGridExtensions.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />

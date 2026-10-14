@@ -43,9 +43,15 @@ public class ClashService
     {
         Command commsnd = Command.CreateCommand("!!Connect = !!LoginToSQL('Admin')");
         commsnd.RunInPdms();
-        return Command.GetStringFromPML("!!Connect").Trim('/', '"');
+        return GetStringFromPML("!!Connect").Trim('/', '"');
     })();
 
+    private static string GetStringFromPML(string variableName)
+    {
+        Command command = Command.CreateCommand($"!!tempCommandVar = {variableName}");
+        command.RunInPdms();
+        return command.GetPMLVariableString("TEMPCOMMANDVAR");
+    }
 
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
