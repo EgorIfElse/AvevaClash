@@ -37,8 +37,17 @@ public partial class MainWindow : Window
     public string ClashConnectionString = "";
     private string suggestedZone = "";
     private int suggestedClashId;
+    private int guideStepIndex;
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
     private readonly ClashLogger Logger = new ClashLogger(DefaultLogDirectoryPath);
+    private readonly (string Title, string Description, string Target)[] guideSteps =
+    [
+        ("Выберите комплект", "Начните с выбора рабочего комплекта. После выбора форма загрузит коллизии, дату последней проверки и ответственного разработчика.", "Выберите свой комплект в верхнем списке."),
+        ("Проверьте комплект", "Кнопка «Проверить» запускает clash-проверку выбранного комплекта. После успешного завершения дата проверки обновится.", "Нажмите «Проверить», когда готовы актуализировать коллизии комплекта."),
+        ("Откройте элементы в 3D", "Выделите одну или несколько строк и нажмите иконку куба. Элементы появятся в 3D-виде AVEVA, а вид отцентрируется на коллизии.", "Сначала выделите строку коллизии, затем нажмите иконку куба."),
+        ("Обработайте коллизию", "По выбранным строкам можно отправить запрос смежному отделу, принять коллизию в работу или согласовать допустимое пересечение.", "Выберите коллизию — нижние кнопки станут доступны по её статусу и вашему отделу."),
+        ("История и отображение", "History показывает ранее исчезнувшие коллизии с workflow. «Доп. столбцы» и Representation rules помогают посмотреть больше информации и настроить 3D-вид.", "Включите History, чтобы просмотреть историю выбранного комплекта.")
+    ];
     public MainWindow()
     {
         InitializeComponent();
@@ -100,6 +109,120 @@ public partial class MainWindow : Window
             ToggleClashRules.IsChecked = !enabled;
             Logger.WriteException("Не удалось изменить отображение изоляции и резервных объёмов", ex);
             MessageBox.Show("Не удалось изменить отображение изоляции и резервных объёмов. Проверьте, что PML-функция !!ClashRules доступна.");
+        }
+    }
+
+    private void BtnGuide_Click(object sender, RoutedEventArgs e)
+    {
+        guideStepIndex = 0;
+        UserGuideOverlay.Visibility = Visibility.Visible;
+        UpdateGuide();
+    }
+
+    private void BtnGuideClose_Click(object sender, RoutedEventArgs e)
+    {
+        CloseGuide();
+    }
+
+    private void BtnGuidePrevious_Click(object sender, RoutedEventArgs e)
+    {
+        if (guideStepIndex == 0)
+            return;
+
+        guideStepIndex--;
+        UpdateGuide();
+    }
+
+    private void BtnGuideNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (guideStepIndex == guideSteps.Length - 1)
+        {
+            CloseGuide();
+            return;
+        }
+
+        guideStepIndex++;
+        UpdateGuide();
+    }
+
+    private void CloseGuide()
+    {
+        ClearGuideFocus();
+        UserGuideOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateGuide()
+    {
+        (string title, string description, string target) = guideSteps[guideStepIndex];
+        TxtGuideStep.Text = $"ШАГ {guideStepIndex + 1:00}";
+        TxtGuideTitle.Text = title;
+        TxtGuideDescription.Text = description;
+        TxtGuideTarget.Text = target;
+        TxtGuideProgress.Text = $"{guideStepIndex + 1} из {guideSteps.Length}";
+        BtnGuidePrevious.IsEnabled = guideStepIndex > 0;
+        BtnGuideNext.Content = guideStepIndex == guideSteps.Length - 1 ? "Готово" : "Далее";
+
+        ClearGuideFocus();
+        SetGuideStepDots();
+
+        switch (guideStepIndex)
+        {
+            case 0:
+                HighlightGuideBorder(ZoneSelectorBorder);
+                break;
+            case 1:
+                HighlightGuideControl(BtnCheck);
+                break;
+            case 2:
+                HighlightGuideControl(BtnShowElements);
+                break;
+            case 3:
+                HighlightGuideControl(BtnRequest);
+                break;
+            case 4:
+                HighlightGuideBorder(HistoryToggleBorder);
+                break;
+        }
+    }
+
+    private void SetGuideStepDots()
+    {
+        Border[] guideDots = [GuideDot1, GuideDot2, GuideDot3, GuideDot4, GuideDot5];
+
+        for (int i = 0; i < guideDots.Length; i++)
+        {
+            bool isCurrentStep = i == guideStepIndex;
+            guideDots[i].Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(isCurrentStep ? (byte)59 : (byte)241, isCurrentStep ? (byte)130 : (byte)245, isCurrentStep ? (byte)246 : (byte)249));
+            guideDots[i].BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(isCurrentStep ? (byte)59 : (byte)226, isCurrentStep ? (byte)130 : (byte)232, isCurrentStep ? (byte)246 : (byte)240));
+            guideDots[i].BorderThickness = new Thickness(1);
+            guideDots[i].Opacity = i <= guideStepIndex ? 1 : 0.55;
+        }
+    }
+
+    private void HighlightGuideControl(Control control)
+    {
+        control.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(59, 130, 246));
+        control.BorderThickness = new Thickness(3);
+    }
+
+    private static void HighlightGuideBorder(Border border)
+    {
+        border.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(59, 130, 246));
+        border.BorderThickness = new Thickness(3);
+    }
+
+    private void ClearGuideFocus()
+    {
+        ZoneSelectorBorder.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(209, 213, 219));
+        ZoneSelectorBorder.BorderThickness = new Thickness(1);
+        HistoryToggleBorder.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(226, 232, 240));
+        HistoryToggleBorder.BorderThickness = new Thickness(1);
+
+        Control[] controls = [BtnCheck, BtnShowElements, BtnRequest];
+        foreach (Control control in controls)
+        {
+            control.ClearValue(Control.BorderBrushProperty);
+            control.ClearValue(Control.BorderThicknessProperty);
         }
     }
 
