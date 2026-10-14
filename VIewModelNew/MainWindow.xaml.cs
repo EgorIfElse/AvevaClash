@@ -53,6 +53,56 @@ public partial class MainWindow : Window
         LoadZone();
     }
 
+    private void MainWindow_Closed(object sender, EventArgs e)
+    {
+        if (ToggleClashRules.IsChecked == true)
+        {
+            try
+            {
+                PML.CreateCommand("!!ClashRules(F)").RunInPdms();
+            }
+        catch (Exception ex)
+        {
+            Logger.WriteException("Не удалось вернуть исходные настройки отображения", ex);
+            }
+        }
+
+        try
+        {
+            PML.CreateCommand("aid clear text all").RunInPdms();
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteException("Не удалось очистить подписи коллизий в 3D-виде", ex);
+        }
+
+        try
+        {
+            Logger.FinishLog();
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteException("Не удалось сохранить лог формы", ex);
+        }
+    }
+
+    private void ToggleClashRules_Click(object sender, RoutedEventArgs e)
+    {
+        bool enabled = ToggleClashRules.IsChecked == true;
+
+        try
+        {
+            PML.CreateCommand(enabled ? "!!ClashRules(T)" : "!!ClashRules(F)").RunInPdms();
+            Logger.WriteLine($"Отображение изоляции и резервных объёмов: {(enabled ? "включено" : "выключено")}.");
+        }
+        catch (Exception ex)
+        {
+            ToggleClashRules.IsChecked = !enabled;
+            Logger.WriteException("Не удалось изменить отображение изоляции и резервных объёмов", ex);
+            MessageBox.Show("Не удалось изменить отображение изоляции и резервных объёмов. Проверьте, что PML-функция !!ClashRules доступна.");
+        }
+    }
+
     private bool HasDepartmentAccess(string department)
     {
         return !string.IsNullOrWhiteSpace(department) && MyDepartments.Contains(department);
@@ -222,7 +272,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.WriteLine($"Не удалось получить :UserMail пользователя {userName}: {ex.Message}", LogType.Error);
+            Logger.WriteException($"Не удалось получить :UserMail пользователя {userName}", ex);
             return string.Empty;
         }
     }
@@ -263,7 +313,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.WriteLine($"Ошибка отправки письма от {from} пользователю {to}: {ex.Message}", LogType.Error);
+            Logger.WriteException($"Ошибка отправки письма от {from} пользователю {to}", ex);
             return false;
         }
     }
@@ -306,7 +356,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.WriteLine($"Не удалось получить :Designer зоны {CurrZone}: {ex.Message}");
+            Logger.WriteException($"Не удалось получить :Designer зоны {CurrZone}", ex);
         }
 
         try
@@ -318,7 +368,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.WriteLine($"Не удалось получить :Check зоны {CurrZone}: {ex.Message}");
+            Logger.WriteException($"Не удалось получить :Check зоны {CurrZone}", ex);
         }
     }
 
@@ -363,7 +413,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                Logger.WriteLine($"Ошибка вызова !!ClashPoint для коллизии {clash.Id}: {ex.Message}");
+                Logger.WriteException($"Ошибка вызова !!ClashPoint для коллизии {clash.Id}", ex);
             }
         }
 
@@ -495,6 +545,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                Logger.WriteException("Ошибка записи согласования по полученным запросам", ex);
                 System.Windows.MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
             }
 
@@ -524,6 +575,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                Logger.WriteException("Ошибка записи согласования без предварительного запроса", ex);
                 System.Windows.MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
             }
         }
@@ -679,6 +731,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.WriteException("Ошибка записи отправленного запроса в SQL", ex);
             System.Windows.MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
             return;
         }
@@ -791,6 +844,7 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 transaction.Rollback();
+                Logger.WriteException("Ошибка отклонения выбранных коллизий", ex);
                 MessageBox.Show($"Не удалось отклонить выбранные коллизии.\n{ex.Message}");
                 return;
             }

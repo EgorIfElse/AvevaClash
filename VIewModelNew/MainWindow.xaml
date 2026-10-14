@@ -13,7 +13,8 @@
         MinHeight="600"
         MinWidth="1200"
         Background="#F7F8FA"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI"
+        Closed="MainWindow_Closed">
 
     <Window.Resources>
 
@@ -1292,6 +1293,35 @@
                                              Foreground="#3B82F6"
                                              VerticalAlignment="Center"/>
                 </Button>
+                <Border Background="#F8FAFC"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="7"
+                        Padding="10,6"
+                        Margin="10,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Representation rules"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#64748B"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=ToggleClashRules}" Value="True">
+                                            <Setter Property="Foreground" Value="#3B82F6"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ToggleButton x:Name="ToggleClashRules"
+                                      Style="{StaticResource SwitchToggleButtonStyle}"
+                                      IsChecked="False"
+                                      Click="ToggleClashRules_Click"
+                                      ToolTip="Representation rules"/>
+                    </StackPanel>
+                </Border>
                 </StackPanel>
 
 

@@ -127,7 +127,7 @@ namespace ClashForKPI
             LastCheckAttributeElapsed = TimeSpan.Zero;
             LastSaveWorkElapsed = TimeSpan.Zero;
            // Logger = new ClashLogger(logDirectoryPath);
-            Logger.LogInPdmsConsole = logToPdmsConsole;
+            Logger.LogInPdmsConsole = true;
             DbElement zone = DbElement.GetElement(zoneRef);
             if (zone.ElementType != DbElementTypeInstance.ZONE)
             {

@@ -25,7 +25,7 @@ public class ClashLogger
     
     public string LogDirectory { get; set; }
 
-    public bool LogInPdmsConsole { get; set; } = false;
+    public bool LogInPdmsConsole { get; set; } = true;
 
     public ClashLogger(string logDirectory)
     {
@@ -50,6 +50,12 @@ public class ClashLogger
             PmlHelper.WriteLine(logMessage);
 
         Logs.Add(logMessage);
+    }
+
+    public void WriteException(string context, Exception exception)
+    {
+        string innerMessage = exception.InnerException == null ? string.Empty : $" Вложенная ошибка: {exception.InnerException.Message}";
+        WriteLine($"{context}. {exception.GetType().Name}: {exception.Message}{innerMessage}", LogType.Error);
     }
 
     public void FinishLog()

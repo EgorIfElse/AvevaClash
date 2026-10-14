@@ -72,7 +72,7 @@ public class ClashService
         {
 
             Logger = new ClashLogger(logDirectoryPath);
-            Logger.LogInPdmsConsole = testMode;
+            Logger.LogInPdmsConsole = true;
             var projectCode = Project.CurrentProject.Name;
             if (testMode)
                 projectCode += "_TEST";
@@ -107,7 +107,7 @@ public class ClashService
         }
         catch (Exception ex)
         {
-            Logger.WriteLine(ex.Message, LogType.Error);
+            Logger.WriteException("Ошибка выполнения CheckAll", ex);
             Logger.FinishLog();
 
             return;
@@ -294,7 +294,7 @@ public class ClashService
             totalStopwatch.Stop();
             LastObstructionListElapsed = obstructionListBuildTime;
             LastCheckZonesElapsed = totalStopwatch.Elapsed;
-            Logger.WriteLine(ex.Message, LogType.Error);
+            Logger.WriteException("Ошибка выполнения CheckZones", ex);
             Logger.FinishLog();
 
             return false;
@@ -354,7 +354,7 @@ public class ClashService
         {
             clashCheckStopwatch.Stop();
             elapsed = clashCheckStopwatch.Elapsed;
-            Logger.WriteLine($"Ошибка проверки зоны {zone.Name()}: {ex.Message}", LogType.Error);
+            Logger.WriteException($"Ошибка проверки зоны {zone.Name()}", ex);
             return false;
         }
     }
@@ -554,7 +554,7 @@ public class ClashService
     #endregion
 
     #region Добавление отсутствующего столбца SQL
-    private static void AddColumn(SqlConnection connection, string tableName, string columnName, string columnDefinition)
+    private void AddColumn(SqlConnection connection, string tableName, string columnName, string columnDefinition)
     {
         try
         {
@@ -566,6 +566,7 @@ public class ClashService
         }
         catch (Exception ex)
         {
+            Logger.WriteException($"Ошибка при добавлении столбца {columnName} в таблицу {tableName}", ex);
             throw new Exception($"Ошибка при добавлении столбца {columnName}: {ex.Message}", ex);
         }
     }
@@ -884,7 +885,7 @@ public class ClashService
     #endregion
 
     #region Перенос коллизии в History
-    private static void MoveClashToHistory(SqlConnection clashConnection, string clashTableName, int clashId, string historyReason)
+    private void MoveClashToHistory(SqlConnection clashConnection, string clashTableName, int clashId, string historyReason)
     {
         string historyTableName = $"{clashTableName}_his";
         using SqlTransaction transaction = clashConnection.BeginTransaction();
@@ -899,7 +900,7 @@ public class ClashService
                      HistoryDate, HistoryReason)
                     SELECT
                      ID, GL, CT, R1, E1, U1, D1, G1,
-                     R2, E2, U2, D2, G2, XT, DT, X0, Y0, Z0,
+                     R2, E2, U2, D2, G2, CAST(0 AS bit), DT, X0, Y0, Z0,
                      RT, RU, RD, AU, AD, AR, WU, WD,
                      GETDATE(), @historyReason
                     FROM [{clashTableName}]
@@ -922,9 +923,10 @@ public class ClashService
 
             transaction.Commit();
         }
-        catch
+        catch (Exception ex)
         {
             transaction.Rollback();
+            Logger.WriteException($"Ошибка переноса коллизии {clashId} в History", ex);
             throw;
         }
     }
@@ -959,8 +961,9 @@ public class ClashService
             {
                 currentElementRef = GetClashElementReference(element);
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.WriteException($"Не удалось получить ссылку элемента {element.Ref}", ex);
                 continue;
             }
 
@@ -1206,7 +1209,7 @@ public class ClashService
         }
         catch (Exception ex)
         {
-            Logger.WriteLine($"Ошибка в CheckResultToBase {ex.Message}");
+            Logger.WriteException("Ошибка в CheckResultToBase", ex);
             return false;
         }
         finally
@@ -1455,8 +1458,9 @@ public class ClashService
 
 
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Logger.WriteException("Ошибка проверки принадлежности BRANCH и FRMW", ex);
                     continue;
                 }
             }
@@ -1567,8 +1571,9 @@ public class ClashService
             if (b1 == bran)
                 return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.WriteException("Ошибка проверки принадлежности HANGER и BRANCH", ex);
             return false;
         }
 
