@@ -275,19 +275,33 @@ public partial class MainWindow : Window
         return string.Equals(CurrZone, clash.FirstZone, StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool IsFirstSideRequestSender(ClashEntity clash)
+    {
+        bool sameDepartment = string.Equals(clash.FirstDept, clash.SecondDept, StringComparison.OrdinalIgnoreCase);
+
+        if (!sameDepartment)
+            return IsCurrentZoneFirstSide(clash);
+
+        bool currentUserIsU1 = string.Equals(MyUlogId, clash.FirstUserMode, StringComparison.OrdinalIgnoreCase);
+        bool currentUserIsU2 = string.Equals(MyUlogId, clash.SecondUserMode, StringComparison.OrdinalIgnoreCase);
+
+        if (currentUserIsU1 && !currentUserIsU2)
+            return true;
+
+        if (currentUserIsU2 && !currentUserIsU1)
+            return false;
+
+        return IsCurrentZoneFirstSide(clash);
+    }
+
     private string GetRequestRecipientUser(ClashEntity clash)
     {
-        if (IsCurrentZoneFirstSide(clash))
-            return clash.SecondUserMode;
-
-        return clash.FirstUserMode;
+        return IsFirstSideRequestSender(clash) ? clash.SecondUserMode : clash.FirstUserMode;
     }
+
     private string GetRequestRecipientDept(ClashEntity clash)
     {
-        if (IsCurrentZoneFirstSide(clash))
-            return clash.SecondDept;
-
-        return clash.FirstDept;
+        return IsFirstSideRequestSender(clash) ? clash.SecondDept : clash.FirstDept;
     }
     private List<ClashEntity> SendRequestNotifications(List<ClashEntity> clashes)
     {
@@ -767,14 +781,14 @@ public partial class MainWindow : Window
 
         foreach (ClashEntity item in selectedClashes)
         {
-            bool currentZoneIsFirstSide = string.Equals(CurrZone, item.FirstZone, StringComparison.OrdinalIgnoreCase);
+            bool firstSideSendsRequest = IsFirstSideRequestSender(item);
 
             string senderDept;
             string recipientDept;
             string recipientUser;
             string oppositeZone;
 
-            if (currentZoneIsFirstSide)
+            if (firstSideSendsRequest)
             {
                 senderDept = item.FirstDept;
                 recipientDept = item.SecondDept;
