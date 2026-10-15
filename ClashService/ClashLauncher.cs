@@ -111,7 +111,7 @@ namespace ClashForKPI
         }
 
         [PMLNetCallable]
-        public void CheckZone(string zoneRef, bool logToPdmsConsole = true)
+        public void CheckZone(string elementRef, bool logToPdmsConsole = true)
         {
             var totalCheckStopwatch = Stopwatch.StartNew();
             LastPreparationElapsed = TimeSpan.Zero;
@@ -126,25 +126,27 @@ namespace ClashForKPI
             LastCheckZonesElapsed = TimeSpan.Zero;
             LastCheckAttributeElapsed = TimeSpan.Zero;
             LastSaveWorkElapsed = TimeSpan.Zero;
-           // Logger = new ClashLogger(logDirectoryPath);
-            Logger.LogInPdmsConsole = true;
-            DbElement zone = DbElement.GetElement(zoneRef);
-            if (zone.ElementType != DbElementTypeInstance.ZONE)
+            Logger.LogInPdmsConsole = logToPdmsConsole;
+            DbElement selectedElement = DbElement.GetElement(elementRef);
+            DbElement zone = selectedElement.GetZone();
+            if (zone.IsNull || !zone.IsValid)
             {
-                System.Windows.MessageBox.Show($"{zoneRef} не является зоной.");
+                System.Windows.MessageBox.Show($"Элемент {elementRef} не находится внутри зоны.");
                 return;
             }
+
+            string zoneRef = zone.GetAsString(DbAttributeInstance.REF);
             string projectName = Project.CurrentProject.Name;
             string mdb = MDB.CurrentMDB.Name;
             bool isPD = string.Equals(mdb, $"{projectName}.PD");
             bool isRD = string.Equals(mdb, $"{projectName}.RD");
             string clashTableName = $"clashtable{projectName}_TEST";
-             if (!isPD && !isRD)
+            if (!isPD && !isRD)
             {
-               System.Windows.MessageBox.Show($"Проверку зоны необходимо запускать в MDB \"{projectName}.PD\" или \"{projectName}.RD\".");
-               return; 
+                System.Windows.MessageBox.Show($"Проверку зоны необходимо запускать в MDB \"{projectName}.PD\" или \"{projectName}.RD\".");
+                return;
             }
-                   
+
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
             clashService.EnsureClashTables(clashTableName, clashConnection);
@@ -238,6 +240,7 @@ namespace ClashForKPI
             totalCheckStopwatch.Stop();
             LastTotalCheckElapsed = totalCheckStopwatch.Elapsed;
         }
+
         public List<ZoneComboItem> UpdateZoneList()
         {
             DbAttribute isCompleteAttribute = DbAttribute.GetDbAttribute(":IsComplete");
