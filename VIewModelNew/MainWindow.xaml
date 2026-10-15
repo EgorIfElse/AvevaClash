@@ -1351,7 +1351,7 @@
 
                     <Button x:Name="BtnCheck"
                             Style="{StaticResource PrimaryButtonStyle}"
-                           
+                            Visibility="Collapsed"
                             Click="BtnCheck_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CheckAll"

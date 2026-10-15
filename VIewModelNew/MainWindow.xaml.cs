@@ -55,6 +55,7 @@ public partial class MainWindow : Window
         MyDept = launcher.MyDept;
         MyDepartments = launcher.MyDepartments;
         MyUlogId = launcher.MyUlogId;
+        BtnCheck.Visibility = string.Equals(MyUlogId, "ea.goncharenko", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
         ProjectName = Project.CurrentProject.Name;
         ClashTableName = $"clashtable{ProjectName}_TEST";
         ClashConnectionString = launcher.ClashConnectionString;
