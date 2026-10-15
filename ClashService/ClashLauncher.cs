@@ -263,11 +263,6 @@ namespace ClashForKPI
             {
                 new()
                 {
-                    ZoneElement = "ALL",
-                    DisplayText = "ALL"
-                },
-                new()
-                {
                     ZoneElement = "CE",
                     DisplayText = "CE"
                 }
