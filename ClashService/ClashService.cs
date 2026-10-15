@@ -840,15 +840,10 @@ public class ClashService
 
     #endregion
 
-    #region Формирование ссылки элемента с поддержкой Tubing
+    #region Получение RefNo элемента
     private static string GetClashElementReference(DbElement element)
     {
-        string elementRef = element.GetAsString(DbAttributeInstance.REF);
-
-        if (element.ElementType == DbElementTypeInstance.TUBING)
-            return $"ileav tube of {elementRef}";
-
-        return elementRef.Replace("ileav rod of", "ileav tube of");
+        return element.GetAsString(DbAttributeInstance.REF);
     }
 
 
