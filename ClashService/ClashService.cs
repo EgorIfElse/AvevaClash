@@ -433,7 +433,7 @@ public class ClashService
 
 
     #region Создание и актуализация SQL-таблиц коллизий
-    private void EnsureClashTables(string clashTableName, SqlConnection clashConnection)
+    public void EnsureClashTables(string clashTableName, SqlConnection clashConnection)
     {
         if (!clashConnection.TableExists(clashTableName))
         {

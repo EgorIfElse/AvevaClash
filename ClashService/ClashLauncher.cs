@@ -147,6 +147,8 @@ namespace ClashForKPI
                    
             using SqlConnection clashConnection = new(ClashConnectionString);
             clashConnection.Open();
+            clashService.EnsureClashTables(clashTableName, clashConnection);
+
             int notExistingCount = clashConnection.ExecuteScalar<int>(@$"select count(*)
                                                                from {clashTableName} 
                                                                WHERE [XT] = 0
