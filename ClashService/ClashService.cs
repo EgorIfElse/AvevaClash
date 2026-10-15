@@ -845,7 +845,7 @@ public class ClashService
     {
         string elementRef = element.GetAsString(DbAttributeInstance.REF);
 
-        if (element.ElementType.Description.ToString() == "Tubing")
+        if (element.ElementType == DbElementTypeInstance.TUBING)
             return $"ileav tube of {elementRef}";
 
         return elementRef.Replace("ileav rod of", "ileav tube of");
