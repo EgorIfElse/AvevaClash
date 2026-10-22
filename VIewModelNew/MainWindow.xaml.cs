@@ -479,6 +479,7 @@ public partial class MainWindow : Window
     {
         TxtLastCheck.Text = "—";
         TxtDesigner.Text = "—";
+        TxtRevision.Text = "—";
         SetLastCheckColor(0x64, 0x74, 0x8B);
 
         if (string.IsNullOrWhiteSpace(CurrZone) || CurrZone == "ALL" || CurrZone == "CE")
@@ -495,6 +496,16 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.WriteException($"Не удалось получить :Designer зоны {CurrZone}", ex);
+        }
+
+        try
+        {
+            string revision = zone.GetAsString(DbAttribute.GetDbAttribute(":Revision"));
+            TxtRevision.Text = string.IsNullOrWhiteSpace(revision) ? "—" : revision;
+        }
+        catch (Exception ex)
+        {
+            Logger.WriteException($"Не удалось получить :Revision зоны {CurrZone}", ex);
         }
 
         try

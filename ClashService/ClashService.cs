@@ -54,6 +54,7 @@ public class ClashService
     }
 
     private const string DefaultLogDirectoryPath = "C:\\AVEVA\\ClasherLogs\\ClashLog.log";
+    private const int CoordinateGridSize = 10;
     private ClashLogger Logger { get; set; } = new ClashLogger(DefaultLogDirectoryPath);
 
     #region Поддержка присваивания объектов PML.NET
@@ -1048,7 +1049,7 @@ public class ClashService
             foreach (Clash clash in notIgnoredClashes)
             {
                 pairsTable.Rows.Add(GetSqlClashType(clash), GetClashElementReference(clash.First), GetClashElementReference(clash.Second),
-                    (int)clash.ClashPosition.X, (int)clash.ClashPosition.Y, (int)clash.ClashPosition.Z);
+                    NormalizeCoordinate(clash.ClashPosition.X), NormalizeCoordinate(clash.ClashPosition.Y), NormalizeCoordinate(clash.ClashPosition.Z));
             }
 
             using (var bulk = new SqlBulkCopy(sqlConnection))
@@ -1069,16 +1070,20 @@ public class ClashService
                            c.[R2] AS El2,
                            c.[U1] AS User1, c.[G1] AS Zone1,
                            c.[U2] AS User2, c.[G2] AS Zone2,
-                           c.[X0] AS X, c.[Y0] AS Y, c.[Z0] AS Z,
+                           (c.[X0] / {CoordinateGridSize}) * {CoordinateGridSize} AS X,
+                           (c.[Y0] / {CoordinateGridSize}) * {CoordinateGridSize} AS Y,
+                           (c.[Z0] / {CoordinateGridSize}) * {CoordinateGridSize} AS Z,
                            c.[XT] AS Existing
                     FROM [{clashTableName}] c
                     JOIN #pairs p
                     ON p.ClashType = c.[CT]
                     AND ((p.El1 = c.[R1] and p.El2 = c.[R2])
                     OR  (p.El1 = c.[R2] and p.El2 = c.[R1]))
-                    AND (p.X = c.[X0] and p.Y = c.[Y0] and p.Z = c.[Z0])
+                    AND (p.X = (c.[X0] / {CoordinateGridSize}) * {CoordinateGridSize}
+                    AND p.Y = (c.[Y0] / {CoordinateGridSize}) * {CoordinateGridSize}
+                    AND p.Z = (c.[Z0] / {CoordinateGridSize}) * {CoordinateGridSize})
                                                                  ").ToList();
-            // Точные совпадения подтверждаются по типу, обеим ссылкам и координатам.
+            // Совпадения подтверждаются по типу, обеим ссылкам и координатам, приведённым к сетке.
             var existingUpdate = sqlConnection.Execute($@"
                     UPDATE C
                     SET c.[XT] = 1
@@ -1087,11 +1092,16 @@ public class ClashService
                     ON p.ClashType = c.[CT]
                     AND ((p.El1 = c.[R1] and p.El2 = c.[R2])
                     OR  (p.El1 = c.[R2] and p.El2 = c.[R1]))
-                    AND (p.X = c.[X0] and p.Y = c.[Y0] and p.Z = c.[Z0])
+                    AND (p.X = (c.[X0] / {CoordinateGridSize}) * {CoordinateGridSize}
+                    AND p.Y = (c.[Y0] / {CoordinateGridSize}) * {CoordinateGridSize}
+                    AND p.Z = (c.[Z0] / {CoordinateGridSize}) * {CoordinateGridSize})
                                                        ");
 
             var gensecCandidates = sqlConnection.Query<GensecCandidate>($@"
-                 SELECT ID AS Id,R1 AS Ref1, E1 AS Type1, G1 AS Zone1, R2 AS Ref2, E2 AS Type2, G2 AS Zone2, X0 AS X, Y0 AS Y, Z0 AS Z
+                 SELECT ID AS Id,R1 AS Ref1, E1 AS Type1, G1 AS Zone1, R2 AS Ref2, E2 AS Type2, G2 AS Zone2,
+                        (X0 / {CoordinateGridSize}) * {CoordinateGridSize} AS X,
+                        (Y0 / {CoordinateGridSize}) * {CoordinateGridSize} AS Y,
+                        (Z0 / {CoordinateGridSize}) * {CoordinateGridSize} AS Z
                  FROM [{clashTableName}]
                  WHERE XT = 0
                  AND (E1 IN ('GENSEC', 'PANEL') OR E2 IN ('GENSEC', 'PANEL'))
@@ -1130,9 +1140,9 @@ public class ClashService
                 string clashType = GetSqlClashType(clash);
                 string firstElementRef = GetClashElementReference(clash.First);
                 string secondElementRef = GetClashElementReference(clash.Second);
-                int x = (int)clash.ClashPosition.X;
-                int y = (int)clash.ClashPosition.Y;
-                int z = (int)clash.ClashPosition.Z;
+                int x = NormalizeCoordinate(clash.ClashPosition.X);
+                int y = NormalizeCoordinate(clash.ClashPosition.Y);
+                int z = NormalizeCoordinate(clash.ClashPosition.Z);
                 string keyRef = MakeKey(clashType, firstElementRef, secondElementRef, x, y, z);
 
                 if (ExistingByKey.TryGetValue(keyRef, out ExistingRow exactRow))
@@ -1601,6 +1611,14 @@ public class ClashService
     private static bool IsGensecOrPanel(string elementType)
     {
         return string.Equals(elementType, "GENSEC", StringComparison.OrdinalIgnoreCase) || string.Equals(elementType, "PANEL", StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region Приведение координат к сетке
+    private static int NormalizeCoordinate(double coordinate)
+    {
+        return (int)(coordinate / CoordinateGridSize) * CoordinateGridSize;
     }
 
     #endregion
