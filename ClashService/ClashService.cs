@@ -585,7 +585,7 @@ public class ClashService
     /// <summary>
     /// Обновляет данные по коллизиям выбранной зоны или всех зон.
     /// </summary>
-    public void RefreshStoredClashElementInfo(SqlConnection sqlConnection, string clashTableName, string zoneRef, bool preserveGensecWorkflow = false)
+    public void RefreshStoredClashElementInfo(SqlConnection sqlConnection, string clashTableName, string zoneRef, bool preserveGensecWorkflow = false, string zoneName = "")
     {
         var stopwatch = Stopwatch.StartNew();
         int deleteCount = 0;
@@ -594,7 +594,8 @@ public class ClashService
 
         if (!string.IsNullOrEmpty(zoneRef))
         {
-            var clashesByZone = sqlConnection.Query<ClashEntity>($"SELECT {ClashSql} FROM [{clashTableName}] WHERE [G1] = @zoneRef OR [G2] = @zoneRef", new { zoneRef }).ToList();
+            string sqlZoneName = string.IsNullOrEmpty(zoneName) ? zoneRef : zoneName;
+            var clashesByZone = sqlConnection.Query<ClashEntity>($"SELECT {ClashSql} FROM [{clashTableName}] WHERE [G1] = @sqlZoneName OR [G2] = @sqlZoneName", new { sqlZoneName }).ToList();
             var clashesByZoneElement = QueryClashesByElement(sqlConnection, clashTableName, zoneRef);
             HashSet<int> zoneClashIds = [.. clashesByZone.Select(clash => clash.Id)];
             clashes = [.. clashesByZone.Concat(clashesByZoneElement.Where(clash => !zoneClashIds.Contains(clash.Id)))];

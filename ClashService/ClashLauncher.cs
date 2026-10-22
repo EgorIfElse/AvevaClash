@@ -136,6 +136,7 @@ namespace ClashForKPI
             }
 
             string zoneRef = zone.GetAsString(DbAttributeInstance.REF);
+            string zoneName = zone.Name();
             string projectName = Project.CurrentProject.Name;
             string mdb = MDB.CurrentMDB.Name;
             bool isPD = string.Equals(mdb, $"{projectName}.PD");
@@ -154,8 +155,8 @@ namespace ClashForKPI
             int notExistingCount = clashConnection.ExecuteScalar<int>(@$"select count(*)
                                                                from {clashTableName} 
                                                                WHERE [XT] = 0
-                                                               AND ([G1] = @zoneRef OR [G2] = @zoneRef)",
-                                                               new { zoneRef });
+                                                               AND ([G1] = @zoneName OR [G2] = @zoneName)",
+                                                               new { zoneName });
 
             if (notExistingCount > 0)
             {
@@ -165,15 +166,15 @@ namespace ClashForKPI
 
             LastStartupElapsed = totalCheckStopwatch.Elapsed;
             var preparationStopwatch = Stopwatch.StartNew();
-            clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef, true);
+            clashService.RefreshStoredClashElementInfo(clashConnection, clashTableName, zoneRef, true, zoneName);
 
-            int clashCountBeforeCheck = clashConnection.ExecuteScalar<int>($@"SELECT COUNT(*) FROM [{clashTableName}] WHERE [G1] = @zoneRef OR [G2] = @zoneRef", new { zoneRef });
-            Logger.WriteLine($"Коллизий зоны {zoneRef} до проверки: {clashCountBeforeCheck}");
+            int clashCountBeforeCheck = clashConnection.ExecuteScalar<int>($@"SELECT COUNT(*) FROM [{clashTableName}] WHERE [G1] = @zoneName OR [G2] = @zoneName", new { zoneName });
+            Logger.WriteLine($"Коллизий зоны {zoneName} ({zoneRef}) до проверки: {clashCountBeforeCheck}");
 
             clashConnection.Execute($@"UPDATE [{clashTableName}]
                                        SET [XT] = 0
-                                       WHERE [G1] = @zoneRef OR [G2] = @zoneRef",
-                                       new { zoneRef });
+                                       WHERE [G1] = @zoneName OR [G2] = @zoneName",
+                                       new { zoneName });
             preparationStopwatch.Stop();
             LastPreparationElapsed = preparationStopwatch.Elapsed;
 
@@ -198,8 +199,8 @@ namespace ClashForKPI
             var notExistingClashes = clashConnection.Query<ClashEntity>(@$"SELECT {SqlMapping.ClashSql}
                                                                             FROM {clashTableName}
                                                                             WHERE [XT] = 0
-                                                                            AND ([G1] = @zoneRef OR [G2] = @zoneRef)",
-                                                                            new { zoneRef })
+                                                                            AND ([G1] = @zoneName OR [G2] = @zoneName)",
+                                                                            new { zoneName })
                                                                             .ToList();
             int cleanupErrorCount = 0;
             foreach (var clash in notExistingClashes)
@@ -218,7 +219,7 @@ namespace ClashForKPI
             int processedClashCount = notExistingClashes.Count - cleanupErrorCount;
             cleanupStopwatch.Stop();
             LastCleanupElapsed = cleanupStopwatch.Elapsed;
-            Logger.WriteLine($"В зоне {zoneRef} обработано исчезнувших коллизий: {processedClashCount}");
+            Logger.WriteLine($"В зоне {zoneName} ({zoneRef}) обработано исчезнувших коллизий: {processedClashCount}");
 
             if (cleanupErrorCount > 0)
             {
