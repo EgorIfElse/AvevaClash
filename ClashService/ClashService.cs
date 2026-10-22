@@ -1070,6 +1070,7 @@ public class ClashService
                            c.[R2] AS El2,
                            c.[U1] AS User1, c.[G1] AS Zone1,
                            c.[U2] AS User2, c.[G2] AS Zone2,
+                           c.[X0] AS OriginalX, c.[Y0] AS OriginalY, c.[Z0] AS OriginalZ,
                            (c.[X0] / {CoordinateGridSize}) * {CoordinateGridSize} AS X,
                            (c.[Y0] / {CoordinateGridSize}) * {CoordinateGridSize} AS Y,
                            (c.[Z0] / {CoordinateGridSize}) * {CoordinateGridSize} AS Z,
@@ -1140,13 +1141,22 @@ public class ClashService
                 string clashType = GetSqlClashType(clash);
                 string firstElementRef = GetClashElementReference(clash.First);
                 string secondElementRef = GetClashElementReference(clash.Second);
-                int x = NormalizeCoordinate(clash.ClashPosition.X);
-                int y = NormalizeCoordinate(clash.ClashPosition.Y);
-                int z = NormalizeCoordinate(clash.ClashPosition.Z);
+                double rawX = clash.ClashPosition.X;
+                double rawY = clash.ClashPosition.Y;
+                double rawZ = clash.ClashPosition.Z;
+                int x = NormalizeCoordinate(rawX);
+                int y = NormalizeCoordinate(rawY);
+                int z = NormalizeCoordinate(rawZ);
                 string keyRef = MakeKey(clashType, firstElementRef, secondElementRef, x, y, z);
+                Logger.WriteLine($"Сопоставление коллизии: Type={clashType}; R1={firstElementRef}; R2={secondElementRef}; "
+                               + $"AVEVA=[{rawX:F3}, {rawY:F3}, {rawZ:F3}]; Grid=[{x}, {y}, {z}].");
 
                 if (ExistingByKey.TryGetValue(keyRef, out ExistingRow exactRow))
+                {
+                    Logger.WriteLine($"Совпадение найдено: ID={exactRow.Id}; SQL=[{exactRow.OriginalX}, {exactRow.OriginalY}, {exactRow.OriginalZ}]; "
+                                   + $"SQL Grid=[{exactRow.X}, {exactRow.Y}, {exactRow.Z}].");
                     continue;
+                }
 
                 string type1 = clash.First.ElementType.ToString();
                 string type2 = clash.Second.ElementType.ToString();
@@ -1200,6 +1210,7 @@ public class ClashService
                     }
                 }
 
+                Logger.WriteLine($"Совпадение не найдено: коллизия Grid=[{x}, {y}, {z}] будет добавлена как новая.");
                 AddClashToInsertTable(clash, clashesToInsert, x, y, z);
             }
 
@@ -1644,6 +1655,9 @@ public class ExistingRow
     public string ClashType { get; set; } = "";
     public string El1 { get; set; } = "";
     public string El2 { get; set; } = "";
+    public int OriginalX { get; set; }
+    public int OriginalY { get; set; }
+    public int OriginalZ { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public int Z { get; set; }
